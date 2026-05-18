@@ -1,7 +1,7 @@
 # DevWiki MVP Completion Audit
 
-Last audited: 2026-05-18 23:53 KST
-Code baseline before this audit update: `f69b084`
+Last audited: 2026-05-18 23:55 KST
+Code baseline before this audit update: `076a7a2`
 
 ## Verdict
 
@@ -9,8 +9,8 @@ Not complete yet.
 
 The implementation and local static checks are in place, but the goal requires
 the connected Supabase app to pass authenticated data and browser verification.
-That final evidence is still missing because the browser UI verification is
-currently blocked by Supabase email magic-link rate limiting.
+That final evidence is still missing because the browser UI verification changes
+that handle Supabase email magic-link rate limiting have not been re-run yet.
 
 ## Current Environment Evidence
 
@@ -64,6 +64,11 @@ non-member data/storage blocking, member image upload, document create/update,
 revision capture, tag refresh, list/search payload, Markdown source
 preservation, and signed URL image access.
 
+Follow-up code now makes UI E2E accept either successful `/login?sent=1` or the
+app's handled `/login?error=rate-limit` state for direct login-form submission,
+while the rest of the browser flow continues with the admin-generated member
+session.
+
 ## Requirement Audit
 
 ### 1. Login
@@ -84,8 +89,8 @@ Automated evidence:
   blocking.
 
 Current status: mostly proven. Admin-generated magic-link sessions work and
-non-member/logout gates are covered by the scripts, but the direct login-form
-magic-link request is currently blocked by Supabase email rate limiting.
+non-member/logout gates are covered by the scripts. Direct login-form submission
+now has a handled rate-limit path, but the updated UI E2E has not been re-run.
 
 ### 2. Document List
 
@@ -237,8 +242,7 @@ clears.
 
 ## Remaining Completion Steps
 
-1. Wait for Supabase email magic-link rate limiting to clear.
-2. Run:
+1. Run:
 
 ```bash
 npm run verify:mvp

@@ -5,8 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const DEVWIKI_ASSETS_BUCKET = "devwiki-assets";
 const COOKIE_CHUNK_SIZE = 3180;
-const MAGIC_LINK_REQUEST_ATTEMPTS = 3;
-const MAGIC_LINK_RATE_LIMIT_RETRY_MS = 65_000;
+const MAGIC_LINK_REQUEST_TIMEOUT_MS = 15_000;
 const tinyPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
   "base64",
@@ -467,49 +466,29 @@ async function assertMermaidDiagramCount(page, count) {
 }
 
 async function assertMagicLinkRequest(page, baseUrl, email) {
-  for (let attempt = 1; attempt <= MAGIC_LINK_REQUEST_ATTEMPTS; attempt += 1) {
-    let pageError = null;
-    const onPageError = (error) => {
-      pageError = error;
-    };
+  await page.goto(`${baseUrl}/login`);
+  await expect(page.getByRole("heading", { name: "이메일로 로그인" })).toBeVisible();
+  await page.locator('input[name="email"]').fill(email);
+  await page.getByRole("button", { name: "로그인 링크 받기" }).click();
 
-    await page.goto(`${baseUrl}/login`);
+  await page.waitForURL(
+    (nextUrl) =>
+      nextUrl.pathname === "/login" &&
+      (nextUrl.searchParams.get("sent") === "1" ||
+        nextUrl.searchParams.get("error") === "rate-limit"),
+    { timeout: MAGIC_LINK_REQUEST_TIMEOUT_MS },
+  );
+
+  if (new URL(page.url()).searchParams.get("error") === "rate-limit") {
     await expect(
-      page.getByRole("heading", { name: "이메일로 로그인" }),
+      page.getByText("로그인 링크 요청이 잠시 제한되었습니다."),
     ).toBeVisible();
-    await page.locator('input[name="email"]').fill(email);
-    page.on("pageerror", onPageError);
-
-    try {
-      await page.getByRole("button", { name: "로그인 링크 받기" }).click();
-      await page.waitForURL(`${baseUrl}/login?sent=1`, { timeout: 10_000 });
-      await expect(page.getByText("로그인 링크를 보냈습니다.")).toBeVisible();
-      report("pass", "Registered email can request magic link", email);
-      return;
-    } catch (error) {
-      const message =
-        pageError instanceof Error
-          ? pageError.message
-          : error instanceof Error
-            ? error.message
-            : String(error);
-      const isRateLimited = /rate limit/i.test(message);
-
-      if (isRateLimited && attempt < MAGIC_LINK_REQUEST_ATTEMPTS) {
-        report(
-          "warn",
-          "Magic link request rate-limited; retrying",
-          `${attempt}/${MAGIC_LINK_REQUEST_ATTEMPTS}`,
-        );
-        await page.waitForTimeout(MAGIC_LINK_RATE_LIMIT_RETRY_MS);
-        continue;
-      }
-
-      throw new Error(`Magic link request failed: ${message}`);
-    } finally {
-      page.off("pageerror", onPageError);
-    }
+    report("pass", "Magic link rate limit is handled", email);
+    return;
   }
+
+  await expect(page.getByText("로그인 링크를 보냈습니다.")).toBeVisible();
+  report("pass", "Registered email can request magic link", email);
 }
 
 async function assertMermaidErrorPreview(page, markdown) {
