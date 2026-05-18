@@ -3,6 +3,15 @@ export type DevWikiUser = {
   email: string;
 };
 
+export type StudyMemberRole = "owner" | "editor" | "viewer";
+
+export type StudyMember = {
+  email: string;
+  displayName: string | null;
+  role: StudyMemberRole;
+  isActive: boolean;
+};
+
 export type Tag = {
   id: string;
   name: string;

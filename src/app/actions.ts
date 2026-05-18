@@ -6,8 +6,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireAuthenticatedMember } from "@/lib/auth";
 import { slugify, toTagSlug } from "@/lib/slugify";
-import type { DevWikiUser, Tag } from "@/types/devwiki";
+import type { Tag } from "@/types/devwiki";
 
 const documentSchema = z.object({
   id: z.string().optional(),
@@ -23,37 +24,6 @@ const documentSchema = z.object({
 function readString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value : "";
-}
-
-async function requireAuthenticatedMember() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
-
-  if (error || !data?.claims?.sub) {
-    throw new Error("로그인이 필요합니다.");
-  }
-
-  const user: DevWikiUser = {
-    id: data.claims.sub,
-    email: typeof data.claims.email === "string" ? data.claims.email : "",
-  };
-
-  const { data: member, error: memberError } = await supabase
-    .from("study_members")
-    .select("email, role")
-    .eq("email", user.email.toLowerCase())
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (memberError) {
-    throw new Error(memberError.message);
-  }
-
-  if (!member) {
-    throw new Error("스터디 멤버로 등록된 계정만 사용할 수 있습니다.");
-  }
-
-  return { supabase, user };
 }
 
 async function uniqueSlug(baseSlug: string, exceptId?: string) {

@@ -3,10 +3,11 @@ import Link from "next/link";
 
 import { AppHeader } from "@/components/app-header";
 import { EmptyState } from "@/components/empty-state";
+import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/format";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -21,11 +22,13 @@ export default async function Home({ searchParams }: HomeProps) {
   const query = params.q?.trim() ?? "";
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
-  const documents = configured && !user ? [] : await getDocuments(query);
+  const member = await getCurrentMember();
+  const canRead = !configured || Boolean(user && member);
+  const documents = canRead ? await getDocuments(query) : [];
 
   return (
     <>
-      <AppHeader configured={configured} user={user} />
+      <AppHeader configured={configured} canCreate={Boolean(member)} user={user} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-6">
           {!configured ? <SetupNotice /> : null}
@@ -46,6 +49,8 @@ export default async function Home({ searchParams }: HomeProps) {
                 이메일로 로그인
               </Link>
             </section>
+          ) : configured && user && !member ? (
+            <MemberGate user={user} />
           ) : (
             <>
               <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { signInWithEmail } from "@/app/actions";
 import { AppHeader } from "@/components/app-header";
 import { SetupNotice } from "@/components/setup-notice";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 type LoginPageProps = {
@@ -18,10 +18,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
+  const member = await getCurrentMember();
 
   return (
     <>
-      <AppHeader configured={configured} user={user} />
+      <AppHeader configured={configured} canCreate={Boolean(member)} user={user} />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6">
         <div className="space-y-5">
           {!configured ? <SetupNotice /> : null}

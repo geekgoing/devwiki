@@ -6,10 +6,11 @@ import type { DevWikiUser } from "@/types/devwiki";
 
 type AppHeaderProps = {
   configured: boolean;
+  canCreate?: boolean;
   user: DevWikiUser | null;
 };
 
-export function AppHeader({ configured, user }: AppHeaderProps) {
+export function AppHeader({ configured, canCreate = false, user }: AppHeaderProps) {
   return (
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
@@ -30,13 +31,15 @@ export function AppHeader({ configured, user }: AppHeaderProps) {
         <nav className="flex items-center gap-2">
           {configured && user ? (
             <>
-              <Link
-                href="/documents/new"
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
-              >
-                <Plus size={16} aria-hidden />
-                새 문서
-              </Link>
+              {canCreate ? (
+                <Link
+                  href="/documents/new"
+                  className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
+                >
+                  <Plus size={16} aria-hidden />
+                  새 문서
+                </Link>
+              ) : null}
               <form action={signOut}>
                 <button
                   type="submit"

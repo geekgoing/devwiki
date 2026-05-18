@@ -5,9 +5,10 @@ import { notFound, redirect } from "next/navigation";
 import { addComment } from "@/app/actions";
 import { AppHeader } from "@/components/app-header";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { MemberGate } from "@/components/member-gate";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/format";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import {
   getDocumentBySlug,
   getDocumentComments,
@@ -25,9 +26,21 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   const { slug } = await params;
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
+  const member = await getCurrentMember();
 
   if (configured && !user) {
     redirect("/login");
+  }
+
+  if (configured && user && !member) {
+    return (
+      <>
+        <AppHeader configured={configured} canCreate={false} user={user} />
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+          <MemberGate user={user} />
+        </main>
+      </>
+    );
   }
 
   const document = await getDocumentBySlug(slug);
@@ -43,7 +56,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
 
   return (
     <>
-      <AppHeader configured={configured} user={user} />
+      <AppHeader configured={configured} canCreate={Boolean(member)} user={user} />
       <main className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
         <article className="min-w-0">
           <div className="mb-6 flex flex-wrap items-start justify-between gap-4">

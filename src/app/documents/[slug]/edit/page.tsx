@@ -3,8 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import { updateDocument } from "@/app/actions";
 import { AppHeader } from "@/components/app-header";
 import { DocumentEditor } from "@/components/document-editor";
+import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { getDocumentBySlug } from "@/lib/documents";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -20,6 +21,7 @@ export default async function EditDocumentPage({
   const { slug } = await params;
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
+  const member = await getCurrentMember();
 
   if (configured && !user) {
     redirect("/login");
@@ -33,7 +35,7 @@ export default async function EditDocumentPage({
 
   return (
     <>
-      <AppHeader configured={configured} user={user} />
+      <AppHeader configured={configured} canCreate={Boolean(member)} user={user} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
@@ -44,6 +46,8 @@ export default async function EditDocumentPage({
 
         {!configured ? (
           <SetupNotice />
+        ) : user && !member ? (
+          <MemberGate user={user} />
         ) : (
           <DocumentEditor
             action={updateDocument}
