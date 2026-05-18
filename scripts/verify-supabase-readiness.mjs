@@ -8,7 +8,7 @@ const requiredImageTypes = [
   "image/gif",
 ];
 const requiredRlsSnippets = [
-  "alter table public.study_members enable row level security;",
+  "alter table public.members enable row level security;",
   "alter table public.documents enable row level security;",
   "alter table public.document_revisions enable row level security;",
   "alter table public.tags enable row level security;",
@@ -19,7 +19,7 @@ const requiredAuthenticatedGrantSnippets = [
   "grant usage on schema public to authenticated;",
   "grant usage on schema private to authenticated;",
   "grant execute on function private.is_devwiki_member() to authenticated;",
-  "grant select on public.study_members to authenticated;",
+  "grant select on public.members to authenticated;",
   "grant select, insert, update on public.documents to authenticated;",
   "grant select, insert on public.document_revisions to authenticated;",
   "grant select, insert, update on public.tags to authenticated;",
@@ -29,7 +29,7 @@ const requiredAuthenticatedGrantSnippets = [
 const requiredServiceRoleGrantSnippets = [
   "grant usage on schema public to service_role;",
   "grant usage on schema private to service_role;",
-  "grant all privileges on table public.study_members to service_role;",
+  "grant all privileges on table public.members to service_role;",
   "grant all privileges on table public.documents to service_role;",
   "grant all privileges on table public.document_revisions to service_role;",
   "grant all privileges on table public.tags to service_role;",
@@ -98,33 +98,33 @@ async function expectBlocked(label, operation) {
   report("pass", label, result.error.message);
 }
 
-async function ensureActiveStudyMember(admin) {
+async function ensureActiveMember(admin) {
   const e2eEmail = process.env.DEVWIKI_E2E_EMAIL?.trim().toLowerCase();
 
   if (e2eEmail) {
     const { data, error } = await admin
-      .from("study_members")
+      .from("members")
       .select("email")
       .eq("email", e2eEmail)
       .eq("is_active", true)
       .maybeSingle();
 
     if (error) {
-      throw new Error(`Study member check failed: ${error.message}`);
+      throw new Error(`Member check failed: ${error.message}`);
     }
 
     if (data) {
-      report("pass", "E2E study member found", e2eEmail);
+      report("pass", "E2E member found", e2eEmail);
       return;
     }
 
     if (process.env.DEVWIKI_E2E_MANAGE_MEMBER !== "1") {
       throw new Error(
-        `No active study_members row found for DEVWIKI_E2E_EMAIL (${e2eEmail}). Add it to study_members or set DEVWIKI_E2E_MANAGE_MEMBER=1 for test setup.`,
+        `No active members row found for DEVWIKI_E2E_EMAIL (${e2eEmail}). Add it to members or set DEVWIKI_E2E_MANAGE_MEMBER=1 for test setup.`,
       );
     }
 
-    const { error: upsertError } = await admin.from("study_members").upsert(
+    const { error: upsertError } = await admin.from("members").upsert(
       {
         email: e2eEmail,
         display_name: "DevWiki E2E",
@@ -135,27 +135,27 @@ async function ensureActiveStudyMember(admin) {
     );
 
     if (upsertError) {
-      throw new Error(`Study member setup failed: ${upsertError.message}`);
+      throw new Error(`Member setup failed: ${upsertError.message}`);
     }
 
-    report("pass", "E2E study member created", e2eEmail);
+    report("pass", "E2E member created", e2eEmail);
     return;
   }
 
   const { count: memberCount, error: memberError } = await admin
-    .from("study_members")
+    .from("members")
     .select("email", { count: "exact", head: true })
     .eq("is_active", true);
 
   if (memberError) {
-    throw new Error(`Study member check failed: ${memberError.message}`);
+    throw new Error(`Member check failed: ${memberError.message}`);
   }
 
   if (!memberCount) {
-    throw new Error("No active study_members rows found.");
+    throw new Error("No active members rows found.");
   }
 
-  report("pass", "Active study members found", `${memberCount}`);
+  report("pass", "Active members found", `${memberCount}`);
 }
 
 function normalizeSql(value) {
@@ -278,7 +278,7 @@ async function main() {
     auth: { persistSession: false },
   });
 
-  await ensureActiveStudyMember(admin);
+  await ensureActiveMember(admin);
 
   const { data: bucket, error: bucketError } =
     await admin.storage.getBucket("devwiki-assets");

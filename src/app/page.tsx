@@ -39,8 +39,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 로그인 후 DevWiki를 사용할 수 있습니다
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Supabase의 study_members 테이블에 등록된 이메일만 문서를 읽고
-                수정할 수 있습니다.
+                등록된 멤버 이메일로 로그인해야 문서를 읽고 수정할 수 있습니다.
               </p>
               <Link
                 href="/login"
@@ -59,8 +58,8 @@ export default async function Home({ searchParams }: HomeProps) {
                     백엔드 면접 개념 사전
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                    스터디원이 함께 기술 개념, 면접 답변, 꼬리 질문, 시각
-                    자료를 축적하는 협업형 위키입니다.
+                    개발자들이 백엔드 면접 개념, 꼬리 질문, 예시, 시각 자료를
+                    함께 정리하는 협업형 위키입니다.
                   </p>
                 </div>
 

@@ -3,7 +3,7 @@ create extension if not exists pg_trgm with schema extensions;
 
 create schema if not exists private;
 
-create table public.study_members (
+create table public.members (
   email text primary key,
   display_name text,
   role text not null default 'editor' check (role in ('owner', 'editor', 'viewer')),
@@ -83,7 +83,7 @@ set search_path = public, auth
 as $$
   select exists (
     select 1
-    from public.study_members member
+    from public.members member
     where member.is_active
       and lower(member.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
   );
@@ -146,7 +146,7 @@ create trigger capture_document_revision
 after insert or update of title, summary, body_markdown, status on public.documents
 for each row execute function private.capture_document_revision();
 
-alter table public.study_members enable row level security;
+alter table public.members enable row level security;
 alter table public.documents enable row level security;
 alter table public.document_revisions enable row level security;
 alter table public.tags enable row level security;
@@ -157,7 +157,7 @@ grant usage on schema public to authenticated;
 grant usage on schema private to authenticated;
 grant execute on function private.is_devwiki_member() to authenticated;
 
-grant select on public.study_members to authenticated;
+grant select on public.members to authenticated;
 grant select, insert, update on public.documents to authenticated;
 grant select, insert on public.document_revisions to authenticated;
 grant select, insert, update on public.tags to authenticated;
@@ -165,7 +165,7 @@ grant select, insert, delete on public.document_tags to authenticated;
 grant select, insert, update, delete on public.comments to authenticated;
 
 create policy "Users can read their own membership"
-on public.study_members
+on public.members
 for select
 to authenticated
 using (lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')));
@@ -342,11 +342,11 @@ using (
   and owner_id = (select auth.uid()::text)
 );
 
--- Replace these with the five study member emails before real use.
--- insert into public.study_members (email, display_name, role)
+-- Replace these with member emails before real use.
+-- insert into public.members (email, display_name, role)
 -- values
 --   ('you@example.com', 'You', 'owner'),
---   ('member1@example.com', 'Member 1', 'editor')
+--   ('member@example.com', 'Member', 'editor')
 -- on conflict (email) do update
 -- set display_name = excluded.display_name,
 --     role = excluded.role,

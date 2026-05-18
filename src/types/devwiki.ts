@@ -3,12 +3,12 @@ export type DevWikiUser = {
   email: string;
 };
 
-export type StudyMemberRole = "owner" | "editor" | "viewer";
+export type MemberRole = "owner" | "editor" | "viewer";
 
-export type StudyMember = {
+export type Member = {
   email: string;
   displayName: string | null;
-  role: StudyMemberRole;
+  role: MemberRole;
   isActive: boolean;
 };
 

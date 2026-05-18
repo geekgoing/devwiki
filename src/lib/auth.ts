@@ -2,7 +2,7 @@ import { cache } from "react";
 
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import type { DevWikiUser, StudyMember } from "@/types/devwiki";
+import type { DevWikiUser, Member } from "@/types/devwiki";
 
 export const getCurrentUser = cache(async (): Promise<DevWikiUser | null> => {
   if (!isSupabaseConfigured()) {
@@ -32,7 +32,7 @@ export async function requireCurrentUser() {
   return user;
 }
 
-export const getCurrentMember = cache(async (): Promise<StudyMember | null> => {
+export const getCurrentMember = cache(async (): Promise<Member | null> => {
   const user = await getCurrentUser();
 
   if (!user || !user.email) {
@@ -41,7 +41,7 @@ export const getCurrentMember = cache(async (): Promise<StudyMember | null> => {
 
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("study_members")
+    .from("members")
     .select("email, display_name, role, is_active")
     .eq("email", user.email.toLowerCase())
     .eq("is_active", true)
@@ -64,7 +64,7 @@ export async function requireAuthenticatedMember() {
   const member = await getCurrentMember();
 
   if (!member) {
-    throw new Error("스터디 멤버로 등록된 계정만 사용할 수 있습니다.");
+    throw new Error("등록된 멤버 계정만 사용할 수 있습니다.");
   }
 
   return {

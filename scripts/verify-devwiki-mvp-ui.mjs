@@ -150,28 +150,28 @@ function makeLongMarkdownSection() {
 
 async function ensureActiveMember(admin, email) {
   const { data, error } = await admin
-    .from("study_members")
+    .from("members")
     .select("email")
     .eq("email", email)
     .eq("is_active", true)
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Study member lookup failed: ${error.message}`);
+    throw new Error(`Member lookup failed: ${error.message}`);
   }
 
   if (data) {
-    report("pass", "Active study member available", email);
+    report("pass", "Active member available", email);
     return;
   }
 
   if (process.env.DEVWIKI_E2E_MANAGE_MEMBER !== "1") {
     throw new Error(
-      `${email} is not an active study member. Add it to study_members or set DEVWIKI_E2E_MANAGE_MEMBER=1 for test setup.`,
+      `${email} is not an active member. Add it to members or set DEVWIKI_E2E_MANAGE_MEMBER=1 for test setup.`,
     );
   }
 
-  const { error: upsertError } = await admin.from("study_members").upsert(
+  const { error: upsertError } = await admin.from("members").upsert(
     {
       email,
       display_name: "DevWiki UI E2E",
@@ -182,10 +182,10 @@ async function ensureActiveMember(admin, email) {
   );
 
   if (upsertError) {
-    throw new Error(`Study member setup failed: ${upsertError.message}`);
+    throw new Error(`Member setup failed: ${upsertError.message}`);
   }
 
-  report("pass", "Active study member created", email);
+  report("pass", "Active member created", email);
 }
 
 async function createTemporaryLoginRequestMember(admin, email) {
@@ -202,7 +202,7 @@ async function createTemporaryLoginRequestMember(admin, email) {
     );
   }
 
-  const { error: memberError } = await admin.from("study_members").upsert(
+  const { error: memberError } = await admin.from("members").upsert(
     {
       email,
       display_name: "DevWiki Login E2E",
@@ -398,7 +398,7 @@ async function assertNonMemberBrowserGate({
     });
 
     const page = await context.newPage();
-    const memberGate = page.getByText("스터디 멤버 등록이 필요합니다");
+    const memberGate = page.getByText("멤버 등록이 필요합니다");
 
     await page.goto(baseUrl);
     await expect(memberGate).toBeVisible();
@@ -1000,7 +1000,7 @@ sequenceDiagram
     }
 
     const { error: memberCleanupError } = await admin
-      .from("study_members")
+      .from("members")
       .delete()
       .eq("email", loginRequestEmail);
 

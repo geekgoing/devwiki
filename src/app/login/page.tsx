@@ -45,7 +45,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               이메일로 로그인
             </h1>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              등록된 스터디원 이메일로 로그인 링크를 받습니다.
+              등록된 멤버 이메일로 로그인 링크를 받습니다.
             </p>
 
             {params.sent ? (

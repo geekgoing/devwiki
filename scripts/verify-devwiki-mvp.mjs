@@ -157,7 +157,7 @@ function validateEmailEnv(problems) {
 
   if (value !== value.toLowerCase()) {
     problems.push(
-      "DEVWIKI_E2E_EMAIL must be lowercase to match study_members.email",
+      "DEVWIKI_E2E_EMAIL must be lowercase to match members.email",
     );
   }
 }

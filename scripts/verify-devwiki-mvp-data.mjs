@@ -141,24 +141,24 @@ async function createMagicLinkSession({
 
 async function assertActiveMember(admin, email) {
   const { data, error } = await admin
-    .from("study_members")
+    .from("members")
     .select("email")
     .eq("email", email)
     .eq("is_active", true)
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Study member lookup failed: ${error.message}`);
+    throw new Error(`Member lookup failed: ${error.message}`);
   }
 
   if (!data) {
     if (process.env.DEVWIKI_E2E_MANAGE_MEMBER !== "1") {
       throw new Error(
-        `${email} is not an active study member. Add it to study_members or set DEVWIKI_E2E_MANAGE_MEMBER=1 for test setup.`,
+        `${email} is not an active member. Add it to members or set DEVWIKI_E2E_MANAGE_MEMBER=1 for test setup.`,
       );
     }
 
-    const { error: upsertError } = await admin.from("study_members").upsert(
+    const { error: upsertError } = await admin.from("members").upsert(
       {
         email,
         display_name: "DevWiki E2E",
@@ -169,11 +169,11 @@ async function assertActiveMember(admin, email) {
     );
 
     if (upsertError) {
-      throw new Error(`Study member setup failed: ${upsertError.message}`);
+      throw new Error(`Member setup failed: ${upsertError.message}`);
     }
   }
 
-  report("pass", "Active study member available", email);
+  report("pass", "Active member available", email);
 }
 
 async function replaceDocumentTags(client, documentId, tags) {
