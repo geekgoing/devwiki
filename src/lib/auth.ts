@@ -43,7 +43,6 @@ export const getCurrentMember = cache(async (): Promise<StudyMember | null> => {
   const { data, error } = await supabase
     .from("study_members")
     .select("email, display_name, role, is_active")
-    .eq("email", user.email.toLowerCase())
     .eq("is_active", true)
     .maybeSingle();
 

@@ -27,6 +27,17 @@ export default async function EditDocumentPage({
     redirect("/login");
   }
 
+  if (configured && user && !member) {
+    return (
+      <>
+        <AppHeader configured={configured} canCreate={false} user={user} />
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+          <MemberGate user={user} />
+        </main>
+      </>
+    );
+  }
+
   const document = await getDocumentBySlug(slug);
 
   if (!document) {
