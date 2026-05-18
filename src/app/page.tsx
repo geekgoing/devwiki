@@ -136,7 +136,7 @@ export default async function Home({ searchParams }: HomeProps) {
                   ))}
                 </section>
               ) : (
-                <EmptyState canCreate={Boolean(configured && user)} />
+                <EmptyState canCreate={Boolean(member)} query={query} />
               )}
             </>
           )}
