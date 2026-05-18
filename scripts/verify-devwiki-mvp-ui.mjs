@@ -332,6 +332,68 @@ async function assertNonMemberBlocked({ url, publishableKey, admin, redirectTo }
   }
 }
 
+async function assertNonMemberBrowserGate({
+  browser,
+  baseUrl,
+  supabaseUrl,
+  url,
+  publishableKey,
+  admin,
+  redirectTo,
+  slug,
+}) {
+  const email = `devwiki-ui-gate-${Date.now()}@example.com`;
+  let userId = null;
+  const context = await browser.newContext();
+
+  try {
+    const nonMemberSession = await createMagicLinkSession({
+      url,
+      publishableKey,
+      admin,
+      email,
+      redirectTo,
+    });
+    userId = nonMemberSession.user.id;
+    await seedBrowserSession({
+      context,
+      baseUrl,
+      supabaseUrl,
+      session: nonMemberSession.session,
+    });
+
+    const page = await context.newPage();
+    const memberGate = page.getByText("스터디 멤버 등록이 필요합니다");
+
+    await page.goto(baseUrl);
+    await expect(memberGate).toBeVisible();
+    await page.goto(`${baseUrl}/documents/new`);
+    await expect(memberGate).toBeVisible();
+    await expect(page.locator('[data-testid="document-editor"]')).toHaveCount(0);
+    await page.goto(`${baseUrl}/documents/${slug}`);
+    await expect(memberGate).toBeVisible();
+    await page.goto(`${baseUrl}/documents/${slug}/edit`);
+    await expect(memberGate).toBeVisible();
+    await expect(page.locator('[data-testid="document-editor"]')).toHaveCount(0);
+
+    report("pass", "Non-member browser routes gated", email);
+  } finally {
+    await context.close();
+
+    if (userId) {
+      const { error: deleteUserError } = await admin.auth.admin.deleteUser(userId);
+
+      if (deleteUserError) {
+        report(
+          "warn",
+          "UI E2E non-member browser cleanup failed",
+          deleteUserError.message,
+        );
+      }
+    }
+  }
+}
+
 async function fillMarkdownEditor(page, markdown, marker) {
   const editor = page.locator(".cm-content").first();
   await editor.waitFor({ state: "visible", timeout: 15_000 });
@@ -700,6 +762,17 @@ sequenceDiagram
     await expect(page.locator('[data-testid="markdown-content"] img')).toBeVisible();
     await assertImagesLoaded(page);
     report("pass", "Document detail rendered Markdown, Mermaid, and image");
+
+    await assertNonMemberBrowserGate({
+      browser,
+      baseUrl,
+      supabaseUrl: url,
+      url,
+      publishableKey,
+      admin,
+      redirectTo: `${baseUrl}/auth/callback`,
+      slug,
+    });
 
     await page.getByRole("link", { name: /수정/ }).click();
     await expect(page.locator('[data-testid="document-editor"]')).toBeVisible();
