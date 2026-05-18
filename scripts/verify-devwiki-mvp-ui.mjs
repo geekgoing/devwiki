@@ -483,12 +483,13 @@ async function assertMagicLinkRequest(page, baseUrl, email) {
     await expect(
       page.getByText("로그인 링크 요청이 잠시 제한되었습니다."),
     ).toBeVisible();
-    report("pass", "Magic link rate limit is handled", email);
-    return;
+    report("warn", "Magic link request rate limit handled", email);
+    return "rate-limited";
   }
 
   await expect(page.getByText("로그인 링크를 보냈습니다.")).toBeVisible();
   report("pass", "Registered email can request magic link", email);
+  return "sent";
 }
 
 async function assertMermaidErrorPreview(page, markdown) {
@@ -690,13 +691,18 @@ sequenceDiagram
 
   const context = await browser.newContext();
   const page = await context.newPage();
+  let magicLinkRequestResult = "not-run";
 
   try {
     loginRequestUserId = await createTemporaryLoginRequestMember(
       admin,
       loginRequestEmail,
     );
-    await assertMagicLinkRequest(page, baseUrl, loginRequestEmail);
+    magicLinkRequestResult = await assertMagicLinkRequest(
+      page,
+      baseUrl,
+      loginRequestEmail,
+    );
     await context.clearCookies();
     await seedBrowserSession({
       context,
@@ -936,6 +942,12 @@ sequenceDiagram
     }
 
     report("pass", "Logout gates document routes and asset APIs");
+
+    if (magicLinkRequestResult === "rate-limited") {
+      throw new Error(
+        "Magic link request was rate-limited; browser flow otherwise completed. Rerun npm run verify:mvp when Supabase email limit clears.",
+      );
+    }
   } finally {
     await context.close();
     await browser.close();

@@ -1,7 +1,7 @@
 # DevWiki MVP Completion Audit
 
-Last audited: 2026-05-18 23:55 KST
-Code baseline before this audit update: `076a7a2`
+Last audited: 2026-05-18 23:57 KST
+Code baseline before this audit update: `62f6d91`
 
 ## Verdict
 
@@ -64,10 +64,11 @@ non-member data/storage blocking, member image upload, document create/update,
 revision capture, tag refresh, list/search payload, Markdown source
 preservation, and signed URL image access.
 
-Follow-up code now makes UI E2E accept either successful `/login?sent=1` or the
-app's handled `/login?error=rate-limit` state for direct login-form submission,
-while the rest of the browser flow continues with the admin-generated member
-session.
+Follow-up code now lets UI E2E continue the browser flow when direct
+login-form submission reaches the app's handled `/login?error=rate-limit`
+state, but it still fails at the end if the magic-link request never reaches
+`/login?sent=1`. This preserves the Goal requirement that successful direct
+magic-link request must be proven before completion.
 
 ## Requirement Audit
 
@@ -90,7 +91,8 @@ Automated evidence:
 
 Current status: mostly proven. Admin-generated magic-link sessions work and
 non-member/logout gates are covered by the scripts. Direct login-form submission
-now has a handled rate-limit path, but the updated UI E2E has not been re-run.
+has a handled rate-limit path, but successful `/login?sent=1` still needs to be
+proven before the Goal can complete.
 
 ### 2. Document List
 
