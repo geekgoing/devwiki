@@ -52,7 +52,9 @@ set display_name = excluded.display_name,
 ```
 
 앱은 `study_members`에 `is_active = true`로 등록된 이메일만 문서 읽기,
-작성, 수정, 이미지 업로드를 허용합니다.
+작성, 수정, 이미지 업로드를 허용합니다. 멤버십 조회는 로그인 이메일과
+`study_members.email`을 직접 비교하므로, 스터디원 이메일은 소문자로
+등록하세요.
 
 ## 4. Auth URLs
 

@@ -35,7 +35,7 @@ export async function requireCurrentUser() {
 export const getCurrentMember = cache(async (): Promise<StudyMember | null> => {
   const user = await getCurrentUser();
 
-  if (!user) {
+  if (!user || !user.email) {
     return null;
   }
 
@@ -43,21 +43,19 @@ export const getCurrentMember = cache(async (): Promise<StudyMember | null> => {
   const { data, error } = await supabase
     .from("study_members")
     .select("email, display_name, role, is_active")
+    .eq("email", user.email.toLowerCase())
     .eq("is_active", true)
-    .order("created_at", { ascending: true })
-    .limit(1);
+    .maybeSingle();
 
-  const member = data?.[0];
-
-  if (error || !member) {
+  if (error || !data) {
     return null;
   }
 
   return {
-    email: member.email,
-    displayName: member.display_name,
-    role: member.role,
-    isActive: member.is_active,
+    email: data.email,
+    displayName: data.display_name,
+    role: data.role,
+    isActive: data.is_active,
   };
 });
 
