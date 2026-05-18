@@ -357,16 +357,17 @@ async function seedBrowserSession({ context, baseUrl, supabaseUrl, session }) {
   ).toString("base64url")}`;
   const chunks = createCookieChunks(storageKey, encodedSession);
   const expires = Math.floor(Date.now() / 1000) + 400 * 24 * 60 * 60;
+  const base = new URL(baseUrl);
 
   await context.addCookies(
     chunks.map((chunk) => ({
       name: chunk.name,
       value: chunk.value,
-      url: baseUrl,
+      domain: base.hostname,
       path: "/",
       expires,
       httpOnly: false,
-      secure: new URL(baseUrl).protocol === "https:",
+      secure: base.protocol === "https:",
       sameSite: "Lax",
     })),
   );
@@ -545,7 +546,9 @@ async function assertPasswordLogin(page, baseUrl, email, password) {
   }
 
   await expect(page.getByText("백엔드 면접 개념 사전")).toBeVisible();
-  await expect(page.getByRole("link", { name: /새 문서/ })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "새 문서", exact: true }),
+  ).toBeVisible();
   report("pass", "Registered member can login with password", email);
 }
 
@@ -575,6 +578,7 @@ async function createDocumentWithAutoSlug({
   baseUrl,
   title,
   expectedSlug,
+  expectedInputSlug = expectedSlug,
   summary,
   cleanupSlugs,
 }) {
@@ -582,7 +586,7 @@ async function createDocumentWithAutoSlug({
   await page.goto(`${baseUrl}/documents/new`);
   await expect(page.locator('[data-testid="document-editor"]')).toBeVisible();
   await page.locator('input[name="title"]').fill(title);
-  await expect(page.locator('input[name="slug"]')).toHaveValue(expectedSlug);
+  await expect(page.locator('input[name="slug"]')).toHaveValue(expectedInputSlug);
   await page.locator('input[name="slug"]').fill("");
   await page.locator('input[name="summary"]').fill(summary);
   await page.locator('input[name="edit_summary"]').fill("mvp ui auto slug");
@@ -610,7 +614,7 @@ async function createDocumentWithAutoSlug({
     throw new Error(`Expected auto slug ${expectedSlug}, got ${actualSlug}`);
   }
 
-  await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  await expect(page.getByTestId("document-title")).toHaveText(title);
 }
 
 async function main() {
@@ -776,7 +780,9 @@ sequenceDiagram
     });
     await page.goto(baseUrl);
     await expect(page.getByText("백엔드 면접 개념 사전")).toBeVisible();
-    await expect(page.getByRole("link", { name: /새 문서/ })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "새 문서", exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByText("Supabase 연결 전 미리보기 모드입니다."),
     ).toHaveCount(0);
@@ -865,8 +871,8 @@ sequenceDiagram
       page.waitForURL(`${baseUrl}/documents/${slug}`),
       page.getByRole("button", { name: "저장" }).click(),
     ]);
-    await expect(page.getByRole("heading", { name: title })).toBeVisible();
-    await expect(page.getByText(createSummary)).toBeVisible();
+    await expect(page.getByTestId("document-title")).toHaveText(title);
+    await expect(page.getByTestId("document-summary")).toHaveText(createSummary);
     await expect(
       page.locator('[data-testid="markdown-content"] li', {
         hasText: "같은 key는 같은 결과를 반환해야 합니다.",
@@ -896,7 +902,7 @@ sequenceDiagram
       slug,
     });
 
-    await page.getByRole("link", { name: /수정/ }).click();
+    await page.getByRole("link", { name: "수정", exact: true }).click();
     await expect(page.locator('[data-testid="document-editor"]')).toBeVisible();
     const updatedMarkdown = `${bodyWithImage}
 
@@ -915,8 +921,8 @@ sequenceDiagram
       page.waitForURL(`${baseUrl}/documents/${slug}`),
       page.getByRole("button", { name: "저장" }).click(),
     ]);
-    await expect(page.getByRole("heading", { name: updatedTitle })).toBeVisible();
-    await expect(page.getByText(updateSummary)).toBeVisible();
+    await expect(page.getByTestId("document-title")).toHaveText(updatedTitle);
+    await expect(page.getByTestId("document-summary")).toHaveText(updateSummary);
     await expect(page.getByText(`Revision UI ${nonce}`)).toBeVisible();
     await expect(page.locator('[data-testid="revision-history"]')).toContainText(
       "mvp ui update",
@@ -942,6 +948,7 @@ sequenceDiagram
       baseUrl,
       title: autoSlugTitle,
       expectedSlug: `${autoSlug}-2`,
+      expectedInputSlug: autoSlug,
       summary: "중복 slug 회피 검증",
       cleanupSlugs: documentSlugs,
     });

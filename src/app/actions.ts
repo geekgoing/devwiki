@@ -27,6 +27,10 @@ function readString(formData: FormData, key: string) {
   return typeof value === "string" ? value : "";
 }
 
+function documentPath(slug: string) {
+  return `/documents/${encodeURIComponent(slug)}`;
+}
+
 async function uniqueSlug(baseSlug: string, exceptId?: string) {
   const { supabase } = await requireAuthenticatedMember();
   const base = baseSlug || "document";
@@ -184,7 +188,7 @@ export async function createDocument(formData: FormData) {
 
   await syncTags(supabase, data.id, parsedTags);
   revalidatePath("/");
-  redirect(`/documents/${data.slug}`);
+  redirect(documentPath(data.slug));
 }
 
 export async function updateDocument(formData: FormData) {
@@ -239,11 +243,11 @@ export async function updateDocument(formData: FormData) {
 
   await syncTags(supabase, parsed.id, parsedTags);
   revalidatePath("/");
-  revalidatePath(`/documents/${currentDocument.slug}`);
-  revalidatePath(`/documents/${currentDocument.slug}/edit`);
-  revalidatePath(`/documents/${slug}`);
-  revalidatePath(`/documents/${slug}/edit`);
-  redirect(`/documents/${slug}`);
+  revalidatePath(documentPath(currentDocument.slug));
+  revalidatePath(`${documentPath(currentDocument.slug)}/edit`);
+  revalidatePath(documentPath(slug));
+  revalidatePath(`${documentPath(slug)}/edit`);
+  redirect(documentPath(slug));
 }
 
 export async function addComment(formData: FormData) {
@@ -266,5 +270,5 @@ export async function addComment(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(`/documents/${slug}`);
+  revalidatePath(documentPath(slug));
 }

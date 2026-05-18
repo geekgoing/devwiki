@@ -97,7 +97,7 @@ export default async function Home({ searchParams }: HomeProps) {
                   {documents.map((document) => (
                     <Link
                       key={document.id}
-                      href={`/documents/${document.slug}`}
+                      href={`/documents/${encodeURIComponent(document.slug)}`}
                       className="rounded-md border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm"
                       data-testid="document-card"
                     >

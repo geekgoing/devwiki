@@ -1,16 +1,15 @@
 # DevWiki MVP Completion Audit
 
 Last audited: 2026-05-19 KST
-Code baseline before this audit update: `5dfe449`
+Code baseline before this audit update: post-password-auth verification run
 
 ## Verdict
 
-Not complete yet.
+Complete.
 
-The implementation has been moved from email magic-link auth to email/password
-auth, but the goal still requires the connected Supabase app to pass the final
-authenticated data and browser verification. That final evidence has not been
-collected yet after the auth flow change.
+The connected Supabase app passed the final MVP gate with email/password auth.
+The run covered lint, production build, Supabase readiness, authenticated data
+E2E, and browser UI E2E.
 
 ## Current Environment Evidence
 
@@ -20,9 +19,6 @@ Set in `.env.local`:
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `DEVWIKI_E2E_EMAIL`
-
-Required before final `npm run verify:mvp`:
-
 - `DEVWIKI_E2E_PASSWORD`
 
 Optional verification controls:
@@ -30,26 +26,23 @@ Optional verification controls:
 - optional `DEVWIKI_E2E_MANAGE_MEMBER`
 - optional `DEVWIKI_E2E_BASE_URL`
 
-The latest completed `npm run verify:mvp` attempt happened before this auth
-change and was blocked by Supabase email send rate limiting. That blocker should
-no longer apply once the password login flow is verified.
+The latest `npm run verify:mvp` run completed successfully.
 
 ## Verification Evidence Already Collected
 
-Passing commands after the password auth change:
+Passing final gate:
 
 ```bash
-npm run lint
-npm run build
+npm run verify:mvp
 ```
 
-The verification scripts also pass Node syntax checks:
+This command includes:
 
-```bash
-node --check scripts/verify-devwiki-mvp.mjs
-node --check scripts/verify-devwiki-mvp-data.mjs
-node --check scripts/verify-devwiki-mvp-ui.mjs
-```
+- `npm run lint`
+- `npm run build`
+- `npm run verify:supabase`
+- `npm run verify:mvp-data`
+- `npm run verify:mvp-ui`
 
 `npm run verify:supabase` currently reaches the live Supabase checks and
 confirms the following:
@@ -94,8 +87,7 @@ Automated evidence:
   member session, non-member browser gate, logout, and post-logout route/API
   blocking.
 
-Current status: implemented, but final connected browser proof is pending after
-the password auth change.
+Current status: complete.
 
 ### 2. Document List
 
@@ -113,8 +105,7 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks list cards, empty search state, and
   that demo mode disappears once Supabase is connected.
 
-Current status: previously data E2E proven; browser UI proof pending after the
-password auth change.
+Current status: complete.
 
 ### 3. Document Create/Edit
 
@@ -135,8 +126,7 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks create/edit browser flows, auto
   slug generation, and duplicate slug avoidance.
 
-Current status: previously data E2E proven; browser UI proof pending after the
-password auth change.
+Current status: complete.
 
 ### 4. Markdown Preview
 
@@ -157,8 +147,7 @@ Automated evidence:
   link, code block, long document content, preview switching, and detail-page
   rendering.
 
-Current status: previously data E2E proven; browser UI proof pending after the
-password auth change.
+Current status: complete.
 
 ### 5. Mermaid Rendering
 
@@ -176,7 +165,7 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` also injects invalid Mermaid syntax and
   verifies the page still renders with a Mermaid error message.
 
-Current status: implemented, final proof pending `verify:mvp`.
+Current status: complete.
 
 ### 6. Revision History
 
@@ -197,8 +186,7 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks revision history appears on the
   detail page after edit.
 
-Current status: Supabase readiness and data E2E prove the revision trigger is
-applied and captures update-only edits.
+Current status: complete.
 
 ### 7. Tags/Search
 
@@ -216,8 +204,7 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks tag display, tag search, and empty
   search state.
 
-Current status: previously data E2E proven; browser UI proof pending after the
-password auth change.
+Current status: complete.
 
 ### 8. Image Upload
 
@@ -242,15 +229,14 @@ Automated evidence:
   preview/detail image rendering, invalid MIME rejection, anonymous asset read
   block, and anonymous upload block.
 
-Current status: previously data E2E proven; browser UI proof pending after the
-password auth change.
+Current status: complete.
 
-## Remaining Completion Steps
+## Completion Evidence
 
-1. Run:
+Final command:
 
 ```bash
 npm run verify:mvp
 ```
 
-Only after that command passes should this Goal be marked complete.
+Result: pass.

@@ -23,7 +23,8 @@ type DocumentPageProps = {
 };
 
 export default async function DocumentPage({ params }: DocumentPageProps) {
-  const { slug } = await params;
+  const { slug: encodedSlug } = await params;
+  const slug = decodeURIComponent(encodedSlug);
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
@@ -62,13 +63,19 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
           <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+                <h1
+                  className="text-3xl font-semibold tracking-tight text-slate-950"
+                  data-testid="document-title"
+                >
                   {document.title}
                 </h1>
                 <StatusBadge status={document.status} />
               </div>
               {document.summary ? (
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+                <p
+                  className="mt-3 max-w-3xl text-sm leading-6 text-slate-600"
+                  data-testid="document-summary"
+                >
                   {document.summary}
                 </p>
               ) : null}
@@ -79,7 +86,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
 
             {configured && user ? (
               <Link
-                href={`/documents/${document.slug}/edit`}
+                href={`/documents/${encodeURIComponent(document.slug)}/edit`}
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
               >
                 <Pencil size={16} aria-hidden />

@@ -18,7 +18,8 @@ type EditDocumentPageProps = {
 export default async function EditDocumentPage({
   params,
 }: EditDocumentPageProps) {
-  const { slug } = await params;
+  const { slug: encodedSlug } = await params;
+  const slug = decodeURIComponent(encodedSlug);
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
