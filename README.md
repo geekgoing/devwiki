@@ -40,12 +40,13 @@ npm run verify:mvp-ui
 
 `verify:mvp` is the final completion gate. It runs lint, build, Supabase
 readiness checks, authenticated data checks, and browser UI checks. It requires
-`SUPABASE_SERVICE_ROLE_KEY` and `DEVWIKI_E2E_EMAIL`; if no app is already
-running, it starts a local dev server for the browser check. The preflight also
-rejects `.env.example` placeholders, public/service key mixups, invalid URLs,
-and uppercase E2E emails that would not match `members.email`.
+`SUPABASE_SERVICE_ROLE_KEY`, `DEVWIKI_E2E_EMAIL`, and
+`DEVWIKI_E2E_PASSWORD`; if no app is already running, it starts a local dev
+server for the browser check. The preflight also rejects `.env.example`
+placeholders, public/service key mixups, invalid URLs, uppercase E2E emails that
+would not match `members.email`, and too-short E2E passwords.
 
 `verify:mvp-data` and `verify:mvp-ui` require `SUPABASE_SERVICE_ROLE_KEY` and
-`DEVWIKI_E2E_EMAIL`. Run the app first for `verify:mvp-ui`, and install the
-Playwright browser once with `npx playwright install chromium` if Chromium is
-not available locally.
+`DEVWIKI_E2E_EMAIL`/`DEVWIKI_E2E_PASSWORD`. Run the app first for
+`verify:mvp-ui`, and install the Playwright browser once with
+`npx playwright install chromium` if Chromium is not available locally.

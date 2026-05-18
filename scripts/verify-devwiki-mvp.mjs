@@ -6,6 +6,7 @@ const REQUIRED_ENV = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
   "DEVWIKI_E2E_EMAIL",
+  "DEVWIKI_E2E_PASSWORD",
 ];
 const PUBLIC_KEY_ENV = [
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
@@ -17,6 +18,7 @@ const PLACEHOLDER_VALUES = new Set([
   "your_legacy_anon_key",
   "your_service_role_key",
   "you@example.com",
+  "change-this-password",
 ]);
 
 function loadEnvFile(path) {
@@ -162,6 +164,18 @@ function validateEmailEnv(problems) {
   }
 }
 
+function validatePasswordEnv(problems) {
+  const value = envValue("DEVWIKI_E2E_PASSWORD");
+
+  if (!value) {
+    return;
+  }
+
+  if (value.length < 6) {
+    problems.push("DEVWIKI_E2E_PASSWORD must be at least 6 characters");
+  }
+}
+
 function validatePortEnv(problems) {
   const value = envValue("DEVWIKI_E2E_PORT");
 
@@ -194,7 +208,6 @@ function ensureRequiredEnv() {
   for (const key of [
     ...REQUIRED_ENV,
     ...PUBLIC_KEY_ENV,
-    "NEXT_PUBLIC_SITE_URL",
     "DEVWIKI_E2E_BASE_URL",
     "DEVWIKI_E2E_PORT",
   ]) {
@@ -206,7 +219,6 @@ function ensureRequiredEnv() {
   }
 
   validateUrlEnv(problems, "NEXT_PUBLIC_SUPABASE_URL");
-  validateUrlEnv(problems, "NEXT_PUBLIC_SITE_URL");
   validateUrlEnv(problems, "DEVWIKI_E2E_BASE_URL");
 
   for (const key of PUBLIC_KEY_ENV) {
@@ -215,6 +227,7 @@ function ensureRequiredEnv() {
 
   validateServiceRoleKey(problems);
   validateEmailEnv(problems);
+  validatePasswordEnv(problems);
   validatePortEnv(problems);
 
   if (problems.length) {

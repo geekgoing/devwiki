@@ -85,27 +85,105 @@ async function expectBlocked(label, operation) {
   report("pass", label, error.message);
 }
 
-async function createMagicLinkSession({
-  url,
-  publishableKey,
-  admin,
-  email,
-  redirectTo,
-}) {
-  const { data: linkData, error: linkError } =
-    await admin.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-      options: { redirectTo },
+async function findAuthUserByEmail(admin, email) {
+  const normalizedEmail = email.toLowerCase();
+  const perPage = 100;
+  let page = 1;
+
+  while (page < 100) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage,
     });
 
-  if (linkError) {
-    throw new Error(`Magic link generation failed: ${linkError.message}`);
+    if (error) {
+      throw new Error(`Auth user lookup failed: ${error.message}`);
+    }
+
+    const users = data?.users ?? [];
+    const user = users.find(
+      (candidate) => candidate.email?.toLowerCase() === normalizedEmail,
+    );
+
+    if (user) {
+      return user;
+    }
+
+    if (users.length < perPage) {
+      return null;
+    }
+
+    page += 1;
   }
 
-  const properties = linkData?.properties ?? {};
-  const tokenHash = properties.hashed_token ?? properties.hashedToken;
-  const emailOtp = properties.email_otp ?? properties.emailOtp;
+  throw new Error("Auth user lookup exceeded pagination limit.");
+}
+
+async function ensurePasswordAuthUser(admin, email, password, displayName) {
+  const existingUser = await findAuthUserByEmail(admin, email);
+
+  if (existingUser) {
+    if (process.env.DEVWIKI_E2E_MANAGE_MEMBER === "1") {
+      const { error } = await admin.auth.admin.updateUserById(existingUser.id, {
+        password,
+        email_confirm: true,
+      });
+
+      if (error) {
+        throw new Error(`Auth user password setup failed: ${error.message}`);
+      }
+
+      report("pass", "Password auth user updated", email);
+    } else {
+      report("pass", "Password auth user available", email);
+    }
+
+    return existingUser.id;
+  }
+
+  if (process.env.DEVWIKI_E2E_MANAGE_MEMBER !== "1") {
+    throw new Error(
+      `${email} does not exist in Supabase Auth. Create the user with a password or set DEVWIKI_E2E_MANAGE_MEMBER=1 for test setup.`,
+    );
+  }
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name: displayName },
+  });
+
+  if (error || !data.user) {
+    throw new Error(
+      `Auth user setup failed: ${error?.message ?? "user was not returned"}`,
+    );
+  }
+
+  report("pass", "Password auth user created", email);
+  return data.user.id;
+}
+
+async function createTemporaryPasswordUser(admin, email, password, displayName) {
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name: displayName },
+  });
+
+  if (error || !data.user) {
+    throw new Error(
+      `Temporary auth user setup failed: ${
+        error?.message ?? "user was not returned"
+      }`,
+    );
+  }
+
+  return data.user.id;
+}
+
+async function createPasswordSession({ url, publishableKey, email, password }) {
   const client = createClient(url, publishableKey, {
     auth: {
       autoRefreshToken: false,
@@ -113,21 +191,15 @@ async function createMagicLinkSession({
     },
   });
 
-  const verifyParams = tokenHash
-    ? { token_hash: tokenHash, type: "email" }
-    : { email, token: emailOtp, type: "email" };
+  const { data: authData, error } = await client.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-  if (!tokenHash && !emailOtp) {
-    throw new Error("Magic link did not return a token hash or OTP.");
-  }
-
-  const { data: authData, error: verifyError } =
-    await client.auth.verifyOtp(verifyParams);
-
-  if (verifyError || !authData.session || !authData.user) {
+  if (error || !authData.session || !authData.user) {
     throw new Error(
-      `Magic link verification failed: ${
-        verifyError?.message ?? "session was not returned"
+      `Password login failed: ${
+        error?.message ?? "session was not returned"
       }`,
     );
   }
@@ -216,6 +288,7 @@ async function main() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const memberEmail = process.env.DEVWIKI_E2E_EMAIL?.trim().toLowerCase();
+  const memberPassword = process.env.DEVWIKI_E2E_PASSWORD;
 
   if (!url || !publishableKey) {
     throw new Error(
@@ -223,15 +296,13 @@ async function main() {
     );
   }
 
-  if (!serviceRoleKey || !memberEmail) {
+  if (!serviceRoleKey || !memberEmail || !memberPassword) {
     skipOrFail(
-      "set SUPABASE_SERVICE_ROLE_KEY and DEVWIKI_E2E_EMAIL to run authenticated MVP data checks",
+      "set SUPABASE_SERVICE_ROLE_KEY, DEVWIKI_E2E_EMAIL, and DEVWIKI_E2E_PASSWORD to run authenticated MVP data checks",
     );
     return;
   }
 
-  const redirectTo =
-    process.env.DEVWIKI_E2E_REDIRECT_TO ?? "http://localhost:3000/auth/callback";
   const nonce = Date.now();
   const slug = `mvp-e2e-${nonce}`;
   const title = `멱등성 테스트 ${nonce}`;
@@ -294,25 +365,35 @@ ${imageMarkdown}
 
   try {
     await assertActiveMember(admin, memberEmail);
+    await ensurePasswordAuthUser(
+      admin,
+      memberEmail,
+      memberPassword,
+      "DevWiki E2E",
+    );
 
-    const memberSession = await createMagicLinkSession({
+    const memberSession = await createPasswordSession({
       url,
       publishableKey,
-      admin,
       email: memberEmail,
-      redirectTo,
+      password: memberPassword,
     });
-    report("pass", "Magic link member session created", memberEmail);
+    report("pass", "Password member session created", memberEmail);
 
     const nonMemberEmail = `devwiki-nonmember-${nonce}@example.com`;
-    const nonMemberSession = await createMagicLinkSession({
+    const nonMemberPassword = `DevWiki-e2e-${nonce}!`;
+    nonMemberUserId = await createTemporaryPasswordUser(
+      admin,
+      nonMemberEmail,
+      nonMemberPassword,
+      "DevWiki non-member E2E",
+    );
+    const nonMemberSession = await createPasswordSession({
       url,
       publishableKey,
-      admin,
       email: nonMemberEmail,
-      redirectTo,
+      password: nonMemberPassword,
     });
-    nonMemberUserId = nonMemberSession.user.id;
 
     await expectBlocked("Non-member document insert blocked", () =>
       nonMemberSession.client.from("documents").insert({

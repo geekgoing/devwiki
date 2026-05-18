@@ -1,16 +1,16 @@
 # DevWiki MVP Completion Audit
 
-Last audited: 2026-05-18 23:57 KST
-Code baseline before this audit update: `62f6d91`
+Last audited: 2026-05-19 KST
+Code baseline before this audit update: `5dfe449`
 
 ## Verdict
 
 Not complete yet.
 
-The implementation and local static checks are in place, but the goal requires
-the connected Supabase app to pass authenticated data and browser verification.
-That final evidence is still missing because the browser UI verification changes
-that handle Supabase email magic-link rate limiting have not been re-run yet.
+The implementation has been moved from email magic-link auth to email/password
+auth, but the goal still requires the connected Supabase app to pass the final
+authenticated data and browser verification. That final evidence has not been
+collected yet after the auth flow change.
 
 ## Current Environment Evidence
 
@@ -21,26 +21,34 @@ Set in `.env.local`:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `DEVWIKI_E2E_EMAIL`
 
-Missing in `.env.local`:
+Required before final `npm run verify:mvp`:
+
+- `DEVWIKI_E2E_PASSWORD`
+
+Optional verification controls:
 
 - optional `DEVWIKI_E2E_MANAGE_MEMBER`
 - optional `DEVWIKI_E2E_BASE_URL`
 
-The latest `npm run verify:mvp` attempt progressed through Supabase readiness
-and authenticated data E2E, then failed in browser UI E2E while submitting the
-login magic-link request:
-
-```text
-Magic link request failed: email rate limit exceeded
-```
+The latest completed `npm run verify:mvp` attempt happened before this auth
+change and was blocked by Supabase email send rate limiting. That blocker should
+no longer apply once the password login flow is verified.
 
 ## Verification Evidence Already Collected
 
-Passing commands on the current worktree after `715b153`:
+Passing commands after the password auth change:
 
 ```bash
 npm run lint
 npm run build
+```
+
+The verification scripts also pass Node syntax checks:
+
+```bash
+node --check scripts/verify-devwiki-mvp.mjs
+node --check scripts/verify-devwiki-mvp-data.mjs
+node --check scripts/verify-devwiki-mvp-ui.mjs
 ```
 
 `npm run verify:supabase` currently reaches the live Supabase checks and
@@ -59,16 +67,13 @@ confirms the following:
 - the `devwiki-assets` bucket config is valid
 - the revision trigger migration is applied
 
-Authenticated data E2E has also proven member magic-link session creation,
+Authenticated data E2E has also proven member session creation,
 non-member data/storage blocking, member image upload, document create/update,
 revision capture, tag refresh, list/search payload, Markdown source
 preservation, and signed URL image access.
 
-Follow-up code now lets UI E2E continue the browser flow when direct
-login-form submission reaches the app's handled `/login?error=rate-limit`
-state, but it still fails at the end if the magic-link request never reaches
-`/login?sent=1`. This preserves the Goal requirement that successful direct
-magic-link request must be proven before completion.
+The data/UI verification scripts now expect `DEVWIKI_E2E_PASSWORD` and create
+Supabase sessions through password login instead of generated magic links.
 
 ## Requirement Audit
 
@@ -76,23 +81,21 @@ magic-link request must be proven before completion.
 
 Implementation evidence:
 
-- `src/app/actions.ts` requests Supabase OTP magic links through
-  `signInWithEmail`.
-- `src/app/auth/callback/route.ts` exchanges the callback code for a session.
+- `src/app/actions.ts` signs in through Supabase `signInWithPassword`.
+- `/auth/callback` has been removed because password login does not need a
+  code-exchange route.
 - `src/lib/auth.ts` resolves the current Supabase user and active
   `members` membership.
 - `requireAuthenticatedMember` blocks non-members before write operations.
 
 Automated evidence:
 
-- `scripts/verify-devwiki-mvp-ui.mjs` covers magic link request, generated
+- `scripts/verify-devwiki-mvp-ui.mjs` covers password login, generated
   member session, non-member browser gate, logout, and post-logout route/API
   blocking.
 
-Current status: mostly proven. Admin-generated magic-link sessions work and
-non-member/logout gates are covered by the scripts. Direct login-form submission
-has a handled rate-limit path, but successful `/login?sent=1` still needs to be
-proven before the Goal can complete.
+Current status: implemented, but final connected browser proof is pending after
+the password auth change.
 
 ### 2. Document List
 
@@ -110,8 +113,8 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks list cards, empty search state, and
   that demo mode disappears once Supabase is connected.
 
-Current status: data E2E proven; browser UI proof pending once email rate limit
-clears.
+Current status: previously data E2E proven; browser UI proof pending after the
+password auth change.
 
 ### 3. Document Create/Edit
 
@@ -132,8 +135,8 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks create/edit browser flows, auto
   slug generation, and duplicate slug avoidance.
 
-Current status: data E2E proven; browser UI proof pending once email rate limit
-clears.
+Current status: previously data E2E proven; browser UI proof pending after the
+password auth change.
 
 ### 4. Markdown Preview
 
@@ -154,8 +157,8 @@ Automated evidence:
   link, code block, long document content, preview switching, and detail-page
   rendering.
 
-Current status: data E2E proven; browser UI proof pending once email rate limit
-clears.
+Current status: previously data E2E proven; browser UI proof pending after the
+password auth change.
 
 ### 5. Mermaid Rendering
 
@@ -213,8 +216,8 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks tag display, tag search, and empty
   search state.
 
-Current status: data E2E proven; browser UI proof pending once email rate limit
-clears.
+Current status: previously data E2E proven; browser UI proof pending after the
+password auth change.
 
 ### 8. Image Upload
 
@@ -239,8 +242,8 @@ Automated evidence:
   preview/detail image rendering, invalid MIME rejection, anonymous asset read
   block, and anonymous upload block.
 
-Current status: data E2E proven; browser UI proof pending once email rate limit
-clears.
+Current status: previously data E2E proven; browser UI proof pending after the
+password auth change.
 
 ## Remaining Completion Steps
 

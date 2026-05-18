@@ -39,13 +39,13 @@ export default async function Home({ searchParams }: HomeProps) {
                 로그인 후 DevWiki를 사용할 수 있습니다
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                등록된 멤버 이메일로 로그인해야 문서를 읽고 수정할 수 있습니다.
+                등록된 멤버 계정으로 로그인해야 문서를 읽고 수정할 수 있습니다.
               </p>
               <Link
                 href="/login"
                 className="mt-4 inline-flex h-9 items-center rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
               >
-                이메일로 로그인
+                로그인
               </Link>
             </section>
           ) : configured && user && !member ? (

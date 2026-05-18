@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -116,34 +115,32 @@ async function syncTags(
   }
 }
 
-export async function signInWithEmail(formData: FormData) {
+export async function signInWithPassword(formData: FormData) {
   const email = readString(formData, "email").trim().toLowerCase();
+  const password = readString(formData, "password");
 
   if (!email) {
     redirect("/login?error=email");
   }
 
-  const supabase = await createClient();
-  const headerList = await headers();
-  const origin =
-    headerList.get("origin") ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    "http://localhost:3000";
+  if (!password) {
+    redirect("/login?error=password");
+  }
 
-  const { error } = await supabase.auth.signInWithOtp({
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
     email,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback`,
-      shouldCreateUser: true,
-    },
+    password,
   });
 
   if (error) {
-    const reason = /rate limit/i.test(error.message) ? "rate-limit" : "auth";
+    const reason = /rate limit|too many requests/i.test(error.message)
+      ? "rate-limit"
+      : "credentials";
     redirect(`/login?error=${reason}`);
   }
 
-  redirect("/login?sent=1");
+  redirect("/");
 }
 
 export async function signOut() {

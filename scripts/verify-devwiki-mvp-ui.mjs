@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const DEVWIKI_ASSETS_BUCKET = "devwiki-assets";
 const COOKIE_CHUNK_SIZE = 3180;
-const MAGIC_LINK_REQUEST_TIMEOUT_MS = 15_000;
+const LOGIN_TIMEOUT_MS = 15_000;
 const tinyPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
   "base64",
@@ -188,15 +188,96 @@ async function ensureActiveMember(admin, email) {
   report("pass", "Active member created", email);
 }
 
-async function createTemporaryLoginRequestMember(admin, email) {
+async function findAuthUserByEmail(admin, email) {
+  const normalizedEmail = email.toLowerCase();
+  const perPage = 100;
+  let page = 1;
+
+  while (page < 100) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+
+    if (error) {
+      throw new Error(`Auth user lookup failed: ${error.message}`);
+    }
+
+    const users = data?.users ?? [];
+    const user = users.find(
+      (candidate) => candidate.email?.toLowerCase() === normalizedEmail,
+    );
+
+    if (user) {
+      return user;
+    }
+
+    if (users.length < perPage) {
+      return null;
+    }
+
+    page += 1;
+  }
+
+  throw new Error("Auth user lookup exceeded pagination limit.");
+}
+
+async function ensurePasswordAuthUser(admin, email, password, displayName) {
+  const existingUser = await findAuthUserByEmail(admin, email);
+
+  if (existingUser) {
+    if (process.env.DEVWIKI_E2E_MANAGE_MEMBER === "1") {
+      const { error } = await admin.auth.admin.updateUserById(existingUser.id, {
+        password,
+        email_confirm: true,
+      });
+
+      if (error) {
+        throw new Error(`Auth user password setup failed: ${error.message}`);
+      }
+
+      report("pass", "Password auth user updated", email);
+    } else {
+      report("pass", "Password auth user available", email);
+    }
+
+    return existingUser.id;
+  }
+
+  if (process.env.DEVWIKI_E2E_MANAGE_MEMBER !== "1") {
+    throw new Error(
+      `${email} does not exist in Supabase Auth. Create the user with a password or set DEVWIKI_E2E_MANAGE_MEMBER=1 for test setup.`,
+    );
+  }
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name: displayName },
+  });
+
+  if (error || !data.user) {
+    throw new Error(
+      `Auth user setup failed: ${error?.message ?? "user was not returned"}`,
+    );
+  }
+
+  report("pass", "Password auth user created", email);
+  return data.user.id;
+}
+
+async function createTemporaryPasswordMember(admin, email, password) {
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
     email,
+    password,
     email_confirm: true,
+    user_metadata: { name: "DevWiki Login E2E" },
   });
 
   if (userError || !userData.user) {
     throw new Error(
-      `Temporary login request user setup failed: ${
+      `Temporary password login user setup failed: ${
         userError?.message ?? "user was not returned"
       }`,
     );
@@ -215,60 +296,55 @@ async function createTemporaryLoginRequestMember(admin, email) {
   if (memberError) {
     await admin.auth.admin.deleteUser(userData.user.id);
     throw new Error(
-      `Temporary login request member setup failed: ${memberError.message}`,
+      `Temporary password login member setup failed: ${memberError.message}`,
     );
   }
 
   return userData.user.id;
 }
 
-async function createMagicLinkSession({
-  url,
-  publishableKey,
-  admin,
-  email,
-  redirectTo,
-}) {
-  const { data: linkData, error: linkError } =
-    await admin.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-      options: { redirectTo },
-    });
+async function createTemporaryPasswordUser(admin, email, password, displayName) {
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name: displayName },
+  });
 
-  if (linkError) {
-    throw new Error(`Magic link generation failed: ${linkError.message}`);
+  if (error || !data.user) {
+    throw new Error(
+      `Temporary auth user setup failed: ${
+        error?.message ?? "user was not returned"
+      }`,
+    );
   }
 
-  const properties = linkData?.properties ?? {};
-  const tokenHash = properties.hashed_token ?? properties.hashedToken;
-  const emailOtp = properties.email_otp ?? properties.emailOtp;
+  return data.user.id;
+}
+
+async function createPasswordSession({ url, publishableKey, email, password }) {
   const client = createClient(url, publishableKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   });
-  const verifyParams = tokenHash
-    ? { token_hash: tokenHash, type: "email" }
-    : { email, token: emailOtp, type: "email" };
 
-  if (!tokenHash && !emailOtp) {
-    throw new Error("Magic link did not return a token hash or OTP.");
-  }
+  const { data: authData, error } = await client.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-  const { data: authData, error: verifyError } =
-    await client.auth.verifyOtp(verifyParams);
-
-  if (verifyError || !authData.session || !authData.user) {
+  if (error || !authData.session || !authData.user) {
     throw new Error(
-      `Magic link verification failed: ${
-        verifyError?.message ?? "session was not returned"
+      `Password login failed: ${
+        error?.message ?? "session was not returned"
       }`,
     );
   }
 
   return {
+    client,
     session: authData.session,
     user: authData.user,
   };
@@ -296,53 +372,26 @@ async function seedBrowserSession({ context, baseUrl, supabaseUrl, session }) {
   );
 }
 
-async function assertNonMemberBlocked({ url, publishableKey, admin, redirectTo }) {
+async function assertNonMemberBlocked({ url, publishableKey, admin }) {
   const email = `devwiki-ui-nonmember-${Date.now()}@example.com`;
+  const password = `DevWiki-ui-${Date.now()}!`;
   let userId = null;
 
-  const { data: linkData, error: linkError } =
-    await admin.auth.admin.generateLink({
-      type: "magiclink",
+  try {
+    userId = await createTemporaryPasswordUser(
+      admin,
       email,
-      options: { redirectTo },
+      password,
+      "DevWiki UI non-member",
+    );
+    const authData = await createPasswordSession({
+      url,
+      publishableKey,
+      email,
+      password,
     });
 
-  if (linkError) {
-    throw new Error(`Non-member magic link generation failed: ${linkError.message}`);
-  }
-
-  const properties = linkData?.properties ?? {};
-  const tokenHash = properties.hashed_token ?? properties.hashedToken;
-  const emailOtp = properties.email_otp ?? properties.emailOtp;
-  const client = createClient(url, publishableKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  if (!tokenHash && !emailOtp) {
-    throw new Error("Non-member magic link did not return a token hash or OTP.");
-  }
-
-  try {
-    const { data: authData, error: verifyError } = await client.auth.verifyOtp(
-      tokenHash
-        ? { token_hash: tokenHash, type: "email" }
-        : { email, token: emailOtp, type: "email" },
-    );
-
-    if (verifyError || !authData.user) {
-      throw new Error(
-        `Non-member magic link verification failed: ${
-          verifyError?.message ?? "user was not returned"
-        }`,
-      );
-    }
-
-    userId = authData.user.id;
-
-    const { error } = await client.from("documents").insert({
+    const { error } = await authData.client.from("documents").insert({
       slug: `blocked-ui-${Date.now()}`,
       title: "Blocked UI non-member document",
       body_markdown: "This insert must be blocked.",
@@ -374,22 +423,26 @@ async function assertNonMemberBrowserGate({
   url,
   publishableKey,
   admin,
-  redirectTo,
   slug,
 }) {
   const email = `devwiki-ui-gate-${Date.now()}@example.com`;
+  const password = `DevWiki-ui-gate-${Date.now()}!`;
   let userId = null;
   const context = await browser.newContext();
 
   try {
-    const nonMemberSession = await createMagicLinkSession({
-      url,
-      publishableKey,
+    userId = await createTemporaryPasswordUser(
       admin,
       email,
-      redirectTo,
+      password,
+      "DevWiki UI gated non-member",
+    );
+    const nonMemberSession = await createPasswordSession({
+      url,
+      publishableKey,
+      email,
+      password,
     });
-    userId = nonMemberSession.user.id;
     await seedBrowserSession({
       context,
       baseUrl,
@@ -465,31 +518,35 @@ async function assertMermaidDiagramCount(page, count) {
   );
 }
 
-async function assertMagicLinkRequest(page, baseUrl, email) {
+async function assertPasswordLogin(page, baseUrl, email, password) {
   await page.goto(`${baseUrl}/login`);
-  await expect(page.getByRole("heading", { name: "이메일로 로그인" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "이메일과 비밀번호로 로그인" }),
+  ).toBeVisible();
   await page.locator('input[name="email"]').fill(email);
-  await page.getByRole("button", { name: "로그인 링크 받기" }).click();
+  await page.locator('input[name="password"]').fill(password);
+  await page.getByRole("button", { name: "로그인" }).click();
 
+  const expectedOrigin = new URL(baseUrl).origin;
   await page.waitForURL(
     (nextUrl) =>
-      nextUrl.pathname === "/login" &&
-      (nextUrl.searchParams.get("sent") === "1" ||
-        nextUrl.searchParams.get("error") === "rate-limit"),
-    { timeout: MAGIC_LINK_REQUEST_TIMEOUT_MS },
+      nextUrl.origin === expectedOrigin &&
+      (nextUrl.pathname === "/" ||
+        (nextUrl.pathname === "/login" && nextUrl.searchParams.has("error"))),
+    { timeout: LOGIN_TIMEOUT_MS },
   );
 
-  if (new URL(page.url()).searchParams.get("error") === "rate-limit") {
-    await expect(
-      page.getByText("로그인 링크 요청이 잠시 제한되었습니다."),
-    ).toBeVisible();
-    report("warn", "Magic link request rate limit handled", email);
-    return "rate-limited";
+  const currentUrl = new URL(page.url());
+
+  if (currentUrl.pathname === "/login") {
+    throw new Error(
+      `Password login was rejected: ${currentUrl.searchParams.get("error")}`,
+    );
   }
 
-  await expect(page.getByText("로그인 링크를 보냈습니다.")).toBeVisible();
-  report("pass", "Registered email can request magic link", email);
-  return "sent";
+  await expect(page.getByText("백엔드 면접 개념 사전")).toBeVisible();
+  await expect(page.getByRole("link", { name: /새 문서/ })).toBeVisible();
+  report("pass", "Registered member can login with password", email);
 }
 
 async function assertMermaidErrorPreview(page, markdown) {
@@ -565,6 +622,7 @@ async function main() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const memberEmail = process.env.DEVWIKI_E2E_EMAIL?.trim().toLowerCase();
+  const memberPassword = process.env.DEVWIKI_E2E_PASSWORD;
   const baseUrl = process.env.DEVWIKI_E2E_BASE_URL ?? "http://localhost:3000";
 
   if (!url || !publishableKey) {
@@ -573,9 +631,9 @@ async function main() {
     );
   }
 
-  if (!serviceRoleKey || !memberEmail) {
+  if (!serviceRoleKey || !memberEmail || !memberPassword) {
     skipOrFail(
-      "set SUPABASE_SERVICE_ROLE_KEY and DEVWIKI_E2E_EMAIL to run browser MVP checks",
+      "set SUPABASE_SERVICE_ROLE_KEY, DEVWIKI_E2E_EMAIL, and DEVWIKI_E2E_PASSWORD to run browser MVP checks",
     );
     return;
   }
@@ -595,7 +653,8 @@ async function main() {
   const updateSummary = "UI E2E 수정 검증";
   const createTags = `UI E2E ${nonce}, Mermaid UI ${nonce}, ${searchTag}`;
   const updateTags = `Revision UI ${nonce}, ${searchTag}`;
-  const loginRequestEmail = `devwiki-login-${nonce}@example.com`;
+  const passwordLoginEmail = `devwiki-login-${nonce}@example.com`;
+  const passwordLoginPassword = `DevWiki-login-${nonce}!`;
   const longMarkdownSection = makeLongMarkdownSection();
   const baseMarkdown = `# ${title}
 
@@ -642,10 +701,16 @@ sequenceDiagram
 `;
   const assetPaths = new Set();
   const documentSlugs = new Set([slug]);
-  let loginRequestUserId = null;
+  let passwordLoginUserId = null;
   let browser;
 
   await ensureActiveMember(admin, memberEmail);
+  await ensurePasswordAuthUser(
+    admin,
+    memberEmail,
+    memberPassword,
+    "DevWiki UI E2E",
+  );
 
   try {
     const health = await fetch(baseUrl, { redirect: "manual" });
@@ -665,17 +730,15 @@ sequenceDiagram
     url,
     publishableKey,
     admin,
-    redirectTo: `${baseUrl}/auth/callback`,
   });
 
-  const memberSession = await createMagicLinkSession({
+  const memberSession = await createPasswordSession({
     url,
     publishableKey,
-    admin,
     email: memberEmail,
-    redirectTo: `${baseUrl}/auth/callback`,
+    password: memberPassword,
   });
-  report("pass", "Magic link member session created", memberEmail);
+  report("pass", "Password member session created", memberEmail);
 
   try {
     browser = await chromium.launch({
@@ -691,17 +754,18 @@ sequenceDiagram
 
   const context = await browser.newContext();
   const page = await context.newPage();
-  let magicLinkRequestResult = "not-run";
 
   try {
-    loginRequestUserId = await createTemporaryLoginRequestMember(
+    passwordLoginUserId = await createTemporaryPasswordMember(
       admin,
-      loginRequestEmail,
+      passwordLoginEmail,
+      passwordLoginPassword,
     );
-    magicLinkRequestResult = await assertMagicLinkRequest(
+    await assertPasswordLogin(
       page,
       baseUrl,
-      loginRequestEmail,
+      passwordLoginEmail,
+      passwordLoginPassword,
     );
     await context.clearCookies();
     await seedBrowserSession({
@@ -716,7 +780,7 @@ sequenceDiagram
     await expect(
       page.getByText("Supabase 연결 전 미리보기 모드입니다."),
     ).toHaveCount(0);
-    report("pass", "Magic link browser session established");
+    report("pass", "Password browser session established");
 
     await page.goto(`${baseUrl}/documents/new`);
     await expect(page.locator('[data-testid="document-editor"]')).toBeVisible();
@@ -829,7 +893,6 @@ sequenceDiagram
       url,
       publishableKey,
       admin,
-      redirectTo: `${baseUrl}/auth/callback`,
       slug,
     });
 
@@ -942,12 +1005,6 @@ sequenceDiagram
     }
 
     report("pass", "Logout gates document routes and asset APIs");
-
-    if (magicLinkRequestResult === "rate-limited") {
-      throw new Error(
-        "Magic link request was rate-limited; browser flow otherwise completed. Rerun npm run verify:mvp when Supabase email limit clears.",
-      );
-    }
   } finally {
     await context.close();
     await browser.close();
@@ -1002,24 +1059,24 @@ sequenceDiagram
     const { error: memberCleanupError } = await admin
       .from("members")
       .delete()
-      .eq("email", loginRequestEmail);
+      .eq("email", passwordLoginEmail);
 
     if (memberCleanupError) {
       report(
         "warn",
-        "UI E2E login request member cleanup failed",
+        "UI E2E password login member cleanup failed",
         memberCleanupError.message,
       );
     }
 
-    if (loginRequestUserId) {
+    if (passwordLoginUserId) {
       const { error: userCleanupError } =
-        await admin.auth.admin.deleteUser(loginRequestUserId);
+        await admin.auth.admin.deleteUser(passwordLoginUserId);
 
       if (userCleanupError) {
         report(
           "warn",
-          "UI E2E login request user cleanup failed",
+          "UI E2E password login user cleanup failed",
           userCleanupError.message,
         );
       }
