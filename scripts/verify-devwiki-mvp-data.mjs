@@ -245,6 +245,11 @@ async function main() {
 
 멱등성은 같은 요청을 여러 번 처리해도 결과 상태가 한 번 처리한 것과 같게 유지되는 성질입니다.
 
+- 같은 key는 같은 결과를 반환해야 합니다.
+- 재시도 가능한 작업은 부작용을 중복 적용하지 않습니다.
+
+참고: [Supabase Auth](https://supabase.com/docs/guides/auth)
+
 | 항목 | 설명 |
 | --- | --- |
 | HTTP | PUT, DELETE는 멱등하게 설계할 수 있습니다. |
@@ -469,6 +474,8 @@ ${imageMarkdown}
     const tagNames = flattenTagNames(detail.document_tags);
 
     for (const requiredText of [
+      "- 같은 key는 같은 결과를 반환해야 합니다.",
+      "[Supabase Auth](https://supabase.com/docs/guides/auth)",
       "| 항목 | 설명 |",
       "```ts",
       "```mermaid",

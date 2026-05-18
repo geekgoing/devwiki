@@ -352,6 +352,27 @@ async function assertMagicLinkRequest(page, baseUrl, email) {
   report("pass", "Registered email can request magic link", email);
 }
 
+async function assertMermaidErrorPreview(page, markdown) {
+  const invalidMarkdown = `${markdown}
+
+## Mermaid 오류 검증
+
+\`\`\`mermaid
+flowchart LR
+  Broken -->
+\`\`\`
+`;
+
+  await fillMarkdownEditor(page, invalidMarkdown, "Mermaid 오류 검증");
+  await page.getByRole("button", { name: "미리보기" }).click();
+  await expect(page.locator('[data-testid="mermaid-error"]')).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.locator('[data-testid="markdown-content"] h1')).toBeVisible();
+  await page.getByRole("button", { name: "분할" }).click();
+  report("pass", "Mermaid syntax error preview rendered");
+}
+
 async function main() {
   loadEnvFile(".env.local");
 
@@ -395,6 +416,11 @@ async function main() {
 ## 핵심 정의
 
 멱등성은 같은 요청을 여러 번 처리해도 결과 상태가 한 번 처리한 것과 같게 유지되는 성질입니다.
+
+- 같은 key는 같은 결과를 반환해야 합니다.
+- 재시도 가능한 작업은 부작용을 중복 적용하지 않습니다.
+
+참고: [Supabase Auth](https://supabase.com/docs/guides/auth)
 
 | 항목 | 설명 |
 | --- | --- |
@@ -486,6 +512,8 @@ flowchart LR
     await page.locator('input[name="edit_summary"]').fill("mvp ui create");
     await page.locator('select[name="status"]').selectOption("draft");
     await fillMarkdownEditor(page, baseMarkdown, "retry-safe-command");
+    await assertMermaidErrorPreview(page, baseMarkdown);
+    await fillMarkdownEditor(page, baseMarkdown, "retry-safe-command");
 
     await page.locator('[data-testid="image-input"]').setInputFiles({
       name: "diagram.png",
@@ -509,6 +537,14 @@ flowchart LR
     await expect(
       page.locator('[data-testid="markdown-content"] h1', { hasText: title }),
     ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="markdown-content"] li', {
+        hasText: "같은 key는 같은 결과를 반환해야 합니다.",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Supabase Auth" }),
+    ).toHaveAttribute("href", /^https:\/\/supabase\.com\/docs\/guides\/auth\/?$/);
     await expect(page.locator('[data-testid="markdown-content"] table')).toBeVisible();
     await expect(page.locator('[data-testid="markdown-content"] pre')).toBeVisible();
     await expect(page.locator('[data-testid="mermaid-block"] svg')).toBeVisible({
@@ -524,6 +560,14 @@ flowchart LR
     ]);
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
     await expect(page.getByText(createSummary)).toBeVisible();
+    await expect(
+      page.locator('[data-testid="markdown-content"] li', {
+        hasText: "같은 key는 같은 결과를 반환해야 합니다.",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Supabase Auth" }),
+    ).toHaveAttribute("href", /^https:\/\/supabase\.com\/docs\/guides\/auth\/?$/);
     await expect(page.locator('[data-testid="markdown-content"] table')).toBeVisible();
     await expect(page.locator('[data-testid="mermaid-block"] svg')).toBeVisible({
       timeout: 15_000,
