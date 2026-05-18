@@ -112,6 +112,19 @@ DEVWIKI_E2E_EMAIL="you@example.com" npm run verify:mvp-data
 삭제합니다. 테스트 이메일을 `study_members`에 자동 등록하려면
 `DEVWIKI_E2E_MANAGE_MEMBER=1`을 함께 설정합니다.
 
+브라우저에서 최종 MVP 흐름을 검증하려면 dev server를 켠 뒤 아래 명령을 실행합니다.
+
+```bash
+npm run dev
+DEVWIKI_E2E_EMAIL="you@example.com" npm run verify:mvp-ui
+```
+
+`verify:mvp-ui`도 `SUPABASE_SERVICE_ROLE_KEY`가 필요합니다. 이 명령은 admin
+magic link로 실제 브라우저 세션을 만들고, 작성 화면의 Markdown/Mermaid/image
+미리보기, 저장 후 상세 페이지 렌더링, 수정/변경 이력, 태그 검색, 로그아웃 후
+차단 흐름을 확인합니다. Chromium 실행에 실패하면
+`npx playwright install chromium`을 한 번 실행하세요.
+
 ## Notes
 
 New Supabase projects may not expose SQL-created tables to the Data API

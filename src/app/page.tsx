@@ -100,6 +100,7 @@ export default async function Home({ searchParams }: HomeProps) {
                       key={document.id}
                       href={`/documents/${document.slug}`}
                       className="rounded-md border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm"
+                      data-testid="document-card"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>

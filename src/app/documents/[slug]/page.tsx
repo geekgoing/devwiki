@@ -107,7 +107,10 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
         </article>
 
         <aside className="space-y-5">
-          <section className="rounded-md border border-slate-200 bg-white p-4">
+          <section
+            className="rounded-md border border-slate-200 bg-white p-4"
+            data-testid="revision-history"
+          >
             <h2 className="text-sm font-semibold text-slate-950">변경 이력</h2>
             {revisions.length ? (
               <ol className="mt-3 space-y-3">

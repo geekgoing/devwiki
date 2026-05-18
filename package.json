@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "verify:mvp-data": "node scripts/verify-devwiki-mvp-data.mjs",
+    "verify:mvp-ui": "node scripts/verify-devwiki-mvp-ui.mjs",
     "verify:supabase": "node scripts/verify-supabase-readiness.mjs"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

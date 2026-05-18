@@ -50,7 +50,10 @@ export function MermaidBlock({ chart }: { chart: string }) {
 
   if (error) {
     return (
-      <pre className="overflow-x-auto rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+      <pre
+        className="overflow-x-auto rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"
+        data-testid="mermaid-error"
+      >
         {error}
       </pre>
     );
@@ -58,7 +61,10 @@ export function MermaidBlock({ chart }: { chart: string }) {
 
   if (!svg) {
     return (
-      <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+      <div
+        className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500"
+        data-testid="mermaid-loading"
+      >
         다이어그램 렌더링 중
       </div>
     );
@@ -67,6 +73,7 @@ export function MermaidBlock({ chart }: { chart: string }) {
   return (
     <div
       className="overflow-x-auto rounded-md border border-slate-200 bg-white p-4"
+      data-testid="mermaid-block"
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );

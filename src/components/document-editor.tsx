@@ -161,7 +161,7 @@ export function DocumentEditor({
   }
 
   return (
-    <form action={action} className="space-y-5">
+    <form action={action} className="space-y-5" data-testid="document-editor">
       {initialDocument?.id ? (
         <input type="hidden" name="id" value={initialDocument.id} />
       ) : null}
@@ -294,6 +294,7 @@ export function DocumentEditor({
 
             <input
               ref={fileInputRef}
+              data-testid="image-input"
               type="file"
               accept="image/png,image/jpeg,image/webp,image/gif"
               className="hidden"

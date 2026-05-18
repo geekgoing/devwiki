@@ -13,7 +13,7 @@ type MarkdownRendererProps = {
 
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   return (
-    <article className="markdown">
+    <article className="markdown" data-testid="markdown-content">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSlug]}
