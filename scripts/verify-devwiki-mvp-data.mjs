@@ -349,6 +349,12 @@ ${imageMarkdown}
 
     report("pass", "Member image upload succeeded", assetPath);
 
+    await expectBlocked("Non-member asset read blocked", () =>
+      nonMemberSession.client.storage
+        .from(DEVWIKI_ASSETS_BUCKET)
+        .createSignedUrl(assetPath, 60),
+    );
+
     await expectBlocked("Invalid image MIME blocked", () =>
       memberSession.client.storage
         .from(DEVWIKI_ASSETS_BUCKET)

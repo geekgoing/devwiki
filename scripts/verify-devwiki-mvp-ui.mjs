@@ -50,6 +50,10 @@ function decodeAssetPath(path) {
   return path.split("/").map(decodeURIComponent).join("/");
 }
 
+function encodeAssetPath(path) {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
 function getStorageKey(supabaseUrl) {
   return `sb-${new URL(supabaseUrl).hostname.split(".")[0]}-auth-token`;
 }
@@ -772,6 +776,23 @@ sequenceDiagram
     await page.waitForURL(`${baseUrl}/login`);
     await page.goto(`${baseUrl}/documents/${slug}/edit`);
     await page.waitForURL(`${baseUrl}/login`);
+
+    const firstAssetPath = [...assetPaths][0];
+
+    if (!firstAssetPath) {
+      throw new Error("No uploaded asset path was captured for access checks.");
+    }
+
+    const assetResponse = await page.request.get(
+      `${baseUrl}/api/assets/${encodeAssetPath(firstAssetPath)}`,
+    );
+
+    if (assetResponse.status() !== 401) {
+      throw new Error(
+        `Anonymous asset read should return 401, got ${assetResponse.status()}`,
+      );
+    }
+
     const uploadResponse = await page.request.post(`${baseUrl}/api/assets/upload`, {
       multipart: {
         file: {
@@ -788,7 +809,7 @@ sequenceDiagram
       );
     }
 
-    report("pass", "Logout gates document routes and upload API");
+    report("pass", "Logout gates document routes and asset APIs");
   } finally {
     await context.close();
     await browser.close();
