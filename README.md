@@ -10,6 +10,7 @@
 - Supabase Auth, Postgres, Storage, RLS
 - Markdown editor with preview
 - Mermaid diagrams
+- Supabase Storage image uploads
 
 ## Local setup
 
@@ -20,6 +21,10 @@ npm run dev
 ```
 
 Supabase 연결 전에는 데모 문서가 보입니다. 실제 저장을 사용하려면 `supabase/README.md`를 따라 마이그레이션과 스터디원 이메일을 설정하세요.
+
+## Image uploads
+
+Logged-in study members can upload `png`, `jpeg`, `webp`, and `gif` images from the document editor. Uploaded files are stored in the private `devwiki-assets` Supabase Storage bucket and inserted into the document as Markdown image syntax.
 
 ## Scripts
 

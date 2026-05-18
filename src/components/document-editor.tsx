@@ -2,8 +2,15 @@
 
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import dynamic from "next/dynamic";
-import { Edit3, Eye, Save, SplitSquareHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  Edit3,
+  Eye,
+  ImagePlus,
+  Loader2,
+  Save,
+  SplitSquareHorizontal,
+} from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import type ReactCodeMirror from "@uiw/react-codemirror";
 
 import { MarkdownRenderer } from "@/components/markdown-renderer";
@@ -11,6 +18,9 @@ import { slugify } from "@/lib/slugify";
 import type { DocumentStatus } from "@/types/devwiki";
 
 type CodeMirrorProps = React.ComponentProps<typeof ReactCodeMirror>;
+type EditorViewInstance = Parameters<
+  NonNullable<CodeMirrorProps["onCreateEditor"]>
+>[0];
 
 const CodeMirror = dynamic<CodeMirrorProps>(
   () => import("@uiw/react-codemirror").then((mod) => mod.default),
@@ -72,10 +82,83 @@ export function DocumentEditor({
     initialDocument?.bodyMarkdown ?? starterMarkdown,
   );
   const [view, setView] = useState<"edit" | "preview" | "split">("split");
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const editorViewRef = useRef<EditorViewInstance | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const extensions = useMemo(
     () => [markdown({ base: markdownLanguage })],
     [],
   );
+
+  function insertMarkdown(markdownText: string) {
+    const view = editorViewRef.current;
+
+    if (!view) {
+      setBody((current) => `${current.trimEnd()}\n\n${markdownText}\n`);
+      return;
+    }
+
+    const selection = view.state.selection.main;
+    const current = view.state.doc.toString();
+    const before = current.slice(0, selection.from);
+    const after = current.slice(selection.to);
+    const prefix = before.endsWith("\n") || before.length === 0 ? "" : "\n\n";
+    const suffix = after.startsWith("\n") || after.length === 0 ? "" : "\n\n";
+    const insertion = `${prefix}${markdownText}${suffix}`;
+
+    view.dispatch({
+      changes: {
+        from: selection.from,
+        to: selection.to,
+        insert: insertion,
+      },
+      selection: {
+        anchor: selection.from + insertion.length,
+      },
+    });
+    setBody(view.state.doc.toString());
+    view.focus();
+  }
+
+  async function uploadImage(file: File) {
+    setUploading(true);
+    setUploadMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("alt", file.name.replace(/\.[^.]+$/, ""));
+
+      const response = await fetch("/api/assets/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        markdown?: string;
+      };
+
+      if (!response.ok || !payload.markdown) {
+        throw new Error(payload.error ?? "이미지 업로드에 실패했습니다.");
+      }
+
+      insertMarkdown(payload.markdown);
+      setUploadMessage("이미지를 Markdown에 삽입했습니다.");
+    } catch (error) {
+      setUploadMessage(
+        error instanceof Error
+          ? error.message
+          : "이미지 업로드에 실패했습니다.",
+      );
+    } finally {
+      setUploading(false);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
 
   return (
     <form action={action} className="space-y-5">
@@ -169,43 +252,76 @@ export function DocumentEditor({
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-3 py-2">
-          <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1">
+              <button
+                type="button"
+                onClick={() => setView("edit")}
+                className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
+                  view === "edit"
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-600 hover:text-slate-950"
+                }`}
+              >
+                <Edit3 size={15} aria-hidden />
+                편집
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("split")}
+                className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
+                  view === "split"
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-600 hover:text-slate-950"
+                }`}
+              >
+                <SplitSquareHorizontal size={15} aria-hidden />
+                분할
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("preview")}
+                className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
+                  view === "preview"
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-600 hover:text-slate-950"
+                }`}
+              >
+                <Eye size={15} aria-hidden />
+                미리보기
+              </button>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+
+                if (file) {
+                  void uploadImage(file);
+                }
+              }}
+            />
             <button
               type="button"
-              onClick={() => setView("edit")}
-              className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
-                view === "edit"
-                  ? "bg-white text-slate-950 shadow-sm"
-                  : "text-slate-600 hover:text-slate-950"
-              }`}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
             >
-              <Edit3 size={15} aria-hidden />
-              편집
+              {uploading ? (
+                <Loader2 size={16} className="animate-spin" aria-hidden />
+              ) : (
+                <ImagePlus size={16} aria-hidden />
+              )}
+              이미지
             </button>
-            <button
-              type="button"
-              onClick={() => setView("split")}
-              className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
-                view === "split"
-                  ? "bg-white text-slate-950 shadow-sm"
-                  : "text-slate-600 hover:text-slate-950"
-              }`}
-            >
-              <SplitSquareHorizontal size={15} aria-hidden />
-              분할
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("preview")}
-              className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
-                view === "preview"
-                  ? "bg-white text-slate-950 shadow-sm"
-                  : "text-slate-600 hover:text-slate-950"
-              }`}
-            >
-              <Eye size={15} aria-hidden />
-              미리보기
-            </button>
+
+            {uploadMessage ? (
+              <p className="text-xs text-slate-500">{uploadMessage}</p>
+            ) : null}
           </div>
 
           <button
@@ -235,6 +351,9 @@ export function DocumentEditor({
                   highlightActiveLine: false,
                 }}
                 onChange={(value) => setBody(value)}
+                onCreateEditor={(view) => {
+                  editorViewRef.current = view;
+                }}
               />
             </div>
           ) : null}
