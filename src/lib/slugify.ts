@@ -9,5 +9,5 @@ export function slugify(value: string) {
 }
 
 export function toTagSlug(value: string) {
-  return slugify(value);
+  return slugify(value).slice(0, 60);
 }

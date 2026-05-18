@@ -10,6 +10,8 @@ import { requireAuthenticatedMember } from "@/lib/auth";
 import { slugify, toTagSlug } from "@/lib/slugify";
 import type { Tag } from "@/types/devwiki";
 
+const MAX_TAG_NAME_LENGTH = 40;
+
 const documentSchema = z.object({
   id: z.string().optional(),
   title: z.string().trim().min(1, "제목을 입력하세요.").max(120),
@@ -62,6 +64,12 @@ function parseTagNames(value = "") {
     .map((tag) => tag.trim())
     .filter(Boolean);
 
+  const invalidTag = tags.find((tag) => tag.length > MAX_TAG_NAME_LENGTH);
+
+  if (invalidTag) {
+    throw new Error(`태그는 ${MAX_TAG_NAME_LENGTH}자 이하로 입력하세요.`);
+  }
+
   return Array.from(new Map(tags.map((tag) => [toTagSlug(tag), tag])).entries())
     .filter(([slug]) => slug)
     .map(([slug, name]) => ({ slug, name }));
@@ -70,10 +78,8 @@ function parseTagNames(value = "") {
 async function syncTags(
   supabase: Awaited<ReturnType<typeof createClient>>,
   documentId: string,
-  tagsValue: string | undefined,
+  parsedTags: Array<{ slug: string; name: string }>,
 ) {
-  const parsedTags = parseTagNames(tagsValue);
-
   const { error: deleteError } = await supabase
     .from("document_tags")
     .delete()
@@ -156,6 +162,7 @@ export async function createDocument(formData: FormData) {
     tags: readString(formData, "tags"),
     editSummary: readString(formData, "edit_summary"),
   });
+  const parsedTags = parseTagNames(parsed.tags);
   const slug = await uniqueSlug(slugify(parsed.slug || parsed.title));
 
   const { data, error } = await supabase
@@ -177,7 +184,7 @@ export async function createDocument(formData: FormData) {
     throw new Error(error.message);
   }
 
-  await syncTags(supabase, data.id, parsed.tags);
+  await syncTags(supabase, data.id, parsedTags);
   revalidatePath("/");
   redirect(`/documents/${data.slug}`);
 }
@@ -194,6 +201,7 @@ export async function updateDocument(formData: FormData) {
     tags: readString(formData, "tags"),
     editSummary: readString(formData, "edit_summary"),
   });
+  const parsedTags = parseTagNames(parsed.tags);
 
   if (!parsed.id) {
     throw new Error("수정할 문서 ID가 없습니다.");
@@ -231,7 +239,7 @@ export async function updateDocument(formData: FormData) {
     throw new Error(error?.message ?? "문서를 수정하지 못했습니다.");
   }
 
-  await syncTags(supabase, parsed.id, parsed.tags);
+  await syncTags(supabase, parsed.id, parsedTags);
   revalidatePath("/");
   revalidatePath(`/documents/${currentDocument.slug}`);
   revalidatePath(`/documents/${currentDocument.slug}/edit`);
