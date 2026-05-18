@@ -27,6 +27,12 @@ type RawDocument = {
   document_tags?: RawTagRelation[] | null;
 };
 
+const DOCUMENT_LIST_SELECT =
+  "id, slug, title, summary, status, created_at, updated_at, document_tags(tags(id, name, slug))";
+const DOCUMENT_LIST_LIMIT = 100;
+const DOCUMENT_SEARCH_PAGE_SIZE = 500;
+const DOCUMENT_SEARCH_MAX_ROWS = 5000;
+
 function flattenTags(relations?: RawTagRelation[] | null): Tag[] {
   if (!relations) {
     return [];
@@ -86,13 +92,44 @@ export async function getDocuments(query = ""): Promise<DocumentSummary[]> {
   }
 
   const supabase = await createClient();
+  const normalizedQuery = query.trim();
+
+  if (normalizedQuery) {
+    const rows: RawDocument[] = [];
+
+    for (
+      let from = 0;
+      from < DOCUMENT_SEARCH_MAX_ROWS;
+      from += DOCUMENT_SEARCH_PAGE_SIZE
+    ) {
+      const to = from + DOCUMENT_SEARCH_PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from("documents")
+        .select(DOCUMENT_LIST_SELECT)
+        .order("updated_at", { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      rows.push(...((data ?? []) as RawDocument[]));
+
+      if (!data || data.length < DOCUMENT_SEARCH_PAGE_SIZE) {
+        break;
+      }
+    }
+
+    return rows.map(toDocumentSummary).filter((document) =>
+      matchesQuery(document, normalizedQuery),
+    );
+  }
+
   const { data, error } = await supabase
     .from("documents")
-    .select(
-      "id, slug, title, summary, status, created_at, updated_at, document_tags(tags(id, name, slug))",
-    )
+    .select(DOCUMENT_LIST_SELECT)
     .order("updated_at", { ascending: false })
-    .limit(100);
+    .limit(DOCUMENT_LIST_LIMIT);
 
   if (error) {
     throw new Error(error.message);
