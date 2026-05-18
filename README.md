@@ -32,10 +32,16 @@ Logged-in study members can upload `png`, `jpeg`, `webp`, and `gif` images from 
 npm run dev
 npm run lint
 npm run build
+npm run verify:mvp
 npm run verify:supabase
 npm run verify:mvp-data
 npm run verify:mvp-ui
 ```
+
+`verify:mvp` is the final completion gate. It runs lint, build, Supabase
+readiness checks, authenticated data checks, and browser UI checks. It requires
+`SUPABASE_SERVICE_ROLE_KEY` and `DEVWIKI_E2E_EMAIL`; if no app is already
+running, it starts a local dev server for the browser check.
 
 `verify:mvp-data` and `verify:mvp-ui` require `SUPABASE_SERVICE_ROLE_KEY` and
 `DEVWIKI_E2E_EMAIL`. Run the app first for `verify:mvp-ui`, and install the

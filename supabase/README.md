@@ -91,6 +91,7 @@ Supabase Dashboard에서 이메일 OTP/magic link 로그인을 켜고 redirect U
 npm run lint
 npm run build
 npm run verify:supabase
+npm run verify:mvp
 ```
 
 `npm run verify:supabase`는 publishable key만으로 비로그인 문서 쓰기와 이미지
@@ -124,6 +125,18 @@ magic link로 실제 브라우저 세션을 만들고, 작성 화면의 Markdown
 미리보기, 저장 후 상세 페이지 렌더링, 수정/변경 이력, 태그 검색, 로그아웃 후
 차단 흐름을 확인합니다. Chromium 실행에 실패하면
 `npx playwright install chromium`을 한 번 실행하세요.
+
+최종 완료 판정은 아래 단일 명령으로 확인합니다.
+
+```bash
+DEVWIKI_E2E_EMAIL="you@example.com" npm run verify:mvp
+```
+
+`verify:mvp`는 `lint`, `build`, `verify:supabase`, `verify:mvp-data`,
+`verify:mvp-ui`를 순서대로 실행합니다. `SUPABASE_SERVICE_ROLE_KEY`나
+`DEVWIKI_E2E_EMAIL`이 없으면 실패하며, `DEVWIKI_E2E_BASE_URL`이 없고
+`localhost:3000`이 비어 있으면 dev server를 직접 띄운 뒤 브라우저 검증을
+수행합니다.
 
 ## Notes
 
