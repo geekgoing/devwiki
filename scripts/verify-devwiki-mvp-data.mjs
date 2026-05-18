@@ -114,7 +114,7 @@ async function createMagicLinkSession({
   });
 
   const verifyParams = tokenHash
-    ? { email, token_hash: tokenHash, type: "email" }
+    ? { token_hash: tokenHash, type: "email" }
     : { email, token: emailOtp, type: "email" };
 
   if (!tokenHash && !emailOtp) {

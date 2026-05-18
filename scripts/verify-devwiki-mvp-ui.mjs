@@ -5,6 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 
 const DEVWIKI_ASSETS_BUCKET = "devwiki-assets";
 const COOKIE_CHUNK_SIZE = 3180;
+const MAGIC_LINK_REQUEST_ATTEMPTS = 3;
+const MAGIC_LINK_RATE_LIMIT_RETRY_MS = 65_000;
 const tinyPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
   "base64",
@@ -187,6 +189,40 @@ async function ensureActiveMember(admin, email) {
   report("pass", "Active study member created", email);
 }
 
+async function createTemporaryLoginRequestMember(admin, email) {
+  const { data: userData, error: userError } = await admin.auth.admin.createUser({
+    email,
+    email_confirm: true,
+  });
+
+  if (userError || !userData.user) {
+    throw new Error(
+      `Temporary login request user setup failed: ${
+        userError?.message ?? "user was not returned"
+      }`,
+    );
+  }
+
+  const { error: memberError } = await admin.from("study_members").upsert(
+    {
+      email,
+      display_name: "DevWiki Login E2E",
+      role: "editor",
+      is_active: true,
+    },
+    { onConflict: "email" },
+  );
+
+  if (memberError) {
+    await admin.auth.admin.deleteUser(userData.user.id);
+    throw new Error(
+      `Temporary login request member setup failed: ${memberError.message}`,
+    );
+  }
+
+  return userData.user.id;
+}
+
 async function createMagicLinkSession({
   url,
   publishableKey,
@@ -215,7 +251,7 @@ async function createMagicLinkSession({
     },
   });
   const verifyParams = tokenHash
-    ? { email, token_hash: tokenHash, type: "email" }
+    ? { token_hash: tokenHash, type: "email" }
     : { email, token: emailOtp, type: "email" };
 
   if (!tokenHash && !emailOtp) {
@@ -293,7 +329,7 @@ async function assertNonMemberBlocked({ url, publishableKey, admin, redirectTo }
   try {
     const { data: authData, error: verifyError } = await client.auth.verifyOtp(
       tokenHash
-        ? { email, token_hash: tokenHash, type: "email" }
+        ? { token_hash: tokenHash, type: "email" }
         : { email, token: emailOtp, type: "email" },
     );
 
@@ -431,17 +467,49 @@ async function assertMermaidDiagramCount(page, count) {
 }
 
 async function assertMagicLinkRequest(page, baseUrl, email) {
-  await page.goto(`${baseUrl}/login`);
-  await expect(page.getByRole("heading", { name: "이메일로 로그인" })).toBeVisible();
-  await page.locator('input[name="email"]').fill(email);
+  for (let attempt = 1; attempt <= MAGIC_LINK_REQUEST_ATTEMPTS; attempt += 1) {
+    let pageError = null;
+    const onPageError = (error) => {
+      pageError = error;
+    };
 
-  await Promise.all([
-    page.waitForURL(`${baseUrl}/login?sent=1`, { timeout: 30_000 }),
-    page.getByRole("button", { name: "로그인 링크 받기" }).click(),
-  ]);
+    await page.goto(`${baseUrl}/login`);
+    await expect(
+      page.getByRole("heading", { name: "이메일로 로그인" }),
+    ).toBeVisible();
+    await page.locator('input[name="email"]').fill(email);
+    page.on("pageerror", onPageError);
 
-  await expect(page.getByText("로그인 링크를 보냈습니다.")).toBeVisible();
-  report("pass", "Registered email can request magic link", email);
+    try {
+      await page.getByRole("button", { name: "로그인 링크 받기" }).click();
+      await page.waitForURL(`${baseUrl}/login?sent=1`, { timeout: 10_000 });
+      await expect(page.getByText("로그인 링크를 보냈습니다.")).toBeVisible();
+      report("pass", "Registered email can request magic link", email);
+      return;
+    } catch (error) {
+      const message =
+        pageError instanceof Error
+          ? pageError.message
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      const isRateLimited = /rate limit/i.test(message);
+
+      if (isRateLimited && attempt < MAGIC_LINK_REQUEST_ATTEMPTS) {
+        report(
+          "warn",
+          "Magic link request rate-limited; retrying",
+          `${attempt}/${MAGIC_LINK_REQUEST_ATTEMPTS}`,
+        );
+        await page.waitForTimeout(MAGIC_LINK_RATE_LIMIT_RETRY_MS);
+        continue;
+      }
+
+      throw new Error(`Magic link request failed: ${message}`);
+    } finally {
+      page.off("pageerror", onPageError);
+    }
+  }
 }
 
 async function assertMermaidErrorPreview(page, markdown) {
@@ -547,6 +615,7 @@ async function main() {
   const updateSummary = "UI E2E 수정 검증";
   const createTags = `UI E2E ${nonce}, Mermaid UI ${nonce}, ${searchTag}`;
   const updateTags = `Revision UI ${nonce}, ${searchTag}`;
+  const loginRequestEmail = `devwiki-login-${nonce}@example.com`;
   const longMarkdownSection = makeLongMarkdownSection();
   const baseMarkdown = `# ${title}
 
@@ -593,6 +662,7 @@ sequenceDiagram
 `;
   const assetPaths = new Set();
   const documentSlugs = new Set([slug]);
+  let loginRequestUserId = null;
   let browser;
 
   await ensureActiveMember(admin, memberEmail);
@@ -643,7 +713,11 @@ sequenceDiagram
   const page = await context.newPage();
 
   try {
-    await assertMagicLinkRequest(page, baseUrl, memberEmail);
+    loginRequestUserId = await createTemporaryLoginRequestMember(
+      admin,
+      loginRequestEmail,
+    );
+    await assertMagicLinkRequest(page, baseUrl, loginRequestEmail);
     await context.clearCookies();
     await seedBrowserSession({
       context,
@@ -932,6 +1006,32 @@ sequenceDiagram
 
     if (tagCleanupError) {
       report("warn", "UI E2E tag cleanup failed", tagCleanupError.message);
+    }
+
+    const { error: memberCleanupError } = await admin
+      .from("study_members")
+      .delete()
+      .eq("email", loginRequestEmail);
+
+    if (memberCleanupError) {
+      report(
+        "warn",
+        "UI E2E login request member cleanup failed",
+        memberCleanupError.message,
+      );
+    }
+
+    if (loginRequestUserId) {
+      const { error: userCleanupError } =
+        await admin.auth.admin.deleteUser(loginRequestUserId);
+
+      if (userCleanupError) {
+        report(
+          "warn",
+          "UI E2E login request user cleanup failed",
+          userCleanupError.message,
+        );
+      }
     }
   }
 }
