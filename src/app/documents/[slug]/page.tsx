@@ -116,9 +116,31 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
                     <p className="text-sm font-medium text-slate-800">
                       {revision.editSummary || revision.title}
                     </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      제목 스냅샷: {revision.title}
+                    </p>
+                    {revision.summary ? (
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                        {revision.summary}
+                      </p>
+                    ) : null}
+                    <details className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
+                      <summary className="cursor-pointer text-xs font-medium text-slate-600">
+                        본문 스냅샷
+                      </summary>
+                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs leading-5 text-slate-600">
+                        {revision.bodyMarkdown}
+                      </pre>
+                    </details>
                     <time className="mt-1 block text-xs text-slate-500">
                       {formatDate(revision.createdAt)}
                     </time>
+                    <p className="mt-1 text-xs text-slate-400">
+                      수정자:{" "}
+                      {revision.editedBy
+                        ? revision.editedBy.slice(0, 8)
+                        : "알 수 없음"}
+                    </p>
                   </li>
                 ))}
               </ol>

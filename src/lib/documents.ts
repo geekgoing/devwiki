@@ -136,7 +136,7 @@ export async function getDocumentRevisions(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("document_revisions")
-    .select("id, title, edit_summary, created_at, edited_by")
+    .select("id, title, summary, body_markdown, edit_summary, created_at, edited_by")
     .eq("document_id", documentId)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -148,6 +148,8 @@ export async function getDocumentRevisions(
   return (data ?? []).map((row) => ({
     id: row.id,
     title: row.title,
+    summary: row.summary,
+    bodyMarkdown: row.body_markdown,
     editSummary: row.edit_summary,
     createdAt: row.created_at,
     editedBy: row.edited_by,

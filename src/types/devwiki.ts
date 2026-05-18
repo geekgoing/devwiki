@@ -40,6 +40,8 @@ export type DocumentDetail = DocumentSummary & {
 export type DocumentRevision = {
   id: string;
   title: string;
+  summary: string | null;
+  bodyMarkdown: string;
   editSummary: string | null;
   createdAt: string;
   editedBy: string | null;
