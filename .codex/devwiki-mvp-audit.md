@@ -1,7 +1,7 @@
 # DevWiki MVP Completion Audit
 
-Last audited: 2026-05-18 23:41 KST
-Code baseline before this audit update: `715b153`
+Last audited: 2026-05-18 23:53 KST
+Code baseline before this audit update: `f69b084`
 
 ## Verdict
 
@@ -9,8 +9,8 @@ Not complete yet.
 
 The implementation and local static checks are in place, but the goal requires
 the connected Supabase app to pass authenticated data and browser verification.
-That final evidence is still missing because the live Supabase project has not
-applied the revision trigger migration that captures every document update.
+That final evidence is still missing because the browser UI verification is
+currently blocked by Supabase email magic-link rate limiting.
 
 ## Current Environment Evidence
 
@@ -26,11 +26,12 @@ Missing in `.env.local`:
 - optional `DEVWIKI_E2E_MANAGE_MEMBER`
 - optional `DEVWIKI_E2E_BASE_URL`
 
-`DEVWIKI_E2E_MANAGE_MEMBER=1 npm run verify:mvp` created the configured E2E
-member row and currently fails during Supabase readiness with:
+The latest `npm run verify:mvp` attempt progressed through Supabase readiness
+and authenticated data E2E, then failed in browser UI E2E while submitting the
+login magic-link request:
 
 ```text
-Revision trigger migration is not applied: update-only edit did not create a revision.
+Magic link request failed: email rate limit exceeded
 ```
 
 ## Verification Evidence Already Collected
@@ -43,8 +44,7 @@ npm run build
 ```
 
 `npm run verify:supabase` currently reaches the live Supabase checks and
-confirms the following before failing on the unapplied revision trigger
-migration:
+confirms the following:
 
 - local RLS enable statements are present
 - local authenticated Data API grants are present
@@ -56,10 +56,13 @@ migration:
 - anonymous asset upload is blocked against the configured Supabase project
 - the configured E2E study member can be created/found when
   `DEVWIKI_E2E_MANAGE_MEMBER=1` is used
+- the `devwiki-assets` bucket config is valid
+- the revision trigger migration is applied
 
-Service-role checks now reach the live revision trigger probe and fail until
-`supabase/migrations/20260518221215_capture_every_document_update.sql` is
-applied in the Supabase project.
+Authenticated data E2E has also proven member magic-link session creation,
+non-member data/storage blocking, member image upload, document create/update,
+revision capture, tag refresh, list/search payload, Markdown source
+preservation, and signed URL image access.
 
 ## Requirement Audit
 
@@ -80,8 +83,9 @@ Automated evidence:
   member session, non-member browser gate, logout, and post-logout route/API
   blocking.
 
-Current status: implemented, not fully proven in the live app until
-`verify:mvp-ui` runs with service-role test credentials.
+Current status: mostly proven. Admin-generated magic-link sessions work and
+non-member/logout gates are covered by the scripts, but the direct login-form
+magic-link request is currently blocked by Supabase email rate limiting.
 
 ### 2. Document List
 
@@ -99,7 +103,8 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks list cards, empty search state, and
   that demo mode disappears once Supabase is connected.
 
-Current status: implemented, final proof pending `verify:mvp`.
+Current status: data E2E proven; browser UI proof pending once email rate limit
+clears.
 
 ### 3. Document Create/Edit
 
@@ -120,7 +125,8 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks create/edit browser flows, auto
   slug generation, and duplicate slug avoidance.
 
-Current status: implemented, final proof pending `verify:mvp`.
+Current status: data E2E proven; browser UI proof pending once email rate limit
+clears.
 
 ### 4. Markdown Preview
 
@@ -141,7 +147,8 @@ Automated evidence:
   link, code block, long document content, preview switching, and detail-page
   rendering.
 
-Current status: implemented, final proof pending `verify:mvp`.
+Current status: data E2E proven; browser UI proof pending once email rate limit
+clears.
 
 ### 5. Mermaid Rendering
 
@@ -180,9 +187,8 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks revision history appears on the
   detail page after edit.
 
-Current status: implemented locally, but contradicted by live Supabase evidence:
-the `20260518221215_capture_every_document_update.sql` migration is not applied
-to the configured project yet.
+Current status: Supabase readiness and data E2E prove the revision trigger is
+applied and captures update-only edits.
 
 ### 7. Tags/Search
 
@@ -200,7 +206,8 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks tag display, tag search, and empty
   search state.
 
-Current status: implemented, final proof pending `verify:mvp`.
+Current status: data E2E proven; browser UI proof pending once email rate limit
+clears.
 
 ### 8. Image Upload
 
@@ -225,13 +232,12 @@ Automated evidence:
   preview/detail image rendering, invalid MIME rejection, anonymous asset read
   block, and anonymous upload block.
 
-Current status: implemented, final proof pending `verify:mvp`.
+Current status: data E2E proven; browser UI proof pending once email rate limit
+clears.
 
 ## Remaining Completion Steps
 
-1. Apply `supabase/migrations/20260518221215_capture_every_document_update.sql`
-   to the Supabase project. The initial schema, service_role grants, E2E member,
-   and storage bucket checks have already reached live verification.
+1. Wait for Supabase email magic-link rate limiting to clear.
 2. Run:
 
 ```bash
