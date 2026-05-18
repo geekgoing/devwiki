@@ -627,6 +627,27 @@ sequenceDiagram
       throw new Error("Image upload did not insert Markdown image syntax.");
     }
 
+    const invalidUploadResponse = await page.request.post(
+      `${baseUrl}/api/assets/upload`,
+      {
+        multipart: {
+          file: {
+            name: "invalid.txt",
+            mimeType: "text/plain",
+            buffer: Buffer.from("not an image"),
+          },
+        },
+      },
+    );
+
+    if (invalidUploadResponse.status() !== 415) {
+      throw new Error(
+        `Invalid image MIME should return 415, got ${invalidUploadResponse.status()}`,
+      );
+    }
+
+    report("pass", "Authenticated upload API rejects invalid MIME type");
+
     await page.getByRole("button", { name: "미리보기" }).click();
     await expect(
       page.locator('[data-testid="markdown-content"] h1', { hasText: title }),
