@@ -338,6 +338,20 @@ async function assertImagesLoaded(page) {
   );
 }
 
+async function assertMagicLinkRequest(page, baseUrl, email) {
+  await page.goto(`${baseUrl}/login`);
+  await expect(page.getByRole("heading", { name: "이메일로 로그인" })).toBeVisible();
+  await page.locator('input[name="email"]').fill(email);
+
+  await Promise.all([
+    page.waitForURL(`${baseUrl}/login?sent=1`, { timeout: 30_000 }),
+    page.getByRole("button", { name: "로그인 링크 받기" }).click(),
+  ]);
+
+  await expect(page.getByText("로그인 링크를 보냈습니다.")).toBeVisible();
+  report("pass", "Registered email can request magic link", email);
+}
+
 async function main() {
   loadEnvFile(".env.local");
 
@@ -450,6 +464,8 @@ flowchart LR
   const page = await context.newPage();
 
   try {
+    await assertMagicLinkRequest(page, baseUrl, memberEmail);
+    await context.clearCookies();
     await seedBrowserSession({
       context,
       baseUrl,
