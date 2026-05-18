@@ -19,6 +19,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
+  const errorMessage =
+    params.error === "email"
+      ? "이메일을 입력해주세요."
+      : params.error === "callback"
+        ? "로그인 링크를 확인하지 못했습니다. 새 링크를 다시 요청해주세요."
+        : params.error
+          ? "로그인 처리 중 문제가 발생했습니다. 잠시 뒤 다시 시도해주세요."
+          : null;
 
   return (
     <>
@@ -44,9 +52,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               </p>
             ) : null}
 
-            {params.error ? (
+            {errorMessage ? (
               <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-                이메일을 입력해주세요.
+                {errorMessage}
               </p>
             ) : null}
 
