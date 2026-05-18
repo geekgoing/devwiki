@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
 const requiredImageTypes = [
@@ -6,6 +6,16 @@ const requiredImageTypes = [
   "image/jpeg",
   "image/webp",
   "image/gif",
+];
+const requiredServiceRoleGrantSnippets = [
+  "grant usage on schema public to service_role;",
+  "grant usage on schema private to service_role;",
+  "grant all privileges on table public.study_members to service_role;",
+  "grant all privileges on table public.documents to service_role;",
+  "grant all privileges on table public.document_revisions to service_role;",
+  "grant all privileges on table public.tags to service_role;",
+  "grant all privileges on table public.document_tags to service_role;",
+  "grant all privileges on table public.comments to service_role;",
 ];
 
 function loadEnvFile(path) {
@@ -46,8 +56,31 @@ async function expectBlocked(label, operation) {
   report("pass", label, result.error.message);
 }
 
+function assertLocalServiceRoleGrants() {
+  const migrationSql = readdirSync("supabase/migrations")
+    .filter((file) => file.endsWith(".sql"))
+    .sort()
+    .map((file) => readFileSync(`supabase/migrations/${file}`, "utf8"))
+    .join("\n")
+    .toLowerCase();
+  const missingSnippets = requiredServiceRoleGrantSnippets.filter(
+    (snippet) => !migrationSql.includes(snippet),
+  );
+
+  if (missingSnippets.length) {
+    throw new Error(
+      `Missing service_role Data API grants in migrations: ${missingSnippets.join(
+        " ",
+      )}`,
+    );
+  }
+
+  report("pass", "Local service_role Data API grants present");
+}
+
 async function main() {
   loadEnvFile(".env.local");
+  assertLocalServiceRoleGrants();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const publishableKey =
