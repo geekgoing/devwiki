@@ -90,7 +90,7 @@ async function main() {
     report(
       "warn",
       "Service role checks skipped",
-      "set SUPABASE_SERVICE_ROLE_KEY to verify members and bucket config",
+      "set SUPABASE_SERVICE_ROLE_KEY to verify members, bucket config, and revision trigger",
     );
     return;
   }
@@ -138,6 +138,64 @@ async function main() {
   }
 
   report("pass", "Storage bucket config valid", "devwiki-assets");
+
+  const probeSlug = `readiness-revision-${Date.now()}`;
+  const { data: document, error: documentError } = await admin
+    .from("documents")
+    .insert({
+      slug: probeSlug,
+      title: "Readiness Revision Probe",
+      body_markdown: "Initial body",
+      status: "draft",
+      edit_summary: "readiness insert",
+    })
+    .select("id")
+    .single();
+
+  if (documentError || !document) {
+    throw new Error(
+      `Revision probe insert failed: ${
+        documentError?.message ?? "document not returned"
+      }`,
+    );
+  }
+
+  try {
+    const { error: updateError } = await admin
+      .from("documents")
+      .update({ edit_summary: "readiness update only" })
+      .eq("id", document.id);
+
+    if (updateError) {
+      throw new Error(`Revision probe update failed: ${updateError.message}`);
+    }
+
+    const { count: revisionCount, error: revisionError } = await admin
+      .from("document_revisions")
+      .select("id", { count: "exact", head: true })
+      .eq("document_id", document.id);
+
+    if (revisionError) {
+      throw new Error(`Revision probe query failed: ${revisionError.message}`);
+    }
+
+    if ((revisionCount ?? 0) < 2) {
+      throw new Error(
+        "Revision trigger migration is not applied: update-only edit did not create a revision.",
+      );
+    }
+
+    report("pass", "Revision trigger migration applied", `${revisionCount}`);
+  } finally {
+    const { error: deleteError } = await admin
+      .from("documents")
+      .delete()
+      .eq("id", document.id);
+
+    if (deleteError) {
+      report("warn", "Revision probe cleanup failed", deleteError.message);
+    }
+  }
 }
 
 main().catch((error) => {
