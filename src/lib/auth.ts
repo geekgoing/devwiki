@@ -44,17 +44,20 @@ export const getCurrentMember = cache(async (): Promise<StudyMember | null> => {
     .from("study_members")
     .select("email, display_name, role, is_active")
     .eq("is_active", true)
-    .maybeSingle();
+    .order("created_at", { ascending: true })
+    .limit(1);
 
-  if (error || !data) {
+  const member = data?.[0];
+
+  if (error || !member) {
     return null;
   }
 
   return {
-    email: data.email,
-    displayName: data.display_name,
-    role: data.role,
-    isActive: data.is_active,
+    email: member.email,
+    displayName: member.display_name,
+    role: member.role,
+    isActive: member.is_active,
   };
 });
 
