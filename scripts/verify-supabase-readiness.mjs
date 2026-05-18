@@ -7,6 +7,25 @@ const requiredImageTypes = [
   "image/webp",
   "image/gif",
 ];
+const requiredRlsSnippets = [
+  "alter table public.study_members enable row level security;",
+  "alter table public.documents enable row level security;",
+  "alter table public.document_revisions enable row level security;",
+  "alter table public.tags enable row level security;",
+  "alter table public.document_tags enable row level security;",
+  "alter table public.comments enable row level security;",
+];
+const requiredAuthenticatedGrantSnippets = [
+  "grant usage on schema public to authenticated;",
+  "grant usage on schema private to authenticated;",
+  "grant execute on function private.is_devwiki_member() to authenticated;",
+  "grant select on public.study_members to authenticated;",
+  "grant select, insert, update on public.documents to authenticated;",
+  "grant select, insert on public.document_revisions to authenticated;",
+  "grant select, insert, update on public.tags to authenticated;",
+  "grant select, insert, delete on public.document_tags to authenticated;",
+  "grant select, insert, update, delete on public.comments to authenticated;",
+];
 const requiredServiceRoleGrantSnippets = [
   "grant usage on schema public to service_role;",
   "grant usage on schema private to service_role;",
@@ -16,6 +35,29 @@ const requiredServiceRoleGrantSnippets = [
   "grant all privileges on table public.tags to service_role;",
   "grant all privileges on table public.document_tags to service_role;",
   "grant all privileges on table public.comments to service_role;",
+];
+const requiredPolicySnippets = [
+  'create policy "users can read their own membership"',
+  'create policy "members can read documents"',
+  'create policy "members can create documents"',
+  'create policy "members can update documents"',
+  'create policy "members can read revisions"',
+  'create policy "members can insert revisions"',
+  'create policy "members can read tags"',
+  'create policy "members can create tags"',
+  'create policy "members can update tags"',
+  'create policy "members can read document tags"',
+  'create policy "members can create document tags"',
+  'create policy "members can delete document tags"',
+];
+const requiredStorageSnippets = [
+  "insert into storage.buckets",
+  "'devwiki-assets'",
+  "array['image/png', 'image/jpeg', 'image/webp', 'image/gif']",
+  'create policy "members can read devwiki assets"',
+  'create policy "members can upload devwiki assets"',
+  'create policy "members can update their devwiki assets"',
+  'create policy "members can delete their devwiki assets"',
 ];
 
 function loadEnvFile(path) {
@@ -56,31 +98,75 @@ async function expectBlocked(label, operation) {
   report("pass", label, result.error.message);
 }
 
-function assertLocalServiceRoleGrants() {
-  const migrationSql = readdirSync("supabase/migrations")
-    .filter((file) => file.endsWith(".sql"))
-    .sort()
-    .map((file) => readFileSync(`supabase/migrations/${file}`, "utf8"))
-    .join("\n")
-    .toLowerCase();
-  const missingSnippets = requiredServiceRoleGrantSnippets.filter(
-    (snippet) => !migrationSql.includes(snippet),
+function normalizeSql(value) {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function loadLocalMigrationSql() {
+  return normalizeSql(
+    readdirSync("supabase/migrations")
+      .filter((file) => file.endsWith(".sql"))
+      .sort()
+      .map((file) => readFileSync(`supabase/migrations/${file}`, "utf8"))
+      .join("\n"),
+  );
+}
+
+function assertRequiredSnippets(label, snippets, migrationSql) {
+  const missingSnippets = snippets.filter(
+    (snippet) => !migrationSql.includes(normalizeSql(snippet)),
   );
 
   if (missingSnippets.length) {
+    throw new Error(`Missing ${label}: ${missingSnippets.join(" ")}`);
+  }
+
+  report("pass", label);
+}
+
+function assertLocalSchemaSecurity() {
+  const migrationSql = loadLocalMigrationSql();
+
+  assertRequiredSnippets(
+    "Local RLS enable statements present",
+    requiredRlsSnippets,
+    migrationSql,
+  );
+  assertRequiredSnippets(
+    "Local authenticated Data API grants present",
+    requiredAuthenticatedGrantSnippets,
+    migrationSql,
+  );
+  assertRequiredSnippets(
+    "Local service_role Data API grants present",
+    requiredServiceRoleGrantSnippets,
+    migrationSql,
+  );
+  assertRequiredSnippets(
+    "Local member RLS policies present",
+    requiredPolicySnippets,
+    migrationSql,
+  );
+  assertRequiredSnippets(
+    "Local private asset storage policy present",
+    requiredStorageSnippets,
+    migrationSql,
+  );
+
+  const anonGrantPattern = /\bgrant\b[^;]*\bto\s+anon\b/;
+
+  if (anonGrantPattern.test(migrationSql)) {
     throw new Error(
-      `Missing service_role Data API grants in migrations: ${missingSnippets.join(
-        " ",
-      )}`,
+      "Local migrations must not grant DevWiki public table access to anon.",
     );
   }
 
-  report("pass", "Local service_role Data API grants present");
+  report("pass", "Local anon table grants absent");
 }
 
 async function main() {
   loadEnvFile(".env.local");
-  assertLocalServiceRoleGrants();
+  assertLocalSchemaSecurity();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const publishableKey =
