@@ -9,7 +9,10 @@ DevWiki의 첫 번째 실사용 목표는 스터디원 5명이 백엔드 기술 
 ## 전제 조건
 
 - `.env.local`에 Supabase URL과 publishable key가 설정되어 있다.
+- `.env.local`에 서버 전용 `SUPABASE_SERVICE_ROLE_KEY`가 설정되어 있다.
+- `.env.local`에 활성 스터디원 이메일인 `DEVWIKI_E2E_EMAIL`이 설정되어 있다.
 - Supabase SQL Editor에서 초기 마이그레이션이 적용되어 있다.
+- Supabase SQL Editor에서 추가 마이그레이션이 파일명 순서대로 모두 적용되어 있다.
 - `public.study_members`에 최소 1명 이상의 활성 스터디원 이메일이 등록되어 있다.
 - Supabase Auth의 이메일 로그인과 redirect URL이 로컬/배포 URL에 맞게 설정되어 있다.
 
@@ -125,21 +128,25 @@ DevWiki의 첫 번째 실사용 목표는 스터디원 5명이 백엔드 기술 
 
 ## 완료 판정
 
-아래 명령과 브라우저 시나리오가 모두 통과하면 Goal을 완료로 본다.
+아래 명령과 최종 E2E gate가 모두 통과하면 Goal을 완료로 본다.
 
 ```bash
 npm run lint
 npm run build
+npm run verify:supabase
+npm run verify:mvp
 ```
 
-브라우저 검증:
-- `/login`
-- `/`
-- `/documents/new`
-- `/documents/[slug]`
-- `/documents/[slug]/edit`
+`npm run verify:mvp`는 다음 검증을 포함한다.
+
+- Supabase readiness 검증
+- 인증된 스터디원 데이터 흐름 검증
+- 비스터디원/비로그인 차단 검증
+- 브라우저 기반 `/login`, `/`, `/documents/new`, `/documents/[slug]`, `/documents/[slug]/edit` 검증
+- Markdown, Mermaid, 이미지 업로드/렌더링 검증
+- revision, 태그, 검색 검증
 
 잔여 리스크:
 - Supabase Auth redirect URL 설정이 배포 환경과 일치하지 않으면 로그인 콜백이 실패할 수 있다.
-- Storage signed URL 또는 private bucket 조회 방식은 이미지 업로드 구현 시 별도 검증이 필요하다.
+- CI/CD 배포 환경변수는 로컬 `.env.local`과 별도로 설정해야 한다.
 - 동시 편집 충돌 처리는 MVP 범위에 포함하지 않는다.

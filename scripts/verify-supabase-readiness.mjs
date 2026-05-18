@@ -98,6 +98,66 @@ async function expectBlocked(label, operation) {
   report("pass", label, result.error.message);
 }
 
+async function ensureActiveStudyMember(admin) {
+  const e2eEmail = process.env.DEVWIKI_E2E_EMAIL?.trim().toLowerCase();
+
+  if (e2eEmail) {
+    const { data, error } = await admin
+      .from("study_members")
+      .select("email")
+      .eq("email", e2eEmail)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Study member check failed: ${error.message}`);
+    }
+
+    if (data) {
+      report("pass", "E2E study member found", e2eEmail);
+      return;
+    }
+
+    if (process.env.DEVWIKI_E2E_MANAGE_MEMBER !== "1") {
+      throw new Error(
+        `No active study_members row found for DEVWIKI_E2E_EMAIL (${e2eEmail}). Add it to study_members or set DEVWIKI_E2E_MANAGE_MEMBER=1 for test setup.`,
+      );
+    }
+
+    const { error: upsertError } = await admin.from("study_members").upsert(
+      {
+        email: e2eEmail,
+        display_name: "DevWiki E2E",
+        role: "editor",
+        is_active: true,
+      },
+      { onConflict: "email" },
+    );
+
+    if (upsertError) {
+      throw new Error(`Study member setup failed: ${upsertError.message}`);
+    }
+
+    report("pass", "E2E study member created", e2eEmail);
+    return;
+  }
+
+  const { count: memberCount, error: memberError } = await admin
+    .from("study_members")
+    .select("email", { count: "exact", head: true })
+    .eq("is_active", true);
+
+  if (memberError) {
+    throw new Error(`Study member check failed: ${memberError.message}`);
+  }
+
+  if (!memberCount) {
+    throw new Error("No active study_members rows found.");
+  }
+
+  report("pass", "Active study members found", `${memberCount}`);
+}
+
 function normalizeSql(value) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
@@ -218,20 +278,7 @@ async function main() {
     auth: { persistSession: false },
   });
 
-  const { count: memberCount, error: memberError } = await admin
-    .from("study_members")
-    .select("email", { count: "exact", head: true })
-    .eq("is_active", true);
-
-  if (memberError) {
-    throw new Error(`Study member check failed: ${memberError.message}`);
-  }
-
-  if (!memberCount) {
-    throw new Error("No active study_members rows found.");
-  }
-
-  report("pass", "Active study members found", `${memberCount}`);
+  await ensureActiveStudyMember(admin);
 
   const { data: bucket, error: bucketError } =
     await admin.storage.getBucket("devwiki-assets");
@@ -300,7 +347,7 @@ async function main() {
 
     if ((revisionCount ?? 0) < 2) {
       throw new Error(
-        "Revision trigger migration is not applied: update-only edit did not create a revision.",
+        "Revision trigger migration is not applied: update-only edit did not create a revision. Apply supabase/migrations/20260518221215_capture_every_document_update.sql.",
       );
     }
 

@@ -115,6 +115,12 @@ npm run verify:mvp
 제공하면 활성 스터디원 row, `devwiki-assets` bucket 설정, 문서 update마다
 revision이 생기는 trigger migration까지 추가로 확인합니다.
 service role 검증은 임시 `readiness-revision-*` 문서를 생성한 뒤 삭제합니다.
+`DEVWIKI_E2E_EMAIL`이 설정되어 있으면 해당 이메일이 활성 스터디원인지
+확인합니다. 테스트 이메일을 자동 등록하려면 `DEVWIKI_E2E_MANAGE_MEMBER=1`을
+함께 설정합니다.
+`Revision trigger migration is not applied` 실패가 나오면
+`20260518221215_capture_every_document_update.sql`이 아직 실제 Supabase
+프로젝트에 적용되지 않은 상태입니다.
 
 로그인된 스터디원의 실제 데이터 흐름은 아래 명령으로 추가 확인할 수 있습니다.
 

@@ -1,7 +1,7 @@
 # DevWiki MVP Completion Audit
 
-Last audited: 2026-05-18 23:35 KST
-Code baseline: `3d74bf0`
+Last audited: 2026-05-18 23:41 KST
+Code baseline before this audit update: `715b153`
 
 ## Verdict
 
@@ -9,8 +9,8 @@ Not complete yet.
 
 The implementation and local static checks are in place, but the goal requires
 the connected Supabase app to pass authenticated data and browser verification.
-That final evidence is still missing because `.env.local` does not currently
-contain `SUPABASE_SERVICE_ROLE_KEY` or `DEVWIKI_E2E_EMAIL`.
+That final evidence is still missing because the live Supabase project has not
+applied the revision trigger migration that captures every document update.
 
 ## Current Environment Evidence
 
@@ -18,31 +18,33 @@ Set in `.env.local`:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `DEVWIKI_E2E_EMAIL`
 
 Missing in `.env.local`:
 
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `DEVWIKI_E2E_EMAIL`
 - optional `DEVWIKI_E2E_MANAGE_MEMBER`
 - optional `DEVWIKI_E2E_BASE_URL`
 
-`npm run verify:mvp` currently fails at preflight with:
+`DEVWIKI_E2E_MANAGE_MEMBER=1 npm run verify:mvp` created the configured E2E
+member row and currently fails during Supabase readiness with:
 
 ```text
-MVP verification env is not ready: Missing SUPABASE_SERVICE_ROLE_KEY; Missing DEVWIKI_E2E_EMAIL
+Revision trigger migration is not applied: update-only edit did not create a revision.
 ```
 
 ## Verification Evidence Already Collected
 
-Passing commands on the current worktree:
+Passing commands on the current worktree after `715b153`:
 
 ```bash
 npm run lint
 npm run build
-npm run verify:supabase
 ```
 
-`npm run verify:supabase` confirms:
+`npm run verify:supabase` currently reaches the live Supabase checks and
+confirms the following before failing on the unapplied revision trigger
+migration:
 
 - local RLS enable statements are present
 - local authenticated Data API grants are present
@@ -52,9 +54,12 @@ npm run verify:supabase
 - local anon table grants are absent
 - anonymous document insert is blocked against the configured Supabase project
 - anonymous asset upload is blocked against the configured Supabase project
+- the configured E2E study member can be created/found when
+  `DEVWIKI_E2E_MANAGE_MEMBER=1` is used
 
-Service-role checks are intentionally skipped until `SUPABASE_SERVICE_ROLE_KEY`
-is configured.
+Service-role checks now reach the live revision trigger probe and fail until
+`supabase/migrations/20260518221215_capture_every_document_update.sql` is
+applied in the Supabase project.
 
 ## Requirement Audit
 
@@ -175,7 +180,9 @@ Automated evidence:
 - `scripts/verify-devwiki-mvp-ui.mjs` checks revision history appears on the
   detail page after edit.
 
-Current status: implemented, live trigger proof pending service-role verification.
+Current status: implemented locally, but contradicted by live Supabase evidence:
+the `20260518221215_capture_every_document_update.sql` migration is not applied
+to the configured project yet.
 
 ### 7. Tags/Search
 
@@ -222,15 +229,10 @@ Current status: implemented, final proof pending `verify:mvp`.
 
 ## Remaining Completion Steps
 
-1. Apply all files in `supabase/migrations` to the Supabase project in filename
-   order:
-   - `20260518123000_initial_devwiki.sql`
-   - `20260518141600_grant_service_role_data_api_access.sql`
-   - `20260518221215_capture_every_document_update.sql`
-2. Add a server-only `SUPABASE_SERVICE_ROLE_KEY` to `.env.local`.
-3. Add `DEVWIKI_E2E_EMAIL` to `.env.local`; it must be a lowercase active
-   `study_members.email`.
-4. Run:
+1. Apply `supabase/migrations/20260518221215_capture_every_document_update.sql`
+   to the Supabase project. The initial schema, service_role grants, E2E member,
+   and storage bucket checks have already reached live verification.
+2. Run:
 
 ```bash
 npm run verify:mvp
