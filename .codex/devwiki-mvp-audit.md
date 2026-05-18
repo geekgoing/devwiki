@@ -54,7 +54,7 @@ confirms the following:
 - local anon table grants are absent
 - anonymous document insert is blocked against the configured Supabase project
 - anonymous asset upload is blocked against the configured Supabase project
-- the configured E2E study member can be created/found when
+- the configured E2E member can be created/found when
   `DEVWIKI_E2E_MANAGE_MEMBER=1` is used
 - the `devwiki-assets` bucket config is valid
 - the revision trigger migration is applied
@@ -80,7 +80,7 @@ Implementation evidence:
   `signInWithEmail`.
 - `src/app/auth/callback/route.ts` exchanges the callback code for a session.
 - `src/lib/auth.ts` resolves the current Supabase user and active
-  `study_members` membership.
+  `members` membership.
 - `requireAuthenticatedMember` blocks non-members before write operations.
 
 Automated evidence:
