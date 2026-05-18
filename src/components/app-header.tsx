@@ -1,0 +1,63 @@
+import { BookOpen, LogIn, LogOut, Plus } from "lucide-react";
+import Link from "next/link";
+
+import { signOut } from "@/app/actions";
+import type { DevWikiUser } from "@/types/devwiki";
+
+type AppHeaderProps = {
+  configured: boolean;
+  user: DevWikiUser | null;
+};
+
+export function AppHeader({ configured, user }: AppHeaderProps) {
+  return (
+    <header className="border-b border-slate-200 bg-white">
+      <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center gap-2 text-slate-950">
+          <span className="flex size-9 items-center justify-center rounded-md bg-slate-950 text-white">
+            <BookOpen size={18} aria-hidden />
+          </span>
+          <span>
+            <span className="block text-base font-semibold leading-5">
+              DevWiki
+            </span>
+            <span className="block text-xs text-slate-500">
+              기술 면접 지식 베이스
+            </span>
+          </span>
+        </Link>
+
+        <nav className="flex items-center gap-2">
+          {configured && user ? (
+            <>
+              <Link
+                href="/documents/new"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                <Plus size={16} aria-hidden />
+                새 문서
+              </Link>
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <LogOut size={16} aria-hidden />
+                  로그아웃
+                </button>
+              </form>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
+            >
+              <LogIn size={16} aria-hidden />
+              로그인
+            </Link>
+          )}
+        </nav>
+      </div>
+    </header>
+  );
+}

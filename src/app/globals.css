@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 @theme inline {
@@ -12,15 +12,154 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
 }
 
 body {
+  min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.markdown {
+  color: #1e293b;
+  font-size: 0.975rem;
+  line-height: 1.8;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  color: #0f172a;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
+  scroll-margin-top: 5rem;
+}
+
+.markdown h1 {
+  margin: 0 0 1rem;
+  font-size: 2rem;
+}
+
+.markdown h2 {
+  margin: 2rem 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 1.35rem;
+}
+
+.markdown h3 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote,
+.markdown pre,
+.markdown table {
+  margin: 0.9rem 0;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.25rem;
+}
+
+.markdown li + li {
+  margin-top: 0.25rem;
+}
+
+.markdown a {
+  color: #2563eb;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.markdown blockquote {
+  border-left: 3px solid #cbd5e1;
+  color: #475569;
+  padding-left: 1rem;
+}
+
+.markdown code {
+  border-radius: 0.3rem;
+  background: #f1f5f9;
+  color: #334155;
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.88em;
+  padding: 0.12rem 0.28rem;
+}
+
+.markdown pre {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem;
+}
+
+.markdown pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+}
+
+.markdown th,
+.markdown td {
+  border: 1px solid #e2e8f0;
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown th {
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.cm-editor {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.92rem;
+}
+
+.cm-focused {
+  outline: none !important;
 }
