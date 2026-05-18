@@ -7,6 +7,17 @@ const REQUIRED_ENV = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "DEVWIKI_E2E_EMAIL",
 ];
+const PUBLIC_KEY_ENV = [
+  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+];
+const PLACEHOLDER_VALUES = new Set([
+  "https://your-project-ref.supabase.co",
+  "sb_publishable_your_key",
+  "your_legacy_anon_key",
+  "your_service_role_key",
+  "you@example.com",
+]);
 
 function loadEnvFile(path) {
   try {
@@ -36,20 +47,180 @@ function report(status, label, detail = "") {
   console.log(`${prefix} ${label}${detail ? ` - ${detail}` : ""}`);
 }
 
-function ensureRequiredEnv() {
-  const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
+function envValue(key) {
+  return process.env[key]?.trim() ?? "";
+}
 
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY &&
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    missing.push(
-      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY",
+function getJwtRole(value) {
+  const parts = value.split(".");
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf8"),
+    );
+
+    return typeof payload.role === "string" ? payload.role : null;
+  } catch {
+    return null;
+  }
+}
+
+function getSupabaseKeyKind(value) {
+  if (value.startsWith("sb_publishable_")) {
+    return "publishable";
+  }
+
+  if (value.startsWith("sb_secret_")) {
+    return "secret";
+  }
+
+  const jwtRole = getJwtRole(value);
+
+  if (jwtRole === "anon" || jwtRole === "service_role") {
+    return jwtRole;
+  }
+
+  return "unknown";
+}
+
+function validateUrlEnv(problems, key) {
+  const value = envValue(key);
+
+  if (!value) {
+    return;
+  }
+
+  try {
+    new URL(value);
+  } catch {
+    problems.push(`${key} must be a valid URL`);
+  }
+}
+
+function validatePublicKey(problems, key) {
+  const value = envValue(key);
+
+  if (!value) {
+    return;
+  }
+
+  const kind = getSupabaseKeyKind(value);
+
+  if (kind === "secret" || kind === "service_role") {
+    problems.push(`${key} must not contain a Supabase secret/service role key`);
+    return;
+  }
+
+  if (kind === "unknown") {
+    problems.push(
+      `${key} must be an sb_publishable_ key or a legacy anon JWT key`,
+    );
+  }
+}
+
+function validateServiceRoleKey(problems) {
+  const value = envValue("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!value) {
+    return;
+  }
+
+  const kind = getSupabaseKeyKind(value);
+
+  if (kind !== "secret" && kind !== "service_role") {
+    problems.push(
+      "SUPABASE_SERVICE_ROLE_KEY must be an sb_secret_ key or a legacy service_role JWT key",
     );
   }
 
-  if (missing.length) {
-    throw new Error(`Missing required MVP verification env: ${missing.join(", ")}`);
+  for (const publicKey of PUBLIC_KEY_ENV) {
+    if (value && value === envValue(publicKey)) {
+      problems.push(`SUPABASE_SERVICE_ROLE_KEY must not equal ${publicKey}`);
+    }
+  }
+}
+
+function validateEmailEnv(problems) {
+  const value = envValue("DEVWIKI_E2E_EMAIL");
+
+  if (!value) {
+    return;
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    problems.push("DEVWIKI_E2E_EMAIL must be a valid email address");
+  }
+
+  if (value !== value.toLowerCase()) {
+    problems.push(
+      "DEVWIKI_E2E_EMAIL must be lowercase to match study_members.email",
+    );
+  }
+}
+
+function validatePortEnv(problems) {
+  const value = envValue("DEVWIKI_E2E_PORT");
+
+  if (!value) {
+    return;
+  }
+
+  const port = Number(value);
+
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    problems.push("DEVWIKI_E2E_PORT must be an integer between 1 and 65535");
+  }
+}
+
+function ensureRequiredEnv() {
+  const problems = [];
+
+  for (const key of REQUIRED_ENV) {
+    if (!envValue(key)) {
+      problems.push(`Missing ${key}`);
+    }
+  }
+
+  if (!PUBLIC_KEY_ENV.some((key) => envValue(key))) {
+    problems.push(
+      "Missing NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    );
+  }
+
+  for (const key of [
+    ...REQUIRED_ENV,
+    ...PUBLIC_KEY_ENV,
+    "NEXT_PUBLIC_SITE_URL",
+    "DEVWIKI_E2E_BASE_URL",
+    "DEVWIKI_E2E_PORT",
+  ]) {
+    const value = envValue(key);
+
+    if (value && PLACEHOLDER_VALUES.has(value)) {
+      problems.push(`${key} still contains an .env.example placeholder`);
+    }
+  }
+
+  validateUrlEnv(problems, "NEXT_PUBLIC_SUPABASE_URL");
+  validateUrlEnv(problems, "NEXT_PUBLIC_SITE_URL");
+  validateUrlEnv(problems, "DEVWIKI_E2E_BASE_URL");
+
+  for (const key of PUBLIC_KEY_ENV) {
+    validatePublicKey(problems, key);
+  }
+
+  validateServiceRoleKey(problems);
+  validateEmailEnv(problems);
+  validatePortEnv(problems);
+
+  if (problems.length) {
+    throw new Error(
+      `MVP verification env is not ready: ${problems.join("; ")}`,
+    );
   }
 }
 
