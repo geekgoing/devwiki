@@ -1,5 +1,6 @@
-import Link from "next/link";
+import { LogOut } from "lucide-react";
 
+import { signOut } from "@/app/actions";
 import type { DevWikiUser } from "@/types/devwiki";
 
 export function MemberGate({ user }: { user: DevWikiUser }) {
@@ -13,12 +14,15 @@ export function MemberGate({ user }: { user: DevWikiUser }) {
         등록되어 있지 않습니다. Supabase SQL Editor에서 이메일을 등록한 뒤
         다시 시도하세요.
       </p>
-      <Link
-        href="/login"
-        className="mt-4 inline-flex h-9 items-center rounded-md border border-amber-300 bg-white px-3 text-sm font-medium text-amber-950 transition hover:bg-amber-100"
-      >
-        다른 이메일로 로그인
-      </Link>
+      <form action={signOut}>
+        <button
+          type="submit"
+          className="mt-4 inline-flex h-9 items-center gap-2 rounded-md border border-amber-300 bg-white px-3 text-sm font-medium text-amber-950 transition hover:bg-amber-100"
+        >
+          <LogOut size={16} aria-hidden />
+          로그아웃하고 다시 로그인
+        </button>
+      </form>
     </section>
   );
 }
