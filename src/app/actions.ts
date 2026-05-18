@@ -139,7 +139,8 @@ export async function signInWithEmail(formData: FormData) {
   });
 
   if (error) {
-    throw new Error(error.message);
+    const reason = /rate limit/i.test(error.message) ? "rate-limit" : "auth";
+    redirect(`/login?error=${reason}`);
   }
 
   redirect("/login?sent=1");

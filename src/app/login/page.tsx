@@ -24,6 +24,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       ? "이메일을 입력해주세요."
       : params.error === "callback"
         ? "로그인 링크를 확인하지 못했습니다. 새 링크를 다시 요청해주세요."
+        : params.error === "rate-limit"
+          ? "로그인 링크 요청이 잠시 제한되었습니다. 잠시 뒤 다시 시도해주세요."
         : params.error
           ? "로그인 처리 중 문제가 발생했습니다. 잠시 뒤 다시 시도해주세요."
           : null;
