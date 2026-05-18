@@ -90,7 +90,12 @@ Supabase Dashboard에서 이메일 OTP/magic link 로그인을 켜고 redirect U
 ```bash
 npm run lint
 npm run build
+npm run verify:supabase
 ```
+
+`npm run verify:supabase`는 publishable key만으로 비로그인 문서 쓰기와 이미지
+업로드가 차단되는지 확인합니다. `SUPABASE_SERVICE_ROLE_KEY`를 환경변수로
+제공하면 활성 스터디원 row와 `devwiki-assets` bucket 설정도 추가로 확인합니다.
 
 ## Notes
 
