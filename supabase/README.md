@@ -99,6 +99,19 @@ npm run verify:supabase
 revision이 생기는 trigger migration까지 추가로 확인합니다.
 service role 검증은 임시 `readiness-revision-*` 문서를 생성한 뒤 삭제합니다.
 
+로그인된 스터디원의 실제 데이터 흐름은 아래 명령으로 추가 확인할 수 있습니다.
+
+```bash
+DEVWIKI_E2E_EMAIL="you@example.com" npm run verify:mvp-data
+```
+
+`verify:mvp-data`는 `SUPABASE_SERVICE_ROLE_KEY`가 있을 때만 실행됩니다. 이
+명령은 admin magic link로 테스트 세션을 만들고, 스터디원/비스터디원 권한,
+문서 생성/수정, Markdown 원문 보존, tag 갱신, 이미지 업로드, revision 생성을
+검증합니다. 테스트 문서, 이미지, tag, 임시 비스터디원 auth user는 실행 후
+삭제합니다. 테스트 이메일을 `study_members`에 자동 등록하려면
+`DEVWIKI_E2E_MANAGE_MEMBER=1`을 함께 설정합니다.
+
 ## Notes
 
 New Supabase projects may not expose SQL-created tables to the Data API
