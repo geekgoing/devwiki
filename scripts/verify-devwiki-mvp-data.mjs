@@ -235,6 +235,7 @@ async function main() {
   const nonce = Date.now();
   const slug = `mvp-e2e-${nonce}`;
   const title = `멱등성 테스트 ${nonce}`;
+  const updatedTitle = `${title} 수정`;
   const assetPath = `mvp-e2e/${slug}/diagram.png`;
   const imageMarkdown = `![idempotency diagram](/api/assets/${encodeAssetPath(
     assetPath,
@@ -392,6 +393,7 @@ ${imageMarkdown}
     const { error: updateError } = await memberSession.client
       .from("documents")
       .update({
+        title: updatedTitle,
         summary: "MVP 데이터 E2E 수정 검증",
         body_markdown: updatedMarkdown,
         status: "published",
@@ -488,11 +490,12 @@ ${imageMarkdown}
     }
 
     if (
+      detail.title !== updatedTitle ||
       detail.status !== "published" ||
       !tagNames.includes("Revision Probe") ||
       !tagNames.includes("Search Probe")
     ) {
-      throw new Error("Document detail does not reflect updated status/tags.");
+      throw new Error("Document detail does not reflect updated title/status/tags.");
     }
 
     report("pass", "Markdown body and updated tags persisted");

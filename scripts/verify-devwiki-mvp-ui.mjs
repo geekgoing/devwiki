@@ -124,6 +124,17 @@ function tagSlugs(nonce) {
   ];
 }
 
+function slugify(value, maxLength = 80) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, maxLength)
+    .replace(/^-+|-+$/g, "");
+}
+
 async function ensureActiveMember(admin, email) {
   const { data, error } = await admin
     .from("study_members")
@@ -373,6 +384,49 @@ flowchart LR
   report("pass", "Mermaid syntax error preview rendered");
 }
 
+async function createDocumentWithAutoSlug({
+  page,
+  baseUrl,
+  title,
+  expectedSlug,
+  summary,
+  cleanupSlugs,
+}) {
+  cleanupSlugs.add(expectedSlug);
+  await page.goto(`${baseUrl}/documents/new`);
+  await expect(page.locator('[data-testid="document-editor"]')).toBeVisible();
+  await page.locator('input[name="title"]').fill(title);
+  await expect(page.locator('input[name="slug"]')).toHaveValue(expectedSlug);
+  await page.locator('input[name="slug"]').fill("");
+  await page.locator('input[name="summary"]').fill(summary);
+  await page.locator('input[name="edit_summary"]').fill("mvp ui auto slug");
+  await fillMarkdownEditor(
+    page,
+    `# ${title}\n\n자동 slug 생성과 중복 회피를 검증합니다.`,
+    "자동 slug 생성",
+  );
+
+  await Promise.all([
+    page.waitForURL(
+      (nextUrl) =>
+        decodeURIComponent(nextUrl.pathname) !== "/documents/new" &&
+        decodeURIComponent(nextUrl.pathname).startsWith("/documents/"),
+    ),
+    page.getByRole("button", { name: "저장" }).click(),
+  ]);
+
+  const actualSlug = decodeURIComponent(
+    new URL(page.url()).pathname.split("/").pop() ?? "",
+  );
+  cleanupSlugs.add(actualSlug);
+
+  if (actualSlug !== expectedSlug) {
+    throw new Error(`Expected auto slug ${expectedSlug}, got ${actualSlug}`);
+  }
+
+  await expect(page.getByRole("heading", { name: title })).toBeVisible();
+}
+
 async function main() {
   loadEnvFile(".env.local");
 
@@ -406,6 +460,7 @@ async function main() {
   const nonce = Date.now();
   const slug = `ui-e2e-${nonce}`;
   const title = `멱등성 UI 테스트 ${nonce}`;
+  const updatedTitle = `${title} 수정`;
   const searchTag = `Search Probe ${nonce}`;
   const createSummary = "UI E2E 생성 검증";
   const updateSummary = "UI E2E 수정 검증";
@@ -440,6 +495,7 @@ flowchart LR
 \`\`\`
 `;
   const assetPaths = new Set();
+  const documentSlugs = new Set([slug]);
   let browser;
 
   await ensureActiveMember(admin, memberEmail);
@@ -585,6 +641,7 @@ flowchart LR
 문서 수정 시 본문, 상태, 태그, 변경 이력이 함께 갱신되어야 합니다.
 `;
     await page.locator('input[name="summary"]').fill(updateSummary);
+    await page.locator('input[name="title"]').fill(updatedTitle);
     await page.locator('input[name="tags"]').fill(updateTags);
     await page.locator('input[name="edit_summary"]').fill("mvp ui update");
     await page.locator('select[name="status"]').selectOption("published");
@@ -594,6 +651,7 @@ flowchart LR
       page.waitForURL(`${baseUrl}/documents/${slug}`),
       page.getByRole("button", { name: "저장" }).click(),
     ]);
+    await expect(page.getByRole("heading", { name: updatedTitle })).toBeVisible();
     await expect(page.getByText(updateSummary)).toBeVisible();
     await expect(page.getByText(`Revision UI ${nonce}`)).toBeVisible();
     await expect(page.locator('[data-testid="revision-history"]')).toContainText(
@@ -604,9 +662,30 @@ flowchart LR
     );
     report("pass", "Document edit and revision history rendered");
 
+    const autoSlugTitle = `자동 슬러그 테스트 ${nonce}`;
+    const autoSlug = slugify(autoSlugTitle);
+
+    await createDocumentWithAutoSlug({
+      page,
+      baseUrl,
+      title: autoSlugTitle,
+      expectedSlug: autoSlug,
+      summary: "자동 slug 생성 검증",
+      cleanupSlugs: documentSlugs,
+    });
+    await createDocumentWithAutoSlug({
+      page,
+      baseUrl,
+      title: autoSlugTitle,
+      expectedSlug: `${autoSlug}-2`,
+      summary: "중복 slug 회피 검증",
+      cleanupSlugs: documentSlugs,
+    });
+    report("pass", "Auto slug generation and duplicate slug avoidance verified");
+
     await page.goto(`${baseUrl}/?q=${encodeURIComponent(searchTag)}`);
     await expect(
-      page.locator('[data-testid="document-card"]').filter({ hasText: title }),
+      page.locator('[data-testid="document-card"]').filter({ hasText: updatedTitle }),
     ).toBeVisible();
     await page.goto(`${baseUrl}/?q=${encodeURIComponent(`no-result-${nonce}`)}`);
     await expect(page.getByText("검색 결과가 없습니다")).toBeVisible();
@@ -642,7 +721,7 @@ flowchart LR
     const { data: documents, error: documentLookupError } = await admin
       .from("documents")
       .select("id, body_markdown")
-      .eq("slug", slug);
+      .in("slug", [...documentSlugs]);
 
     if (documentLookupError) {
       report(
