@@ -240,6 +240,11 @@ async function main() {
   const imageMarkdown = `![idempotency diagram](/api/assets/${encodeAssetPath(
     assetPath,
   )})`;
+  const longMarkdownSection = Array.from(
+    { length: 30 },
+    (_, index) =>
+      `- 긴 문서 항목 ${index + 1}: 면접 답변을 확장해도 Markdown 원문이 유지됩니다.`,
+  ).join("\n");
   const baseMarkdown = `# ${title}
 
 ## 핵심 정의
@@ -250,6 +255,10 @@ async function main() {
 - 재시도 가능한 작업은 부작용을 중복 적용하지 않습니다.
 
 참고: [Supabase Auth](https://supabase.com/docs/guides/auth)
+
+## 긴 문서 검증
+
+${longMarkdownSection}
 
 | 항목 | 설명 |
 | --- | --- |
@@ -477,6 +486,7 @@ ${imageMarkdown}
 
     for (const requiredText of [
       "- 같은 key는 같은 결과를 반환해야 합니다.",
+      "긴 문서 항목 30",
       "[Supabase Auth](https://supabase.com/docs/guides/auth)",
       "| 항목 | 설명 |",
       "```ts",

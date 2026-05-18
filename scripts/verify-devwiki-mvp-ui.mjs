@@ -135,6 +135,14 @@ function slugify(value, maxLength = 80) {
     .replace(/^-+|-+$/g, "");
 }
 
+function makeLongMarkdownSection() {
+  return Array.from(
+    { length: 30 },
+    (_, index) =>
+      `- 긴 문서 항목 ${index + 1}: 면접 답변을 확장해도 에디터와 미리보기가 유지됩니다.`,
+  ).join("\n");
+}
+
 async function ensureActiveMember(admin, email) {
   const { data, error } = await admin
     .from("study_members")
@@ -349,6 +357,13 @@ async function assertImagesLoaded(page) {
   );
 }
 
+async function assertMermaidDiagramCount(page, count) {
+  await expect(page.locator('[data-testid="mermaid-block"] svg')).toHaveCount(
+    count,
+    { timeout: 15_000 },
+  );
+}
+
 async function assertMagicLinkRequest(page, baseUrl, email) {
   await page.goto(`${baseUrl}/login`);
   await expect(page.getByRole("heading", { name: "이메일로 로그인" })).toBeVisible();
@@ -466,6 +481,7 @@ async function main() {
   const updateSummary = "UI E2E 수정 검증";
   const createTags = `UI E2E ${nonce}, Mermaid UI ${nonce}, ${searchTag}`;
   const updateTags = `Revision UI ${nonce}, ${searchTag}`;
+  const longMarkdownSection = makeLongMarkdownSection();
   const baseMarkdown = `# ${title}
 
 ## 핵심 정의
@@ -476,6 +492,10 @@ async function main() {
 - 재시도 가능한 작업은 부작용을 중복 적용하지 않습니다.
 
 참고: [Supabase Auth](https://supabase.com/docs/guides/auth)
+
+## 긴 문서 검증
+
+${longMarkdownSection}
 
 | 항목 | 설명 |
 | --- | --- |
@@ -492,6 +512,17 @@ flowchart LR
   API --> Store[(Processed Keys)]
   Store --> API
   API --> Client
+\`\`\`
+
+\`\`\`mermaid
+sequenceDiagram
+  participant Client
+  participant API
+  participant DB
+  Client->>API: POST /payments with Idempotency-Key
+  API->>DB: Find processed key
+  DB-->>API: Existing result
+  API-->>Client: Same response
 \`\`\`
 `;
   const assetPaths = new Set();
@@ -557,6 +588,9 @@ flowchart LR
     await page.goto(baseUrl);
     await expect(page.getByText("백엔드 면접 개념 사전")).toBeVisible();
     await expect(page.getByRole("link", { name: /새 문서/ })).toBeVisible();
+    await expect(
+      page.getByText("Supabase 연결 전 미리보기 모드입니다."),
+    ).toHaveCount(0);
     report("pass", "Magic link browser session established");
 
     await page.goto(`${baseUrl}/documents/new`);
@@ -570,6 +604,10 @@ flowchart LR
     await fillMarkdownEditor(page, baseMarkdown, "retry-safe-command");
     await assertMermaidErrorPreview(page, baseMarkdown);
     await fillMarkdownEditor(page, baseMarkdown, "retry-safe-command");
+    await page.getByRole("button", { name: "편집" }).click();
+    await expect(page.locator(".cm-content").first()).toBeVisible();
+    await page.getByRole("button", { name: "분할" }).click();
+    await expect(page.locator('[data-testid="markdown-content"]')).toBeVisible();
 
     await page.locator('[data-testid="image-input"]').setInputFiles({
       name: "diagram.png",
@@ -599,13 +637,16 @@ flowchart LR
       }),
     ).toBeVisible();
     await expect(
+      page.locator('[data-testid="markdown-content"] li', {
+        hasText: "긴 문서 항목 30",
+      }),
+    ).toBeVisible();
+    await expect(
       page.getByRole("link", { name: "Supabase Auth" }),
     ).toHaveAttribute("href", /^https:\/\/supabase\.com\/docs\/guides\/auth\/?$/);
     await expect(page.locator('[data-testid="markdown-content"] table')).toBeVisible();
     await expect(page.locator('[data-testid="markdown-content"] pre')).toBeVisible();
-    await expect(page.locator('[data-testid="mermaid-block"] svg')).toBeVisible({
-      timeout: 15_000,
-    });
+    await assertMermaidDiagramCount(page, 2);
     await expect(page.locator('[data-testid="markdown-content"] img')).toBeVisible();
     await assertImagesLoaded(page);
     report("pass", "Editor Markdown, Mermaid, and image preview rendered");
@@ -622,12 +663,15 @@ flowchart LR
       }),
     ).toBeVisible();
     await expect(
+      page.locator('[data-testid="markdown-content"] li', {
+        hasText: "긴 문서 항목 30",
+      }),
+    ).toBeVisible();
+    await expect(
       page.getByRole("link", { name: "Supabase Auth" }),
     ).toHaveAttribute("href", /^https:\/\/supabase\.com\/docs\/guides\/auth\/?$/);
     await expect(page.locator('[data-testid="markdown-content"] table')).toBeVisible();
-    await expect(page.locator('[data-testid="mermaid-block"] svg')).toBeVisible({
-      timeout: 15_000,
-    });
+    await assertMermaidDiagramCount(page, 2);
     await expect(page.locator('[data-testid="markdown-content"] img')).toBeVisible();
     await assertImagesLoaded(page);
     report("pass", "Document detail rendered Markdown, Mermaid, and image");
@@ -685,8 +729,18 @@ flowchart LR
 
     await page.goto(`${baseUrl}/?q=${encodeURIComponent(searchTag)}`);
     await expect(
-      page.locator('[data-testid="document-card"]').filter({ hasText: updatedTitle }),
+      page.getByText("Supabase 연결 전 미리보기 모드입니다."),
+    ).toHaveCount(0);
+    const resultCard = page
+      .locator('[data-testid="document-card"]')
+      .filter({ hasText: updatedTitle });
+    await expect(
+      resultCard,
     ).toBeVisible();
+    await expect(resultCard).toContainText(updateSummary);
+    await expect(resultCard).toContainText("공개");
+    await expect(resultCard).toContainText(`Revision UI ${nonce}`);
+    await expect(resultCard.locator("time")).toBeVisible();
     await page.goto(`${baseUrl}/?q=${encodeURIComponent(`no-result-${nonce}`)}`);
     await expect(page.getByText("검색 결과가 없습니다")).toBeVisible();
     report("pass", "Tag search and empty search state verified");
