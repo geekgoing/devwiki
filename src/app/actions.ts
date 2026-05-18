@@ -199,8 +199,20 @@ export async function updateDocument(formData: FormData) {
     throw new Error("수정할 문서 ID가 없습니다.");
   }
 
+  const { data: currentDocument, error: currentDocumentError } = await supabase
+    .from("documents")
+    .select("slug")
+    .eq("id", parsed.id)
+    .single();
+
+  if (currentDocumentError || !currentDocument) {
+    throw new Error(
+      currentDocumentError?.message ?? "수정할 문서를 찾을 수 없습니다.",
+    );
+  }
+
   const slug = await uniqueSlug(slugify(parsed.slug || parsed.title), parsed.id);
-  const { error } = await supabase
+  const { data: updatedDocument, error } = await supabase
     .from("documents")
     .update({
       slug,
@@ -211,15 +223,20 @@ export async function updateDocument(formData: FormData) {
       updated_by: user.id,
       edit_summary: parsed.editSummary || "문서 수정",
     })
-    .eq("id", parsed.id);
+    .eq("id", parsed.id)
+    .select("slug")
+    .single();
 
-  if (error) {
-    throw new Error(error.message);
+  if (error || !updatedDocument) {
+    throw new Error(error?.message ?? "문서를 수정하지 못했습니다.");
   }
 
   await syncTags(supabase, parsed.id, parsed.tags);
   revalidatePath("/");
+  revalidatePath(`/documents/${currentDocument.slug}`);
+  revalidatePath(`/documents/${currentDocument.slug}/edit`);
   revalidatePath(`/documents/${slug}`);
+  revalidatePath(`/documents/${slug}/edit`);
   redirect(`/documents/${slug}`);
 }
 
