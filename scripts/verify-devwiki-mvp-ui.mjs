@@ -4,6 +4,7 @@ import { chromium, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
 const DEVWIKI_ASSETS_BUCKET = "devwiki-assets";
+const COOKIE_CHUNK_SIZE = 3180;
 const tinyPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
   "base64",
@@ -47,6 +48,58 @@ function skipOrFail(message) {
 
 function decodeAssetPath(path) {
   return path.split("/").map(decodeURIComponent).join("/");
+}
+
+function getStorageKey(supabaseUrl) {
+  return `sb-${new URL(supabaseUrl).hostname.split(".")[0]}-auth-token`;
+}
+
+function createCookieChunks(name, value) {
+  const encodedValue = encodeURIComponent(value);
+
+  if (encodedValue.length <= COOKIE_CHUNK_SIZE) {
+    return [{ name, value }];
+  }
+
+  const chunks = [];
+  let remaining = encodedValue;
+
+  while (remaining.length > 0) {
+    let encodedChunk = remaining.slice(0, COOKIE_CHUNK_SIZE);
+    const lastEscapePos = encodedChunk.lastIndexOf("%");
+
+    if (lastEscapePos > COOKIE_CHUNK_SIZE - 3) {
+      encodedChunk = encodedChunk.slice(0, lastEscapePos);
+    }
+
+    let chunk = "";
+
+    while (encodedChunk.length > 0) {
+      try {
+        chunk = decodeURIComponent(encodedChunk);
+        break;
+      } catch (error) {
+        if (
+          error instanceof URIError &&
+          encodedChunk.at(-3) === "%" &&
+          encodedChunk.length > 3
+        ) {
+          encodedChunk = encodedChunk.slice(0, encodedChunk.length - 3);
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    chunks.push(chunk);
+    remaining = remaining.slice(encodedChunk.length);
+  }
+
+  return chunks.map((chunk, index) => ({
+    name: `${name}.${index}`,
+    value: chunk,
+  }));
 }
 
 function extractAssetPaths(markdown = "") {
@@ -111,25 +164,149 @@ async function ensureActiveMember(admin, email) {
   report("pass", "Active study member created", email);
 }
 
-async function generateActionLink({ admin, email, redirectTo }) {
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-    options: { redirectTo },
+async function createMagicLinkSession({
+  url,
+  publishableKey,
+  admin,
+  email,
+  redirectTo,
+}) {
+  const { data: linkData, error: linkError } =
+    await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      options: { redirectTo },
+    });
+
+  if (linkError) {
+    throw new Error(`Magic link generation failed: ${linkError.message}`);
+  }
+
+  const properties = linkData?.properties ?? {};
+  const tokenHash = properties.hashed_token ?? properties.hashedToken;
+  const emailOtp = properties.email_otp ?? properties.emailOtp;
+  const client = createClient(url, publishableKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+  const verifyParams = tokenHash
+    ? { email, token_hash: tokenHash, type: "email" }
+    : { email, token: emailOtp, type: "email" };
+
+  if (!tokenHash && !emailOtp) {
+    throw new Error("Magic link did not return a token hash or OTP.");
+  }
+
+  const { data: authData, error: verifyError } =
+    await client.auth.verifyOtp(verifyParams);
+
+  if (verifyError || !authData.session || !authData.user) {
+    throw new Error(
+      `Magic link verification failed: ${
+        verifyError?.message ?? "session was not returned"
+      }`,
+    );
+  }
+
+  return {
+    session: authData.session,
+    user: authData.user,
+  };
+}
+
+async function seedBrowserSession({ context, baseUrl, supabaseUrl, session }) {
+  const storageKey = getStorageKey(supabaseUrl);
+  const encodedSession = `base64-${Buffer.from(
+    JSON.stringify(session),
+  ).toString("base64url")}`;
+  const chunks = createCookieChunks(storageKey, encodedSession);
+  const expires = Math.floor(Date.now() / 1000) + 400 * 24 * 60 * 60;
+
+  await context.addCookies(
+    chunks.map((chunk) => ({
+      name: chunk.name,
+      value: chunk.value,
+      url: baseUrl,
+      path: "/",
+      expires,
+      httpOnly: false,
+      secure: new URL(baseUrl).protocol === "https:",
+      sameSite: "Lax",
+    })),
+  );
+}
+
+async function assertNonMemberBlocked({ url, publishableKey, admin, redirectTo }) {
+  const email = `devwiki-ui-nonmember-${Date.now()}@example.com`;
+  let userId = null;
+
+  const { data: linkData, error: linkError } =
+    await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      options: { redirectTo },
+    });
+
+  if (linkError) {
+    throw new Error(`Non-member magic link generation failed: ${linkError.message}`);
+  }
+
+  const properties = linkData?.properties ?? {};
+  const tokenHash = properties.hashed_token ?? properties.hashedToken;
+  const emailOtp = properties.email_otp ?? properties.emailOtp;
+  const client = createClient(url, publishableKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
   });
 
-  if (error) {
-    throw new Error(`Magic link generation failed: ${error.message}`);
+  if (!tokenHash && !emailOtp) {
+    throw new Error("Non-member magic link did not return a token hash or OTP.");
   }
 
-  const properties = data?.properties ?? {};
-  const actionLink = properties.action_link ?? properties.actionLink;
+  try {
+    const { data: authData, error: verifyError } = await client.auth.verifyOtp(
+      tokenHash
+        ? { email, token_hash: tokenHash, type: "email" }
+        : { email, token: emailOtp, type: "email" },
+    );
 
-  if (!actionLink) {
-    throw new Error("Magic link did not return an action link.");
+    if (verifyError || !authData.user) {
+      throw new Error(
+        `Non-member magic link verification failed: ${
+          verifyError?.message ?? "user was not returned"
+        }`,
+      );
+    }
+
+    userId = authData.user.id;
+
+    const { error } = await client.from("documents").insert({
+      slug: `blocked-ui-${Date.now()}`,
+      title: "Blocked UI non-member document",
+      body_markdown: "This insert must be blocked.",
+      status: "draft",
+      created_by: authData.user.id,
+      updated_by: authData.user.id,
+    });
+
+    if (!error) {
+      throw new Error("Non-member document insert unexpectedly succeeded.");
+    }
+
+    report("pass", "Non-member document insert blocked", error.message);
+  } finally {
+    if (userId) {
+      const { error: deleteUserError } = await admin.auth.admin.deleteUser(userId);
+
+      if (deleteUserError) {
+        report("warn", "UI E2E non-member cleanup failed", deleteUserError.message);
+      }
+    }
   }
-
-  return actionLink;
 }
 
 async function fillMarkdownEditor(page, markdown, marker) {
@@ -165,12 +342,17 @@ async function main() {
   loadEnvFile(".env.local");
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const publishableKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const memberEmail = process.env.DEVWIKI_E2E_EMAIL?.trim().toLowerCase();
   const baseUrl = process.env.DEVWIKI_E2E_BASE_URL ?? "http://localhost:3000";
 
-  if (!url) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL is required.");
+  if (!url || !publishableKey) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are required.",
+    );
   }
 
   if (!serviceRoleKey || !memberEmail) {
@@ -236,12 +418,21 @@ flowchart LR
     );
   }
 
-  const actionLink = await generateActionLink({
+  await assertNonMemberBlocked({
+    url,
+    publishableKey,
+    admin,
+    redirectTo: `${baseUrl}/auth/callback`,
+  });
+
+  const memberSession = await createMagicLinkSession({
+    url,
+    publishableKey,
     admin,
     email: memberEmail,
     redirectTo: `${baseUrl}/auth/callback`,
   });
-  report("pass", "Magic link action link generated", memberEmail);
+  report("pass", "Magic link member session created", memberEmail);
 
   try {
     browser = await chromium.launch({
@@ -259,11 +450,13 @@ flowchart LR
   const page = await context.newPage();
 
   try {
-    await page.goto(actionLink);
-    await page.waitForURL(
-      (currentUrl) => currentUrl.origin === new URL(baseUrl).origin,
-      { timeout: 30_000 },
-    );
+    await seedBrowserSession({
+      context,
+      baseUrl,
+      supabaseUrl: url,
+      session: memberSession.session,
+    });
+    await page.goto(baseUrl);
     await expect(page.getByText("백엔드 면접 개념 사전")).toBeVisible();
     await expect(page.getByRole("link", { name: /새 문서/ })).toBeVisible();
     report("pass", "Magic link browser session established");
