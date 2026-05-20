@@ -73,3 +73,13 @@ export async function requireAuthenticatedMember() {
     member,
   };
 }
+
+export async function requireOwnerMember() {
+  const auth = await requireAuthenticatedMember();
+
+  if (auth.member.role !== "owner") {
+    throw new Error("owner 권한이 필요합니다.");
+  }
+
+  return auth;
+}

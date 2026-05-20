@@ -28,7 +28,12 @@ export default async function Home({ searchParams }: HomeProps) {
 
   return (
     <>
-      <AppHeader configured={configured} canCreate={Boolean(member)} user={user} />
+      <AppHeader
+        configured={configured}
+        canCreate={Boolean(member)}
+        canManageMembers={member?.role === "owner"}
+        user={user}
+      />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-6">
           {!configured ? <SetupNotice /> : null}

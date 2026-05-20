@@ -12,6 +12,13 @@ export type Member = {
   isActive: boolean;
 };
 
+export type AdminMember = Member & {
+  createdAt: string;
+  authUserId: string | null;
+  authConfirmedAt: string | null;
+  lastSignInAt: string | null;
+};
+
 export type Tag = {
   id: string;
   name: string;

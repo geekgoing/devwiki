@@ -57,7 +57,12 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
 
   return (
     <>
-      <AppHeader configured={configured} canCreate={Boolean(member)} user={user} />
+      <AppHeader
+        configured={configured}
+        canCreate={Boolean(member)}
+        canManageMembers={member?.role === "owner"}
+        user={user}
+      />
       <main className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
         <article className="min-w-0">
           <div className="mb-6 flex flex-wrap items-start justify-between gap-4">

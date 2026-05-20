@@ -33,7 +33,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <>
-      <AppHeader configured={configured} canCreate={Boolean(member)} user={user} />
+      <AppHeader
+        configured={configured}
+        canCreate={Boolean(member)}
+        canManageMembers={member?.role === "owner"}
+        user={user}
+      />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6">
         <div className="space-y-5">
           {!configured ? <SetupNotice /> : null}
