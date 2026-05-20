@@ -22,6 +22,11 @@ const documentSchema = z.object({
   editSummary: z.string().trim().max(160).optional(),
 });
 
+const restoreRevisionSchema = z.object({
+  documentId: z.string().uuid(),
+  revisionId: z.string().uuid(),
+});
+
 function readString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value : "";
@@ -248,6 +253,58 @@ export async function updateDocument(formData: FormData) {
   revalidatePath(documentPath(slug));
   revalidatePath(`${documentPath(slug)}/edit`);
   redirect(documentPath(slug));
+}
+
+export async function restoreDocumentRevision(formData: FormData) {
+  const { supabase, user } = await requireAuthenticatedMember();
+  const parsed = restoreRevisionSchema.parse({
+    documentId: readString(formData, "document_id"),
+    revisionId: readString(formData, "revision_id"),
+  });
+
+  const { data: revision, error: revisionError } = await supabase
+    .from("document_revisions")
+    .select("title, summary, body_markdown, created_at")
+    .eq("id", parsed.revisionId)
+    .eq("document_id", parsed.documentId)
+    .single();
+
+  if (revisionError || !revision) {
+    throw new Error(revisionError?.message ?? "복원할 변경 이력을 찾지 못했습니다.");
+  }
+
+  const { data: document, error: documentError } = await supabase
+    .from("documents")
+    .select("slug")
+    .eq("id", parsed.documentId)
+    .single();
+
+  if (documentError || !document) {
+    throw new Error(documentError?.message ?? "복원할 문서를 찾지 못했습니다.");
+  }
+
+  const { error } = await supabase
+    .from("documents")
+    .update({
+      title: revision.title,
+      summary: revision.summary,
+      body_markdown: revision.body_markdown,
+      updated_by: user.id,
+      edit_summary: `이전 버전 복원: ${new Intl.DateTimeFormat("ko-KR", {
+        dateStyle: "short",
+        timeStyle: "short",
+      }).format(new Date(revision.created_at))}`,
+    })
+    .eq("id", parsed.documentId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/");
+  revalidatePath(documentPath(document.slug));
+  revalidatePath(`${documentPath(document.slug)}/edit`);
+  redirect(documentPath(document.slug));
 }
 
 export async function addComment(formData: FormData) {
