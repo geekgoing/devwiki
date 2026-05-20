@@ -14,7 +14,7 @@ export function MarkdownToc({ content }: { content: string }) {
   return (
     <nav
       aria-label="문서 목차"
-      className="rounded-md border border-slate-200 bg-white p-4"
+      className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50"
       data-testid="markdown-toc"
     >
       <div className="flex items-center gap-2">
@@ -26,7 +26,7 @@ export function MarkdownToc({ content }: { content: string }) {
           <li key={heading.id}>
             <a
               href={`#${heading.id}`}
-              className={`block rounded px-2 py-1 leading-5 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 ${
+              className={`block rounded px-2 py-1 leading-5 text-slate-600 transition hover:bg-blue-50 hover:text-blue-700 ${
                 heading.level === 3 ? "ml-3 text-xs" : ""
               }`}
             >

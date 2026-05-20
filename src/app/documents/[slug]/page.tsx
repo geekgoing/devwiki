@@ -38,7 +38,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
     return (
       <>
         <AppHeader configured={configured} canCreate={false} user={user} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
           <MemberGate user={user} />
         </main>
       </>
@@ -63,13 +63,13 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
         canManageMembers={member?.role === "owner"}
         user={user}
       />
-      <main className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
-        <section className="rounded-md border border-slate-200 bg-white px-5 py-6 shadow-sm shadow-slate-200/50 sm:px-7 lg:col-span-2">
+      <main className="mx-auto grid w-full max-w-7xl flex-1 gap-7 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
+        <section className="rounded-md border border-slate-200 bg-white px-5 py-6 shadow-sm shadow-slate-200/60 sm:px-7 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <StatusBadge status={document.status} />
-                <span className="font-mono text-xs text-slate-400">
+                <span className="rounded-md bg-slate-50 px-2 py-1 font-mono text-xs text-slate-400">
                   /{document.slug}
                 </span>
               </div>
@@ -91,7 +91,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
             {canContribute ? (
               <Link
                 href={`/documents/${encodeURIComponent(document.slug)}/edit`}
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
               >
                 <Pencil size={16} aria-hidden />
                 수정
@@ -116,7 +116,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
                 <Link
                   key={tag.id}
                   href={`/?q=${encodeURIComponent(tag.name)}`}
-                  className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-950"
+                  className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
                 >
                   <Tags size={12} aria-hidden />
                   {tag.name}
@@ -126,13 +126,13 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
           ) : null}
         </section>
 
-        <article className="min-w-0 rounded-md border border-slate-200 bg-white shadow-sm shadow-slate-200/50">
+        <article className="min-w-0 rounded-md border border-slate-200 bg-white shadow-sm shadow-slate-200/60">
           <div className="p-5 sm:p-8">
             <MarkdownRenderer content={document.bodyMarkdown} />
           </div>
         </article>
 
-        <aside className="space-y-5 lg:sticky lg:top-5 lg:self-start">
+        <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
           <MarkdownToc content={document.bodyMarkdown} />
 
           <RevisionHistory
@@ -142,7 +142,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
             canRestore={canContribute}
           />
 
-          <section className="rounded-md border border-slate-200 bg-white p-4">
+          <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
             <div className="flex items-center gap-2">
               <MessageSquare size={16} className="text-slate-500" aria-hidden />
               <h2 className="text-sm font-semibold text-slate-950">토론</h2>
@@ -187,7 +187,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
                 />
                 <button
                   type="submit"
-                  className="inline-flex h-9 items-center rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
+                  className="inline-flex h-9 items-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
                 >
                   의견 남기기
                 </button>

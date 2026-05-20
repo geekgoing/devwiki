@@ -119,7 +119,7 @@ const quickSections = [
 const toolGroupClass =
   "flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1";
 const toolButtonClass =
-  "inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-100 hover:text-slate-950";
+  "inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-blue-50 hover:text-blue-700";
 
 const statusDescriptions: Record<DocumentStatus, string> = {
   draft: "로그인한 멤버에게만 노출됩니다.",
@@ -655,7 +655,7 @@ export function DocumentEditor({
                     onClick={() => setView("edit")}
                     className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
                       view === "edit"
-                        ? "bg-slate-950 text-white shadow-sm"
+                        ? "bg-blue-600 text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-950"
                     }`}
                   >
@@ -667,7 +667,7 @@ export function DocumentEditor({
                     onClick={() => setView("split")}
                     className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
                       view === "split"
-                        ? "bg-slate-950 text-white shadow-sm"
+                        ? "bg-blue-600 text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-950"
                     }`}
                   >
@@ -679,7 +679,7 @@ export function DocumentEditor({
                     onClick={() => setView("preview")}
                     className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
                       view === "preview"
-                        ? "bg-slate-950 text-white shadow-sm"
+                        ? "bg-blue-600 text-white shadow-sm"
                         : "text-slate-600 hover:text-slate-950"
                     }`}
                   >
@@ -849,7 +849,7 @@ export function DocumentEditor({
           </section>
         </div>
 
-        <aside className="space-y-5 xl:sticky xl:top-5">
+        <aside className="space-y-5 xl:sticky xl:top-24">
           <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
               <Settings2 size={16} className="text-slate-500" aria-hidden />
@@ -945,14 +945,14 @@ export function DocumentEditor({
 
             <button
               type="submit"
-              className="mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
+              className="mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
             >
               <Save size={16} aria-hidden />
               저장
             </button>
           </section>
 
-          <section className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
             <dl className="space-y-3 text-xs">
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-slate-500">본문</dt>

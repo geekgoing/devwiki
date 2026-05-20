@@ -78,21 +78,21 @@ export default async function Home({ searchParams }: HomeProps) {
         canManageMembers={member?.role === "owner"}
         user={user}
       />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid gap-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid gap-7">
           {!configured ? <SetupNotice /> : null}
 
           <>
             {configured && user && !member ? (
-              <section className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+              <section className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950 shadow-sm shadow-amber-200/40">
                 공개 문서는 읽을 수 있지만 작성, 수정, 초안 열람은 멤버 등록이
                 필요합니다.
               </section>
             ) : null}
 
-              <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+              <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
                 <div>
-                  <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
+                  <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
                     백엔드 면접 개념 사전
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
@@ -101,9 +101,9 @@ export default async function Home({ searchParams }: HomeProps) {
                   </p>
                 </div>
 
-                <div className="rounded-md border border-slate-200 bg-white p-4">
+                <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
                   <div className="flex items-center gap-3">
-                    <span className="flex size-10 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+                    <span className="flex size-10 items-center justify-center rounded-md bg-blue-50 text-blue-600">
                       <FileText size={20} aria-hidden />
                     </span>
                     <div>
@@ -116,7 +116,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 </div>
               </section>
 
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/50 lg:flex-row lg:items-center lg:justify-between">
                 <form action="/" className="relative w-full max-w-xl">
                   <Search
                     size={18}
@@ -128,7 +128,7 @@ export default async function Home({ searchParams }: HomeProps) {
                     name="q"
                     defaultValue={query}
                     placeholder="개념, 태그, 요약으로 검색"
-                    className="h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
                 </form>
 
@@ -147,8 +147,8 @@ export default async function Home({ searchParams }: HomeProps) {
                         href={filterHref(query, filter)}
                         className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition ${
                           selected
-                            ? "border-slate-950 bg-slate-950 text-white"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700"
                         }`}
                       >
                         <Icon size={15} aria-hidden />
@@ -160,18 +160,18 @@ export default async function Home({ searchParams }: HomeProps) {
               </div>
 
               {documents.length ? (
-                <section className="grid gap-3">
+                <section className="grid gap-4">
                   {documents.map((document) => (
                     <Link
                       key={document.id}
                       href={`/documents/${encodeURIComponent(document.slug)}`}
-                      className="rounded-md border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:shadow-sm"
+                      className="group rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md hover:shadow-slate-200/70"
                       data-testid="document-card"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <h2 className="text-lg font-semibold text-slate-950">
+                            <h2 className="text-lg font-semibold text-slate-950 transition group-hover:text-blue-700">
                               {document.title}
                             </h2>
                             <StatusBadge status={document.status} />
@@ -182,7 +182,7 @@ export default async function Home({ searchParams }: HomeProps) {
                             </p>
                           ) : null}
                         </div>
-                        <time className="text-xs text-slate-500">
+                        <time className="rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-500">
                           {formatDate(document.updatedAt)}
                         </time>
                       </div>
@@ -192,7 +192,7 @@ export default async function Home({ searchParams }: HomeProps) {
                           {document.tags.map((tag) => (
                             <span
                               key={tag.id}
-                              className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600"
+                              className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 transition group-hover:bg-blue-50 group-hover:text-blue-700"
                             >
                               {tag.name}
                             </span>

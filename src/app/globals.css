@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
+  --background: #f6f8fb;
   --foreground: #0f172a;
 }
 
@@ -137,9 +137,19 @@ select {
 }
 
 .markdown blockquote {
-  border-left: 3px solid #cbd5e1;
-  color: #475569;
-  padding-left: 1rem;
+  border-left: 3px solid #60a5fa;
+  color: #334155;
+  background: #eff6ff;
+  border-radius: 0 0.5rem 0.5rem 0;
+  padding: 0.75rem 1rem;
+}
+
+.markdown blockquote > :first-child {
+  margin-top: 0;
+}
+
+.markdown blockquote > :last-child {
+  margin-bottom: 0;
 }
 
 .markdown img {
@@ -246,6 +256,25 @@ select {
   font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
     Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.cm-gutters {
+  border-right: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #94a3b8 !important;
+}
+
+.cm-content {
+  padding: 1rem 0 !important;
+}
+
+.cm-line {
+  padding: 0 1rem !important;
+}
+
+.cm-selectionBackground {
+  background: #bfdbfe !important;
 }
 
 .cm-focused {

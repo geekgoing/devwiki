@@ -18,10 +18,10 @@ export function AppHeader({
   user,
 }: AppHeaderProps) {
   return (
-    <header className="border-b border-slate-200 bg-white">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2 text-slate-950">
-          <span className="flex size-9 items-center justify-center rounded-md bg-slate-950 text-white">
+          <span className="flex size-9 items-center justify-center rounded-md bg-blue-600 text-white shadow-sm shadow-blue-600/20">
             <BookOpen size={18} aria-hidden />
           </span>
           <span>
@@ -34,13 +34,13 @@ export function AppHeader({
           </span>
         </Link>
 
-        <nav className="flex items-center gap-2">
+        <nav className="flex flex-wrap items-center justify-end gap-2">
           {configured && user ? (
             <>
               {canCreate ? (
                 <Link
                   href="/documents/new"
-                  className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
+                  className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
                 >
                   <Plus size={16} aria-hidden />
                   새 문서
@@ -68,7 +68,7 @@ export function AppHeader({
           ) : (
             <Link
               href="/login"
-              className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
             >
               <LogIn size={16} aria-hidden />
               로그인

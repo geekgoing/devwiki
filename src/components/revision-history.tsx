@@ -393,7 +393,7 @@ export function RevisionHistory({
 
   return (
     <section
-      className="rounded-md border border-slate-200 bg-white p-4"
+      className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50"
       data-testid="revision-history"
     >
       <div className="flex items-center justify-between gap-3">
