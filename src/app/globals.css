@@ -59,6 +59,41 @@ select {
   scroll-margin-top: 5rem;
 }
 
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.markdown h1 > span,
+.markdown h2 > span,
+.markdown h3 > span {
+  min-width: 0;
+}
+
+.markdown .heading-anchor {
+  display: inline-flex;
+  color: #94a3b8;
+  opacity: 0;
+  text-decoration: none;
+  transition:
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.markdown h1:hover .heading-anchor,
+.markdown h2:hover .heading-anchor,
+.markdown h3:hover .heading-anchor,
+.markdown .heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.markdown .heading-anchor:hover {
+  color: #2563eb;
+}
+
 .markdown h1 {
   margin: 0 0 1rem;
   font-size: 2rem;
@@ -132,6 +167,51 @@ select {
   background: #0f172a;
   color: #e2e8f0;
   padding: 1rem;
+}
+
+.markdown .code-block {
+  margin: 0.9rem 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #0f172a;
+}
+
+.markdown .code-block-header {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid #1e293b;
+  background: #111827;
+  padding: 0.35rem 0.55rem 0.35rem 0.75rem;
+  color: #cbd5e1;
+  font-size: 0.75rem;
+}
+
+.markdown .code-block-header button {
+  display: inline-flex;
+  height: 1.75rem;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.375rem;
+  padding: 0 0.45rem;
+  color: #e2e8f0;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.markdown .code-block-header button:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.markdown .code-block pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
 }
 
 .markdown pre code {

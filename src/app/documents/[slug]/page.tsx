@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { addComment } from "@/app/actions";
 import { AppHeader } from "@/components/app-header";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { MarkdownToc } from "@/components/markdown-toc";
 import { MemberGate } from "@/components/member-gate";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/format";
@@ -118,7 +119,9 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
           </div>
         </article>
 
-        <aside className="space-y-5">
+        <aside className="space-y-5 lg:sticky lg:top-5 lg:self-start">
+          <MarkdownToc content={document.bodyMarkdown} />
+
           <section
             className="rounded-md border border-slate-200 bg-white p-4"
             data-testid="revision-history"
