@@ -1,4 +1,4 @@
-import { MessageSquare, Pencil } from "lucide-react";
+import { CalendarDays, Clock3, MessageSquare, Pencil, Tags } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -66,31 +66,30 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
         user={user}
       />
       <main className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
-        <article className="min-w-0">
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1
-                  className="text-3xl font-semibold tracking-tight text-slate-950"
-                  data-testid="document-title"
-                >
-                  {document.title}
-                </h1>
+        <section className="rounded-md border border-slate-200 bg-white px-5 py-6 shadow-sm shadow-slate-200/50 sm:px-7 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div className="min-w-0">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
                 <StatusBadge status={document.status} />
+                <span className="font-mono text-xs text-slate-400">
+                  /{document.slug}
+                </span>
               </div>
+              <h1
+                className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl"
+                data-testid="document-title"
+              >
+                {document.title}
+              </h1>
               {document.summary ? (
                 <p
-                  className="mt-3 max-w-3xl text-sm leading-6 text-slate-600"
+                  className="mt-4 max-w-3xl text-base leading-7 text-slate-600"
                   data-testid="document-summary"
                 >
                   {document.summary}
                 </p>
               ) : null}
-              <p className="mt-3 text-xs text-slate-500">
-                마지막 수정 {formatDate(document.updatedAt)}
-              </p>
             </div>
-
             {configured && user ? (
               <Link
                 href={`/documents/${encodeURIComponent(document.slug)}/edit`}
@@ -102,20 +101,35 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
             ) : null}
           </div>
 
+          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
+            <span className="inline-flex items-center gap-1.5">
+              <Clock3 size={14} aria-hidden />
+              마지막 수정 {formatDate(document.updatedAt)}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarDays size={14} aria-hidden />
+              생성 {formatDate(document.createdAt)}
+            </span>
+          </div>
+
           {document.tags.length ? (
-            <div className="mb-6 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               {document.tags.map((tag) => (
-                <span
+                <Link
                   key={tag.id}
-                  className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600"
+                  href={`/?q=${encodeURIComponent(tag.name)}`}
+                  className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-950"
                 >
+                  <Tags size={12} aria-hidden />
                   {tag.name}
-                </span>
+                </Link>
               ))}
             </div>
           ) : null}
+        </section>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 sm:p-7">
+        <article className="min-w-0 rounded-md border border-slate-200 bg-white shadow-sm shadow-slate-200/50">
+          <div className="p-5 sm:p-8">
             <MarkdownRenderer content={document.bodyMarkdown} />
           </div>
         </article>
