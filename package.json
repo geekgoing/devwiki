@@ -13,6 +13,7 @@
     "verify:supabase": "node scripts/verify-supabase-readiness.mjs"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.10.3",
     "@codemirror/lang-markdown": "^6.5.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",

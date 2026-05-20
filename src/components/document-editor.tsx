@@ -1,6 +1,7 @@
 "use client";
 
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { redo, undo } from "@codemirror/commands";
 import dynamic from "next/dynamic";
 import {
   Bold,
@@ -9,15 +10,19 @@ import {
   Eye,
   Heading2,
   ImagePlus,
+  Link2,
   List,
   Loader2,
   Pilcrow,
   Quote,
+  Redo2,
   RotateCcw,
   Save,
   Settings2,
   SplitSquareHorizontal,
+  Table2,
   Trash2,
+  Undo2,
   Workflow,
   X,
 } from "lucide-react";
@@ -110,6 +115,11 @@ const quickSections = [
     markdown: "## 꼬리 질문\n\n",
   },
 ];
+
+const toolGroupClass =
+  "flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1";
+const toolButtonClass =
+  "inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-100 hover:text-slate-950";
 
 const statusDescriptions: Record<DocumentStatus, string> = {
   draft: "로그인한 멤버에게만 노출됩니다.",
@@ -351,6 +361,25 @@ export function DocumentEditor({
     });
   }
 
+  function runEditorCommand(
+    command: (view: EditorViewInstance) => boolean,
+  ) {
+    const view = editorViewRef.current;
+
+    if (!view) {
+      return;
+    }
+
+    const handled = command(view);
+
+    if (handled) {
+      setBody(view.state.doc.toString());
+      markDirty();
+    }
+
+    view.focus();
+  }
+
   function setTagNames(nextTags: string[]) {
     setTags(nextTags.join(", "));
     markDirty();
@@ -579,9 +608,48 @@ export function DocumentEditor({
           </section>
 
           <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm shadow-slate-200/40">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1">
+            <div className="border-b border-slate-200 bg-white">
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-3 py-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-950">
+                    Markdown 에디터
+                  </h2>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    이미지 붙여넣기, 드래그 업로드, Mermaid 미리보기를 지원합니다.
+                  </p>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  data-testid="image-input"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+
+                    if (file) {
+                      void uploadImage(file);
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {uploading ? (
+                    <Loader2 size={16} className="animate-spin" aria-hidden />
+                  ) : (
+                    <ImagePlus size={16} aria-hidden />
+                  )}
+                  이미지
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+                <div className={toolGroupClass}>
                   <button
                     type="button"
                     onClick={() => setView("edit")}
@@ -620,95 +688,118 @@ export function DocumentEditor({
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1">
+                <div className={toolGroupClass} aria-label="편집 기록">
+                  <button
+                    type="button"
+                    onClick={() => runEditorCommand(undo)}
+                    aria-label="되돌리기"
+                    title="되돌리기"
+                    className={toolButtonClass}
+                  >
+                    <Undo2 size={15} aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => runEditorCommand(redo)}
+                    aria-label="다시 실행"
+                    title="다시 실행"
+                    className={toolButtonClass}
+                  >
+                    <Redo2 size={15} aria-hidden />
+                  </button>
+                </div>
+
+                <div className={toolGroupClass} aria-label="서식">
                   <button
                     type="button"
                     onClick={() => wrapSelection("**", "**", "강조")}
+                    aria-label="굵게"
                     title="굵게"
-                    className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                    className={toolButtonClass}
                   >
                     <Bold size={15} aria-hidden />
                   </button>
                   <button
                     type="button"
                     onClick={() => insertMarkdown("## 새 섹션")}
+                    aria-label="제목"
                     title="제목"
-                    className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                    className={toolButtonClass}
                   >
                     <Heading2 size={15} aria-hidden />
                   </button>
                   <button
                     type="button"
                     onClick={() => wrapSelection("`", "`", "code")}
+                    aria-label="인라인 코드"
                     title="인라인 코드"
-                    className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                    className={toolButtonClass}
                   >
                     <Code2 size={15} aria-hidden />
                   </button>
                   <button
                     type="button"
                     onClick={() => insertMarkdown("> 핵심 인용")}
+                    aria-label="인용"
                     title="인용"
-                    className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                    className={toolButtonClass}
                   >
                     <Quote size={15} aria-hidden />
                   </button>
                   <button
                     type="button"
                     onClick={() => insertMarkdown("- 항목")}
+                    aria-label="목록"
                     title="목록"
-                    className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                    className={toolButtonClass}
                   >
                     <List size={15} aria-hidden />
+                  </button>
+                </div>
+
+                <div className={toolGroupClass} aria-label="삽입">
+                  <button
+                    type="button"
+                    onClick={() => wrapSelection("[", "](https://example.com)", "링크")}
+                    aria-label="링크"
+                    title="링크"
+                    className={toolButtonClass}
+                  >
+                    <Link2 size={15} aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      insertMarkdown("| 항목 | 설명 |\n| --- | --- |\n| 예시 | 내용 |")
+                    }
+                    aria-label="표"
+                    title="표"
+                    className={toolButtonClass}
+                  >
+                    <Table2 size={15} aria-hidden />
                   </button>
                   <button
                     type="button"
                     onClick={() =>
                       insertMarkdown("```mermaid\nflowchart LR\n  A --> B\n```")
                     }
+                    aria-label="Mermaid"
                     title="Mermaid"
-                    className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                    className={toolButtonClass}
                   >
                     <Workflow size={15} aria-hidden />
                   </button>
                   <button
                     type="button"
                     onClick={() => insertMarkdown("```\n// code\n```")}
+                    aria-label="코드 블록"
                     title="코드 블록"
-                    className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                    className={toolButtonClass}
                   >
                     <Pilcrow size={15} aria-hidden />
                   </button>
                 </div>
               </div>
-
-              <input
-                ref={fileInputRef}
-                data-testid="image-input"
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-
-                  if (file) {
-                    void uploadImage(file);
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-              >
-                {uploading ? (
-                  <Loader2 size={16} className="animate-spin" aria-hidden />
-                ) : (
-                  <ImagePlus size={16} aria-hidden />
-                )}
-                이미지
-              </button>
             </div>
 
             {(uploadMessage || draftMessage) ? (
