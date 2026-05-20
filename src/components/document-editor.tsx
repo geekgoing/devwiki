@@ -3,14 +3,23 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import dynamic from "next/dynamic";
 import {
+  Bold,
+  Code2,
   Edit3,
   Eye,
+  Heading2,
   ImagePlus,
+  List,
   Loader2,
+  Pilcrow,
+  Quote,
+  RotateCcw,
   Save,
   SplitSquareHorizontal,
+  Trash2,
+  Workflow,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type ReactCodeMirror from "@uiw/react-codemirror";
 
 import { MarkdownRenderer } from "@/components/markdown-renderer";
@@ -48,6 +57,17 @@ type DocumentEditorProps = {
   };
 };
 
+type EditorDraft = {
+  title: string;
+  slug: string;
+  summary: string;
+  body: string;
+  status: DocumentStatus;
+  tags: string;
+  editSummary: string;
+  savedAt: number;
+};
+
 const starterMarkdown = `# 제목
 
 ## 한 줄 정의
@@ -77,6 +97,12 @@ export function DocumentEditor({
 }: DocumentEditorProps) {
   const [title, setTitle] = useState(initialDocument?.title ?? "");
   const [slug, setSlug] = useState(initialDocument?.slug ?? "");
+  const [summary, setSummary] = useState(initialDocument?.summary ?? "");
+  const [status, setStatus] = useState<DocumentStatus>(
+    initialDocument?.status ?? "draft",
+  );
+  const [tags, setTags] = useState(initialDocument?.tags ?? "");
+  const [editSummary, setEditSummary] = useState("");
   const [slugTouched, setSlugTouched] = useState(Boolean(initialDocument?.slug));
   const [body, setBody] = useState(
     initialDocument?.bodyMarkdown ?? starterMarkdown,
@@ -84,15 +110,97 @@ export function DocumentEditor({
   const [view, setView] = useState<"edit" | "preview" | "split">("split");
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [draftMessage, setDraftMessage] = useState<string | null>(null);
+  const [storedDraft, setStoredDraft] = useState<EditorDraft | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
   const editorViewRef = useRef<EditorViewInstance | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const draftKey = useMemo(
+    () =>
+      `devwiki:draft:${mode}:${initialDocument?.id ?? initialDocument?.slug ?? "new"}`,
+    [initialDocument?.id, initialDocument?.slug, mode],
+  );
   const extensions = useMemo(
     () => [markdown({ base: markdownLanguage })],
     [],
   );
 
+  function markDirty() {
+    setIsDirty(true);
+  }
+
+  useEffect(() => {
+    const rawDraft = window.localStorage.getItem(draftKey);
+    let timeoutId: number | null = null;
+
+    if (!rawDraft) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(rawDraft) as EditorDraft;
+
+      if (parsed.body || parsed.title) {
+        timeoutId = window.setTimeout(() => setStoredDraft(parsed), 0);
+      }
+    } catch {
+      window.localStorage.removeItem(draftKey);
+    }
+
+    return () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!isDirty) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const draft: EditorDraft = {
+        title,
+        slug,
+        summary,
+        body,
+        status,
+        tags,
+        editSummary,
+        savedAt: Date.now(),
+      };
+
+      window.localStorage.setItem(draftKey, JSON.stringify(draft));
+      setStoredDraft(null);
+      setDraftMessage(
+        `로컬 초안 저장됨 ${new Intl.DateTimeFormat("ko-KR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(draft.savedAt)}`,
+      );
+    }, 700);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [body, draftKey, editSummary, isDirty, slug, status, summary, tags, title]);
+
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (!isDirty) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
   function insertMarkdown(markdownText: string) {
     const view = editorViewRef.current;
+    markDirty();
 
     if (!view) {
       setBody((current) => `${current.trimEnd()}\n\n${markdownText}\n`);
@@ -119,6 +227,102 @@ export function DocumentEditor({
     });
     setBody(view.state.doc.toString());
     view.focus();
+  }
+
+  function replaceSelection(
+    createText: (selected: string) => { text: string; cursorOffset?: number },
+  ) {
+    const view = editorViewRef.current;
+    markDirty();
+
+    if (!view) {
+      const { text } = createText("");
+      setBody((current) => `${current.trimEnd()}\n\n${text}\n`);
+      return;
+    }
+
+    const selection = view.state.selection.main;
+    const selected = view.state.sliceDoc(selection.from, selection.to);
+    const { text, cursorOffset } = createText(selected);
+
+    view.dispatch({
+      changes: {
+        from: selection.from,
+        to: selection.to,
+        insert: text,
+      },
+      selection: {
+        anchor: selection.from + (cursorOffset ?? text.length),
+      },
+    });
+    setBody(view.state.doc.toString());
+    view.focus();
+  }
+
+  function wrapSelection(prefix: string, suffix: string, fallback: string) {
+    replaceSelection((selected) => {
+      const value = selected || fallback;
+
+      return {
+        text: `${prefix}${value}${suffix}`,
+        cursorOffset: selected ? undefined : prefix.length + value.length,
+      };
+    });
+  }
+
+  function restoreDraft(draft: EditorDraft) {
+    setTitle(draft.title);
+    setSlug(draft.slug);
+    setSummary(draft.summary);
+    setBody(draft.body);
+    setStatus(draft.status);
+    setTags(draft.tags);
+    setEditSummary(draft.editSummary);
+    setStoredDraft(null);
+    setIsDirty(true);
+    setDraftMessage("로컬 초안을 복원했습니다.");
+  }
+
+  function discardDraft() {
+    window.localStorage.removeItem(draftKey);
+    setStoredDraft(null);
+    setDraftMessage("로컬 초안을 삭제했습니다.");
+  }
+
+  function firstImageFile(files: FileList | File[]) {
+    return Array.from(files).find((file) => file.type.startsWith("image/"));
+  }
+
+  function handlePaste(event: React.ClipboardEvent) {
+    const file = firstImageFile(event.clipboardData.files);
+
+    if (!file) {
+      return;
+    }
+
+    event.preventDefault();
+    void uploadImage(file);
+  }
+
+  function handleDrop(event: React.DragEvent) {
+    const file = firstImageFile(event.dataTransfer.files);
+
+    if (!file) {
+      return;
+    }
+
+    event.preventDefault();
+    void uploadImage(file);
+  }
+
+  function handleDragOver(event: React.DragEvent) {
+    const hasImage = Array.from(event.dataTransfer.items).some((item) =>
+      item.type.startsWith("image/"),
+    );
+
+    if (hasImage) {
+      event.preventDefault();
+    }
   }
 
   async function uploadImage(file: File) {
@@ -161,7 +365,15 @@ export function DocumentEditor({
   }
 
   return (
-    <form action={action} className="space-y-5" data-testid="document-editor">
+    <form
+      action={action}
+      className="space-y-5"
+      data-testid="document-editor"
+      onSubmit={() => {
+        window.localStorage.removeItem(draftKey);
+        setIsDirty(false);
+      }}
+    >
       {initialDocument?.id ? (
         <input type="hidden" name="id" value={initialDocument.id} />
       ) : null}
@@ -177,6 +389,7 @@ export function DocumentEditor({
               onChange={(event) => {
                 const nextTitle = event.target.value;
                 setTitle(nextTitle);
+                markDirty();
 
                 if (!slugTouched) {
                   setSlug(slugify(nextTitle));
@@ -192,7 +405,11 @@ export function DocumentEditor({
             <span className="text-sm font-medium text-slate-700">요약</span>
             <input
               name="summary"
-              defaultValue={initialDocument?.summary ?? ""}
+              value={summary}
+              onChange={(event) => {
+                setSummary(event.target.value);
+                markDirty();
+              }}
               className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
               placeholder="문서 목록에서 보일 짧은 설명"
             />
@@ -208,6 +425,7 @@ export function DocumentEditor({
               onChange={(event) => {
                 setSlugTouched(true);
                 setSlug(slugify(event.target.value));
+                markDirty();
               }}
               className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
               placeholder="idempotency"
@@ -218,7 +436,11 @@ export function DocumentEditor({
             <span className="text-sm font-medium text-slate-700">상태</span>
             <select
               name="status"
-              defaultValue={initialDocument?.status ?? "draft"}
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value as DocumentStatus);
+                markDirty();
+              }}
               className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
             >
               <option value="draft">초안</option>
@@ -234,7 +456,11 @@ export function DocumentEditor({
           <span className="text-sm font-medium text-slate-700">태그</span>
           <input
             name="tags"
-            defaultValue={initialDocument?.tags ?? ""}
+            value={tags}
+            onChange={(event) => {
+              setTags(event.target.value);
+              markDirty();
+            }}
             className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
             placeholder="HTTP, API 설계, 분산 시스템"
           />
@@ -244,11 +470,42 @@ export function DocumentEditor({
           <span className="text-sm font-medium text-slate-700">수정 요약</span>
           <input
             name="edit_summary"
+            value={editSummary}
+            onChange={(event) => {
+              setEditSummary(event.target.value);
+              markDirty();
+            }}
             className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
             placeholder={mode === "create" ? "문서 생성" : "예: 예시 보강"}
           />
         </label>
       </section>
+
+      {storedDraft ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-950">
+            저장되지 않은 로컬 초안이 있습니다.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => restoreDraft(storedDraft)}
+              className="inline-flex h-8 items-center gap-2 rounded-md bg-amber-950 px-3 text-sm font-medium text-white transition hover:bg-amber-900"
+            >
+              <RotateCcw size={15} aria-hidden />
+              복원
+            </button>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="inline-flex h-8 items-center gap-2 rounded-md border border-amber-300 px-3 text-sm font-medium text-amber-950 transition hover:bg-amber-100"
+            >
+              <Trash2 size={15} aria-hidden />
+              삭제
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-3 py-2">
@@ -292,6 +549,67 @@ export function DocumentEditor({
               </button>
             </div>
 
+            <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1">
+              <button
+                type="button"
+                onClick={() => wrapSelection("**", "**", "강조")}
+                title="굵게"
+                className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+              >
+                <Bold size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMarkdown("## 새 섹션")}
+                title="제목"
+                className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+              >
+                <Heading2 size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => wrapSelection("`", "`", "code")}
+                title="인라인 코드"
+                className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+              >
+                <Code2 size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMarkdown("> 핵심 인용")}
+                title="인용"
+                className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+              >
+                <Quote size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMarkdown("- 항목")}
+                title="목록"
+                className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+              >
+                <List size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertMarkdown("```mermaid\nflowchart LR\n  A --> B\n```")
+                }
+                title="Mermaid"
+                className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+              >
+                <Workflow size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMarkdown("```\n// code\n```")}
+                title="코드 블록"
+                className="inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+              >
+                <Pilcrow size={15} aria-hidden />
+              </button>
+            </div>
+
             <input
               ref={fileInputRef}
               data-testid="image-input"
@@ -323,6 +641,9 @@ export function DocumentEditor({
             {uploadMessage ? (
               <p className="text-xs text-slate-500">{uploadMessage}</p>
             ) : null}
+            {draftMessage ? (
+              <p className="text-xs text-slate-500">{draftMessage}</p>
+            ) : null}
           </div>
 
           <button
@@ -335,6 +656,9 @@ export function DocumentEditor({
         </div>
 
         <div
+          onPaste={handlePaste}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
           className={
             view === "split"
               ? "grid min-h-[520px] lg:grid-cols-2"
@@ -351,7 +675,10 @@ export function DocumentEditor({
                   foldGutter: false,
                   highlightActiveLine: false,
                 }}
-                onChange={(value) => setBody(value)}
+                onChange={(value) => {
+                  setBody(value);
+                  markDirty();
+                }}
                 onCreateEditor={(view) => {
                   editorViewRef.current = view;
                 }}
