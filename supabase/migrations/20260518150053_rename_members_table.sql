@@ -1,14 +1,3 @@
-do $$
-declare
-  legacy_table_name text := 'study' || '_members';
-begin
-  if to_regclass('public.members') is null
-     and to_regclass(format('public.%I', legacy_table_name)) is not null then
-    execute format('alter table public.%I rename to members', legacy_table_name);
-  end if;
-end
-$$;
-
 create or replace function private.is_devwiki_member()
 returns boolean
 language sql
