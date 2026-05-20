@@ -430,6 +430,7 @@ async function assertNonMemberBrowserGate({
   const password = `DevWiki-ui-gate-${Date.now()}!`;
   let userId = null;
   const context = await browser.newContext();
+  const encodedSlug = encodeURIComponent(slug);
 
   try {
     userId = await createTemporaryPasswordUser(
@@ -459,9 +460,9 @@ async function assertNonMemberBrowserGate({
     await page.goto(`${baseUrl}/documents/new`);
     await expect(memberGate).toBeVisible();
     await expect(page.locator('[data-testid="document-editor"]')).toHaveCount(0);
-    await page.goto(`${baseUrl}/documents/${slug}`);
+    await page.goto(`${baseUrl}/documents/${encodedSlug}`);
     await expect(memberGate).toBeVisible();
-    await page.goto(`${baseUrl}/documents/${slug}/edit`);
+    await page.goto(`${baseUrl}/documents/${encodedSlug}/edit`);
     await expect(memberGate).toBeVisible();
     await expect(page.locator('[data-testid="document-editor"]')).toHaveCount(0);
 
@@ -586,8 +587,9 @@ async function createDocumentWithAutoSlug({
   await page.goto(`${baseUrl}/documents/new`);
   await expect(page.locator('[data-testid="document-editor"]')).toBeVisible();
   await page.locator('input[name="title"]').fill(title);
-  await expect(page.locator('input[name="slug"]')).toHaveValue(expectedInputSlug);
-  await page.locator('input[name="slug"]').fill("");
+  await expect(page.locator('input[name="slug"]')).toHaveValue(
+    expectedInputSlug,
+  );
   await page.locator('input[name="summary"]').fill(summary);
   await page.locator('input[name="edit_summary"]').fill("mvp ui auto slug");
   await fillMarkdownEditor(
@@ -615,6 +617,26 @@ async function createDocumentWithAutoSlug({
   }
 
   await expect(page.getByTestId("document-title")).toHaveText(title);
+}
+
+async function setTagChips(page, value) {
+  const tags = value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  const tagInput = page.getByTestId("tag-input");
+  const removeButtons = page.getByTestId("tag-chip-remove");
+
+  while ((await removeButtons.count()) > 0) {
+    await removeButtons.first().click();
+  }
+
+  for (const tag of tags) {
+    await tagInput.fill(tag);
+    await tagInput.press("Enter");
+  }
+
+  await expect(page.locator('input[name="tags"]')).toHaveValue(tags.join(", "));
 }
 
 async function main() {
@@ -649,8 +671,9 @@ async function main() {
     },
   });
   const nonce = Date.now();
-  const slug = `ui-e2e-${nonce}`;
   const title = `멱등성 UI 테스트 ${nonce}`;
+  const slug = slugify(title);
+  const encodedSlug = encodeURIComponent(slug);
   const updatedTitle = `${title} 수정`;
   const searchTag = `Search Probe ${nonce}`;
   const createSummary = "UI E2E 생성 검증";
@@ -791,9 +814,8 @@ sequenceDiagram
     await page.goto(`${baseUrl}/documents/new`);
     await expect(page.locator('[data-testid="document-editor"]')).toBeVisible();
     await page.locator('input[name="title"]').fill(title);
-    await page.locator('input[name="slug"]').fill(slug);
     await page.locator('input[name="summary"]').fill(createSummary);
-    await page.locator('input[name="tags"]').fill(createTags);
+    await setTagChips(page, createTags);
     await page.locator('input[name="edit_summary"]').fill("mvp ui create");
     await page.locator('select[name="status"]').selectOption("draft");
     await fillMarkdownEditor(page, baseMarkdown, "retry-safe-command");
@@ -868,7 +890,7 @@ sequenceDiagram
     report("pass", "Editor Markdown, Mermaid, and image preview rendered");
 
     await Promise.all([
-      page.waitForURL(`${baseUrl}/documents/${slug}`),
+      page.waitForURL(`${baseUrl}/documents/${encodedSlug}`),
       page.getByRole("button", { name: "저장" }).click(),
     ]);
     await expect(page.getByTestId("document-title")).toHaveText(title);
@@ -912,13 +934,13 @@ sequenceDiagram
 `;
     await page.locator('input[name="summary"]').fill(updateSummary);
     await page.locator('input[name="title"]').fill(updatedTitle);
-    await page.locator('input[name="tags"]').fill(updateTags);
+    await setTagChips(page, updateTags);
     await page.locator('input[name="edit_summary"]').fill("mvp ui update");
     await page.locator('select[name="status"]').selectOption("published");
     await fillMarkdownEditor(page, updatedMarkdown, "수정 확인");
 
     await Promise.all([
-      page.waitForURL(`${baseUrl}/documents/${slug}`),
+      page.waitForURL(`${baseUrl}/documents/${encodedSlug}`),
       page.getByRole("button", { name: "저장" }).click(),
     ]);
     await expect(page.getByTestId("document-title")).toHaveText(updatedTitle);
@@ -976,7 +998,7 @@ sequenceDiagram
     await page.waitForURL(`${baseUrl}/login`);
     await page.goto(`${baseUrl}/documents/new`);
     await page.waitForURL(`${baseUrl}/login`);
-    await page.goto(`${baseUrl}/documents/${slug}/edit`);
+    await page.goto(`${baseUrl}/documents/${encodedSlug}/edit`);
     await page.waitForURL(`${baseUrl}/login`);
 
     const firstAssetPath = [...assetPaths][0];

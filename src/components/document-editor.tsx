@@ -19,12 +19,13 @@ import {
   SplitSquareHorizontal,
   Trash2,
   Workflow,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type ReactCodeMirror from "@uiw/react-codemirror";
 
 import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { slugify } from "@/lib/slugify";
+import { slugify, toTagSlug } from "@/lib/slugify";
 import type { DocumentStatus } from "@/types/devwiki";
 
 type CodeMirrorProps = React.ComponentProps<typeof ReactCodeMirror>;
@@ -108,6 +109,24 @@ function FieldLabel({
   );
 }
 
+function parseTagNames(value = "") {
+  const uniqueTags = new Map<string, string>();
+
+  value
+    .split(/[,\n]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .forEach((tag) => {
+      const key = toTagSlug(tag);
+
+      if (key && !uniqueTags.has(key)) {
+        uniqueTags.set(key, tag);
+      }
+    });
+
+  return Array.from(uniqueTags.values());
+}
+
 export function DocumentEditor({
   action,
   mode,
@@ -120,8 +139,8 @@ export function DocumentEditor({
     initialDocument?.status ?? "draft",
   );
   const [tags, setTags] = useState(initialDocument?.tags ?? "");
+  const [tagInput, setTagInput] = useState("");
   const [editSummary, setEditSummary] = useState("");
-  const [slugTouched, setSlugTouched] = useState(Boolean(initialDocument?.slug));
   const [body, setBody] = useState(
     initialDocument?.bodyMarkdown ?? starterMarkdown,
   );
@@ -141,6 +160,15 @@ export function DocumentEditor({
   const extensions = useMemo(
     () => [markdown({ base: markdownLanguage })],
     [],
+  );
+  const tagNames = useMemo(() => parseTagNames(tags), [tags]);
+  const submittedTagNames = useMemo(
+    () => parseTagNames([...tagNames, tagInput].join(",")),
+    [tagInput, tagNames],
+  );
+  const submittedTags = useMemo(
+    () => submittedTagNames.join(", "),
+    [submittedTagNames],
   );
 
   function markDirty() {
@@ -184,7 +212,7 @@ export function DocumentEditor({
         summary,
         body,
         status,
-        tags,
+        tags: submittedTags,
         editSummary,
         savedAt: Date.now(),
       };
@@ -200,7 +228,17 @@ export function DocumentEditor({
     }, 700);
 
     return () => window.clearTimeout(timeoutId);
-  }, [body, draftKey, editSummary, isDirty, slug, status, summary, tags, title]);
+  }, [
+    body,
+    draftKey,
+    editSummary,
+    isDirty,
+    slug,
+    status,
+    submittedTags,
+    summary,
+    title,
+  ]);
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -286,6 +324,58 @@ export function DocumentEditor({
         cursorOffset: selected ? undefined : prefix.length + value.length,
       };
     });
+  }
+
+  function setTagNames(nextTags: string[]) {
+    setTags(nextTags.join(", "));
+    markDirty();
+  }
+
+  function commitTagInput(rawValue = tagInput) {
+    const nextTags = parseTagNames([...tagNames, rawValue].join(","));
+
+    setTags(nextTags.join(", "));
+    setTagInput("");
+
+    if (rawValue.trim()) {
+      markDirty();
+    }
+  }
+
+  function removeTag(targetTag: string) {
+    setTagNames(tagNames.filter((tag) => tag !== targetTag));
+  }
+
+  function handleTagInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const nextValue = event.target.value;
+
+    if (/[,，\n]/.test(nextValue)) {
+      commitTagInput(nextValue.replace(/，/g, ","));
+      return;
+    }
+
+    setTagInput(nextValue);
+
+    if (nextValue.trim()) {
+      markDirty();
+    }
+  }
+
+  function handleTagInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.nativeEvent.isComposing) {
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      commitTagInput();
+      return;
+    }
+
+    if (event.key === "Backspace" && !tagInput && tagNames.length) {
+      event.preventDefault();
+      setTagNames(tagNames.slice(0, -1));
+    }
   }
 
   function restoreDraft(draft: EditorDraft) {
@@ -395,7 +485,9 @@ export function DocumentEditor({
       {initialDocument?.id ? (
         <input type="hidden" name="id" value={initialDocument.id} />
       ) : null}
+      <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="body_markdown" value={body} />
+      <input type="hidden" name="tags" value={submittedTags} />
 
       {storedDraft ? (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
@@ -436,7 +528,7 @@ export function DocumentEditor({
                   setTitle(nextTitle);
                   markDirty();
 
-                  if (!slugTouched) {
+                  if (mode === "create") {
                     setSlug(slugify(nextTitle));
                   }
                 }}
@@ -668,34 +760,38 @@ export function DocumentEditor({
                 </select>
               </label>
 
-              <label className="block">
-                <FieldLabel optional>URL slug</FieldLabel>
-                <input
-                  name="slug"
-                  value={slug}
-                  onChange={(event) => {
-                    setSlugTouched(true);
-                    setSlug(slugify(event.target.value));
-                    markDirty();
-                  }}
-                  className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3 font-mono text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  placeholder="idempotency"
-                />
-              </label>
-
-              <label className="block">
+              <div>
                 <FieldLabel optional>태그</FieldLabel>
-                <input
-                  name="tags"
-                  value={tags}
-                  onChange={(event) => {
-                    setTags(event.target.value);
-                    markDirty();
-                  }}
-                  className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  placeholder="HTTP, API 설계"
-                />
-              </label>
+                <div className="mt-2 flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 transition focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-200">
+                  {tagNames.map((tag) => (
+                    <span
+                      key={tag}
+                      data-testid="tag-chip"
+                      className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-100 px-2 text-xs font-medium text-slate-700"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        aria-label={`${tag} 태그 삭제`}
+                        data-testid="tag-chip-remove"
+                        onClick={() => removeTag(tag)}
+                        className="inline-flex size-4 items-center justify-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
+                      >
+                        <X size={12} aria-hidden />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    value={tagInput}
+                    onChange={handleTagInputChange}
+                    onKeyDown={handleTagInputKeyDown}
+                    onBlur={() => commitTagInput()}
+                    data-testid="tag-input"
+                    className="h-7 min-w-28 flex-1 border-0 bg-transparent px-1 text-sm text-slate-950 outline-none placeholder:text-slate-300"
+                    placeholder={tagNames.length ? "" : "HTTP, API 설계"}
+                  />
+                </div>
+              </div>
 
               <label className="block">
                 <FieldLabel optional>수정 요약</FieldLabel>
@@ -732,10 +828,7 @@ export function DocumentEditor({
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-slate-500">태그</dt>
                 <dd className="font-medium text-slate-700">
-                  {tags
-                    .split(",")
-                    .map((tag) => tag.trim())
-                    .filter(Boolean).length}
+                  {submittedTagNames.length}
                   개
                 </dd>
               </div>
