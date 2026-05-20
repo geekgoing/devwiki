@@ -39,7 +39,9 @@ export default async function EditDocumentPage({
     );
   }
 
-  const document = await getDocumentBySlug(slug);
+  const document = await getDocumentBySlug(slug, {
+    canReadPrivate: !configured || Boolean(member),
+  });
 
   if (!document) {
     notFound();

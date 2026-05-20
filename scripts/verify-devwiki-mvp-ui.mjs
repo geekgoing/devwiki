@@ -188,6 +188,20 @@ async function ensureActiveMember(admin, email) {
   report("pass", "Active member created", email);
 }
 
+async function getMemberLabel(admin, email) {
+  const { data, error } = await admin
+    .from("members")
+    .select("email, display_name")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Member label lookup failed: ${error.message}`);
+  }
+
+  return data?.display_name || data?.email || email;
+}
+
 async function findAuthUserByEmail(admin, email) {
   const normalizedEmail = email.toLowerCase();
   const perPage = 100;
@@ -456,7 +470,7 @@ async function assertNonMemberBrowserGate({
     const memberGate = page.getByText("멤버 등록이 필요합니다");
 
     await page.goto(baseUrl);
-    await expect(memberGate).toBeVisible();
+    await expect(page.getByText("백엔드 면접 개념 사전")).toBeVisible();
     await page.goto(`${baseUrl}/documents/new`);
     await expect(memberGate).toBeVisible();
     await expect(page.locator('[data-testid="document-editor"]')).toHaveCount(0);
@@ -676,6 +690,8 @@ async function main() {
   const encodedSlug = encodeURIComponent(slug);
   const updatedTitle = `${title} 수정`;
   const searchTag = `Search Probe ${nonce}`;
+  const archivedSlug = `archived-ui-${nonce}`;
+  const archivedTitle = `보관 문서 UI 테스트 ${nonce}`;
   const createSummary = "UI E2E 생성 검증";
   const updateSummary = "UI E2E 수정 검증";
   const createTags = `UI E2E ${nonce}, Mermaid UI ${nonce}, ${searchTag}`;
@@ -765,6 +781,7 @@ sequenceDiagram
     email: memberEmail,
     password: memberPassword,
   });
+  const memberLabel = await getMemberLabel(admin, memberEmail);
   report("pass", "Password member session created", memberEmail);
 
   try {
@@ -914,6 +931,13 @@ sequenceDiagram
     await assertImagesLoaded(page);
     report("pass", "Document detail rendered Markdown, Mermaid, and image");
 
+    const commentBody = `토론 작성자 표시 확인 ${nonce}`;
+    await page.locator('textarea[name="body"]').fill(commentBody);
+    await page.getByRole("button", { name: "의견 남기기" }).click();
+    const commentItem = page.locator("li", { hasText: commentBody });
+    await expect(commentItem).toBeVisible();
+    await expect(commentItem).toContainText(memberLabel);
+
     await assertNonMemberBrowserGate({
       browser,
       baseUrl,
@@ -924,7 +948,10 @@ sequenceDiagram
       slug,
     });
 
-    await page.getByRole("link", { name: "수정", exact: true }).click();
+    await Promise.all([
+      page.waitForURL(`${baseUrl}/documents/${encodedSlug}/edit`),
+      page.getByRole("link", { name: "수정", exact: true }).click(),
+    ]);
     await expect(page.locator('[data-testid="document-editor"]')).toBeVisible();
     const updatedMarkdown = `${bodyWithImage}
 
@@ -976,6 +1003,32 @@ sequenceDiagram
     });
     report("pass", "Auto slug generation and duplicate slug avoidance verified");
 
+    const { error: archivedError } = await admin.from("documents").insert({
+      slug: archivedSlug,
+      title: archivedTitle,
+      summary: "보관 필터 검증",
+      body_markdown: `# ${archivedTitle}\n\n보관 문서입니다.`,
+      status: "archived",
+      created_by: memberSession.user.id,
+      updated_by: memberSession.user.id,
+      edit_summary: "mvp ui archived",
+    });
+
+    if (archivedError) {
+      throw new Error(`Archived document setup failed: ${archivedError.message}`);
+    }
+
+    documentSlugs.add(archivedSlug);
+    await page.goto(baseUrl);
+    await expect(page.getByText(archivedTitle)).toHaveCount(0);
+    await page.goto(`${baseUrl}/?status=archived`);
+    const archivedCard = page
+      .locator('[data-testid="document-card"]')
+      .filter({ hasText: archivedTitle });
+    await expect(archivedCard).toBeVisible();
+    await expect(archivedCard).toContainText("보관");
+    report("pass", "Archived documents hidden by default and visible by filter");
+
     await page.goto(`${baseUrl}/?q=${encodeURIComponent(searchTag)}`);
     await expect(
       page.getByText("Supabase 연결 전 미리보기 모드입니다."),
@@ -996,6 +1049,15 @@ sequenceDiagram
 
     await page.getByRole("button", { name: "로그아웃" }).click();
     await page.waitForURL(`${baseUrl}/login`);
+    await page.goto(baseUrl);
+    await expect(page.getByText(updatedTitle)).toBeVisible();
+    await expect(page.getByText(archivedTitle)).toHaveCount(0);
+    await page.goto(`${baseUrl}/documents/${encodedSlug}`);
+    await expect(page.getByTestId("document-title")).toHaveText(updatedTitle);
+    await expect(page.getByText(commentBody)).toBeVisible();
+    await expect(
+      page.getByText("의견 작성은 로그인한 멤버만 할 수 있습니다."),
+    ).toBeVisible();
     await page.goto(`${baseUrl}/documents/new`);
     await page.waitForURL(`${baseUrl}/login`);
     await page.goto(`${baseUrl}/documents/${encodedSlug}/edit`);
@@ -1011,9 +1073,9 @@ sequenceDiagram
       `${baseUrl}/api/assets/${encodeAssetPath(firstAssetPath)}`,
     );
 
-    if (assetResponse.status() !== 401) {
+    if (assetResponse.status() >= 400) {
       throw new Error(
-        `Anonymous asset read should return 401, got ${assetResponse.status()}`,
+        `Anonymous public asset read should succeed, got ${assetResponse.status()}`,
       );
     }
 
@@ -1033,7 +1095,8 @@ sequenceDiagram
       );
     }
 
-    report("pass", "Logout gates document routes and asset APIs");
+    report("pass", "Anonymous users can read published documents only");
+    report("pass", "Logout gates write routes and upload APIs");
   } finally {
     await context.close();
     await browser.close();

@@ -26,6 +26,7 @@ export type Tag = {
 };
 
 export type DocumentStatus = "draft" | "published" | "archived";
+export type DocumentStatusFilter = "active" | DocumentStatus;
 
 export type DocumentSummary = {
   id: string;
@@ -59,4 +60,5 @@ export type DocumentComment = {
   body: string;
   createdAt: string;
   createdBy: string | null;
+  authorLabel: string;
 };

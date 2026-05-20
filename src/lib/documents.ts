@@ -1,10 +1,13 @@
 import { demoDocumentDetails, demoDocuments } from "@/lib/demo-data";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
   DocumentComment,
   DocumentDetail,
   DocumentRevision,
+  DocumentStatus,
+  DocumentStatusFilter,
   DocumentSummary,
   Tag,
 } from "@/types/devwiki";
@@ -32,6 +35,17 @@ const DOCUMENT_LIST_SELECT =
 const DOCUMENT_LIST_LIMIT = 100;
 const DOCUMENT_SEARCH_PAGE_SIZE = 500;
 const DOCUMENT_SEARCH_MAX_ROWS = 5000;
+const DEFAULT_MEMBER_STATUSES: DocumentStatus[] = ["published", "draft"];
+const DEFAULT_PUBLIC_STATUSES: DocumentStatus[] = ["published"];
+
+type DocumentReadOptions = {
+  canReadPrivate?: boolean;
+};
+
+type DocumentListOptions = DocumentReadOptions & {
+  query?: string;
+  status?: DocumentStatusFilter;
+};
 
 function flattenTags(relations?: RawTagRelation[] | null): Tag[] {
   if (!relations) {
@@ -86,12 +100,108 @@ function matchesQuery(document: DocumentSummary, query: string) {
     .includes(normalized);
 }
 
-export async function getDocuments(query = ""): Promise<DocumentSummary[]> {
-  if (!isSupabaseConfigured()) {
-    return demoDocuments.filter((document) => matchesQuery(document, query));
+function visibleStatuses(
+  status: DocumentStatusFilter = "active",
+  canReadPrivate = false,
+): DocumentStatus[] {
+  if (status === "active") {
+    return canReadPrivate ? DEFAULT_MEMBER_STATUSES : DEFAULT_PUBLIC_STATUSES;
   }
 
-  const supabase = await createClient();
+  if (status === "published") {
+    return ["published"];
+  }
+
+  if (!canReadPrivate) {
+    return [];
+  }
+
+  return [status];
+}
+
+function hasVisibleStatus(
+  document: DocumentSummary,
+  statuses: DocumentStatus[],
+) {
+  return statuses.includes(document.status);
+}
+
+function createReadClient(canReadPrivate: boolean) {
+  return canReadPrivate ? createClient() : Promise.resolve(createAdminClient());
+}
+
+async function getCommentAuthorLabels(createdByIds: string[]) {
+  const uniqueIds = Array.from(new Set(createdByIds.filter(Boolean)));
+  const labels = new Map<string, string>();
+
+  if (!uniqueIds.length || !isSupabaseConfigured()) {
+    return labels;
+  }
+
+  const admin = createAdminClient();
+  const userResults = await Promise.all(
+    uniqueIds.map(async (id) => {
+      const { data, error } = await admin.auth.admin.getUserById(id);
+
+      if (error || !data.user?.email) {
+        return { id, email: null };
+      }
+
+      return { id, email: data.user.email.toLowerCase() };
+    }),
+  );
+  const emails = userResults
+    .map((result) => result.email)
+    .filter((email): email is string => Boolean(email));
+  const memberNames = new Map<string, string>();
+
+  if (emails.length) {
+    const { data } = await admin
+      .from("members")
+      .select("email, display_name")
+      .in("email", emails);
+
+    (data ?? []).forEach((member) => {
+      if (member.email) {
+        memberNames.set(
+          member.email.toLowerCase(),
+          member.display_name || member.email,
+        );
+      }
+    });
+  }
+
+  userResults.forEach((result) => {
+    if (!result.email) {
+      labels.set(result.id, result.id.slice(0, 8));
+      return;
+    }
+
+    labels.set(result.id, memberNames.get(result.email) ?? result.email);
+  });
+
+  return labels;
+}
+
+export async function getDocuments({
+  query = "",
+  status = "active",
+  canReadPrivate = false,
+}: DocumentListOptions = {}): Promise<DocumentSummary[]> {
+  const statuses = visibleStatuses(status, canReadPrivate);
+
+  if (!statuses.length) {
+    return [];
+  }
+
+  if (!isSupabaseConfigured()) {
+    return demoDocuments.filter(
+      (document) =>
+        hasVisibleStatus(document, statuses) && matchesQuery(document, query),
+    );
+  }
+
+  const supabase = await createReadClient(canReadPrivate);
   const normalizedQuery = query.trim();
 
   if (normalizedQuery) {
@@ -106,6 +216,7 @@ export async function getDocuments(query = ""): Promise<DocumentSummary[]> {
       const { data, error } = await supabase
         .from("documents")
         .select(DOCUMENT_LIST_SELECT)
+        .in("status", statuses)
         .order("updated_at", { ascending: false })
         .range(from, to);
 
@@ -128,6 +239,7 @@ export async function getDocuments(query = ""): Promise<DocumentSummary[]> {
   const { data, error } = await supabase
     .from("documents")
     .select(DOCUMENT_LIST_SELECT)
+    .in("status", statuses)
     .order("updated_at", { ascending: false })
     .limit(DOCUMENT_LIST_LIMIT);
 
@@ -142,19 +254,36 @@ export async function getDocuments(query = ""): Promise<DocumentSummary[]> {
 
 export async function getDocumentBySlug(
   slug: string,
+  { canReadPrivate = false }: DocumentReadOptions = {},
 ): Promise<DocumentDetail | null> {
   if (!isSupabaseConfigured()) {
-    return demoDocumentDetails[slug] ?? null;
+    const document = demoDocumentDetails[slug] ?? null;
+
+    if (!document) {
+      return null;
+    }
+
+    return hasVisibleStatus(
+      document,
+      visibleStatuses(document.status, canReadPrivate),
+    )
+      ? document
+      : null;
   }
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const supabase = await createReadClient(canReadPrivate);
+  let query = supabase
     .from("documents")
     .select(
       "id, slug, title, summary, body_markdown, status, created_at, updated_at, created_by, updated_by, document_tags(tags(id, name, slug))",
     )
-    .eq("slug", slug)
-    .maybeSingle();
+    .eq("slug", slug);
+
+  if (!canReadPrivate) {
+    query = query.eq("status", "published");
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     throw new Error(error.message);
@@ -165,8 +294,9 @@ export async function getDocumentBySlug(
 
 export async function getDocumentRevisions(
   documentId: string,
+  { canReadPrivate = false }: DocumentReadOptions = {},
 ): Promise<DocumentRevision[]> {
-  if (!isSupabaseConfigured()) {
+  if (!isSupabaseConfigured() || !canReadPrivate) {
     return [];
   }
 
@@ -195,12 +325,13 @@ export async function getDocumentRevisions(
 
 export async function getDocumentComments(
   documentId: string,
+  { canReadPrivate = false }: DocumentReadOptions = {},
 ): Promise<DocumentComment[]> {
   if (!isSupabaseConfigured()) {
     return [];
   }
 
-  const supabase = await createClient();
+  const supabase = await createReadClient(canReadPrivate);
   const { data, error } = await supabase
     .from("comments")
     .select("id, body, created_at, created_by")
@@ -211,11 +342,19 @@ export async function getDocumentComments(
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((row) => ({
+  const rows = data ?? [];
+  const authorLabels = await getCommentAuthorLabels(
+    rows.map((row) => row.created_by).filter(Boolean),
+  );
+
+  return rows.map((row) => ({
     id: row.id,
     body: row.body,
     createdAt: row.created_at,
     createdBy: row.created_by,
+    authorLabel: row.created_by
+      ? (authorLabels.get(row.created_by) ?? row.created_by.slice(0, 8))
+      : "알 수 없음",
   }));
 }
 

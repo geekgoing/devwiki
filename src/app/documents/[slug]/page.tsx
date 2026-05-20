@@ -1,6 +1,6 @@
 import { CalendarDays, Clock3, MessageSquare, Pencil, Tags } from "lucide-react";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { addComment } from "@/app/actions";
 import { AppHeader } from "@/components/app-header";
@@ -30,12 +30,11 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
+  const canReadPrivate = !configured || Boolean(member);
 
-  if (configured && !user) {
-    redirect("/login");
-  }
+  const document = await getDocumentBySlug(slug, { canReadPrivate });
 
-  if (configured && user && !member) {
+  if (!document && configured && user && !member) {
     return (
       <>
         <AppHeader configured={configured} canCreate={false} user={user} />
@@ -46,16 +45,15 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
     );
   }
 
-  const document = await getDocumentBySlug(slug);
-
   if (!document) {
     notFound();
   }
 
   const [revisions, comments] = await Promise.all([
-    getDocumentRevisions(document.id),
-    getDocumentComments(document.id),
+    getDocumentRevisions(document.id, { canReadPrivate }),
+    getDocumentComments(document.id, { canReadPrivate }),
   ]);
+  const canContribute = Boolean(configured && member);
 
   return (
     <>
@@ -90,7 +88,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
                 </p>
               ) : null}
             </div>
-            {configured && user ? (
+            {canContribute ? (
               <Link
                 href={`/documents/${encodeURIComponent(document.slug)}/edit`}
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
@@ -141,7 +139,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
             currentBody={document.bodyMarkdown}
             documentId={document.id}
             revisions={revisions}
-            canRestore={Boolean(configured && user)}
+            canRestore={canContribute}
           />
 
           <section className="rounded-md border border-slate-200 bg-white p-4">
@@ -160,9 +158,13 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
                     <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
                       {comment.body}
                     </p>
-                    <time className="mt-2 block text-xs text-slate-500">
-                      {formatDate(comment.createdAt)}
-                    </time>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <span className="font-medium text-slate-600">
+                        {comment.authorLabel}
+                      </span>
+                      <span aria-hidden>·</span>
+                      <time>{formatDate(comment.createdAt)}</time>
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -172,7 +174,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
               </p>
             )}
 
-            {configured && user ? (
+            {canContribute ? (
               <form action={addComment} className="mt-4 space-y-2">
                 <input type="hidden" name="document_id" value={document.id} />
                 <input type="hidden" name="slug" value={document.slug} />
@@ -190,6 +192,10 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
                   의견 남기기
                 </button>
               </form>
+            ) : configured ? (
+              <p className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
+                의견 작성은 로그인한 멤버만 할 수 있습니다.
+              </p>
             ) : null}
           </section>
         </aside>

@@ -1,30 +1,74 @@
-import { FileText, Search } from "lucide-react";
+import { Archive, FileText, FilePenLine, Globe2, Search } from "lucide-react";
 import Link from "next/link";
 
 import { AppHeader } from "@/components/app-header";
 import { EmptyState } from "@/components/empty-state";
-import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/format";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import type { DocumentStatusFilter } from "@/types/devwiki";
 
 type HomeProps = {
   searchParams: Promise<{
     q?: string;
+    status?: string;
   }>;
 };
+
+const statusLabels: Record<DocumentStatusFilter, string> = {
+  active: "공개+초안",
+  published: "공개",
+  draft: "초안",
+  archived: "보관",
+};
+
+const statusIcons = {
+  active: FileText,
+  published: Globe2,
+  draft: FilePenLine,
+  archived: Archive,
+} satisfies Record<DocumentStatusFilter, typeof FileText>;
+
+function parseStatusFilter(value?: string): DocumentStatusFilter {
+  return value === "published" || value === "draft" || value === "archived"
+    ? value
+    : "active";
+}
+
+function filterHref(query: string, status: DocumentStatusFilter) {
+  const params = new URLSearchParams();
+
+  if (query) {
+    params.set("q", query);
+  }
+
+  if (status !== "active") {
+    params.set("status", status);
+  }
+
+  const queryString = params.toString();
+  return queryString ? `/?${queryString}` : "/";
+}
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
+  const status = parseStatusFilter(params.status);
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
-  const canRead = !configured || Boolean(user && member);
-  const documents = canRead ? await getDocuments(query) : [];
+  const canReadPrivate = !configured || Boolean(member);
+  const documents = await getDocuments({
+    query,
+    status,
+    canReadPrivate,
+  });
+  const filters: DocumentStatusFilter[] = canReadPrivate
+    ? ["active", "published", "draft", "archived"]
+    : ["active"];
 
   return (
     <>
@@ -38,25 +82,14 @@ export default async function Home({ searchParams }: HomeProps) {
         <div className="grid gap-6">
           {!configured ? <SetupNotice /> : null}
 
-          {configured && !user ? (
-            <section className="rounded-md border border-slate-200 bg-white px-5 py-6">
-              <h1 className="text-xl font-semibold text-slate-950">
-                로그인 후 DevWiki를 사용할 수 있습니다
-              </h1>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                등록된 멤버 계정으로 로그인해야 문서를 읽고 수정할 수 있습니다.
-              </p>
-              <Link
-                href="/login"
-                className="mt-4 inline-flex h-9 items-center rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
-              >
-                로그인
-              </Link>
-            </section>
-          ) : configured && user && !member ? (
-            <MemberGate user={user} />
-          ) : (
-            <>
+          <>
+            {configured && user && !member ? (
+              <section className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+                공개 문서는 읽을 수 있지만 작성, 수정, 초안 열람은 멤버 등록이
+                필요합니다.
+              </section>
+            ) : null}
+
               <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
                 <div>
                   <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
@@ -83,19 +116,48 @@ export default async function Home({ searchParams }: HomeProps) {
                 </div>
               </section>
 
-              <form action="/" className="relative max-w-xl">
-                <Search
-                  size={18}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  aria-hidden
-                />
-                <input
-                  name="q"
-                  defaultValue={query}
-                  placeholder="개념, 태그, 요약으로 검색"
-                  className="h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                />
-              </form>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <form action="/" className="relative w-full max-w-xl">
+                  <Search
+                    size={18}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    aria-hidden
+                  />
+                  <input type="hidden" name="status" value={status} />
+                  <input
+                    name="q"
+                    defaultValue={query}
+                    placeholder="개념, 태그, 요약으로 검색"
+                    className="h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  />
+                </form>
+
+                <nav className="flex flex-wrap gap-2" aria-label="문서 상태 필터">
+                  {filters.map((filter) => {
+                    const Icon = statusIcons[filter];
+                    const selected = status === filter;
+                    const label =
+                      filter === "active" && !canReadPrivate
+                        ? "공개"
+                        : statusLabels[filter];
+
+                    return (
+                      <Link
+                        key={filter}
+                        href={filterHref(query, filter)}
+                        className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition ${
+                          selected
+                            ? "border-slate-950 bg-slate-950 text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"
+                        }`}
+                      >
+                        <Icon size={15} aria-hidden />
+                        {label}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
 
               {documents.length ? (
                 <section className="grid gap-3">
@@ -143,8 +205,7 @@ export default async function Home({ searchParams }: HomeProps) {
               ) : (
                 <EmptyState canCreate={Boolean(member)} query={query} />
               )}
-            </>
-          )}
+          </>
         </div>
       </main>
     </>

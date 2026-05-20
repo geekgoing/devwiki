@@ -92,6 +92,31 @@ flowchart LR
 ## 참고 자료
 `;
 
+const quickSections = [
+  {
+    label: "정의",
+    markdown: "## 한 줄 정의\n\n",
+  },
+  {
+    label: "면접 답변",
+    markdown: "## 면접 답변\n\n",
+  },
+  {
+    label: "실무 예시",
+    markdown: "## 실무 예시\n\n",
+  },
+  {
+    label: "꼬리 질문",
+    markdown: "## 꼬리 질문\n\n",
+  },
+];
+
+const statusDescriptions: Record<DocumentStatus, string> = {
+  draft: "로그인한 멤버에게만 노출됩니다.",
+  published: "비로그인 사용자도 읽을 수 있습니다.",
+  archived: "기본 목록에서는 숨기고 보관 필터에서만 봅니다.",
+};
+
 function FieldLabel({
   children,
   optional = false,
@@ -758,6 +783,9 @@ export function DocumentEditor({
                   <option value="published">공개</option>
                   <option value="archived">보관</option>
                 </select>
+                <p className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
+                  {statusDescriptions[status]}
+                </p>
               </label>
 
               <div>
@@ -806,6 +834,22 @@ export function DocumentEditor({
                   placeholder={mode === "create" ? "문서 생성" : "예: 예시 보강"}
                 />
               </label>
+            </div>
+
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <p className="text-sm font-medium text-slate-700">빠른 섹션</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {quickSections.map((section) => (
+                  <button
+                    key={section.label}
+                    type="button"
+                    onClick={() => insertMarkdown(section.markdown)}
+                    className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
+                  >
+                    {section.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <button
