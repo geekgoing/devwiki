@@ -20,6 +20,7 @@ const documentSchema = z.object({
   status: z.enum(["draft", "published", "archived"]),
   tags: z.string().trim().optional(),
   editSummary: z.string().trim().max(160).optional(),
+  relatedDocumentIds: z.string().trim().optional(),
 });
 
 const restoreRevisionSchema = z.object({
@@ -83,6 +84,28 @@ function parseTagNames(value = "") {
     .map(([slug, name]) => ({ slug, name }));
 }
 
+function parseRelatedDocumentIds(value = "") {
+  return Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => z.string().uuid().safeParse(id).success),
+    ),
+  );
+}
+
+function isMissingDocumentLinksError(error?: { message?: string } | null) {
+  if (!error?.message) {
+    return false;
+  }
+
+  return (
+    error.message.includes("document_links") &&
+    /does not exist|could not find|schema cache|relation/i.test(error.message)
+  );
+}
+
 async function syncTags(
   supabase: Awaited<ReturnType<typeof createClient>>,
   documentId: string,
@@ -121,6 +144,47 @@ async function syncTags(
 
   if (relationError) {
     throw new Error(relationError.message);
+  }
+}
+
+async function syncRelatedDocuments(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  documentId: string,
+  targetDocumentIds: string[],
+  userId: string,
+) {
+  const targetIds = targetDocumentIds.filter((id) => id !== documentId);
+  const { error: deleteError } = await supabase
+    .from("document_links")
+    .delete()
+    .eq("source_document_id", documentId);
+
+  if (deleteError) {
+    if (isMissingDocumentLinksError(deleteError)) {
+      return;
+    }
+
+    throw new Error(deleteError.message);
+  }
+
+  if (!targetIds.length) {
+    return;
+  }
+
+  const { error: insertError } = await supabase.from("document_links").insert(
+    targetIds.map((targetId) => ({
+      source_document_id: documentId,
+      target_document_id: targetId,
+      created_by: userId,
+    })),
+  );
+
+  if (insertError) {
+    if (isMissingDocumentLinksError(insertError)) {
+      return;
+    }
+
+    throw new Error(insertError.message);
   }
 }
 
@@ -168,8 +232,12 @@ export async function createDocument(formData: FormData) {
     status: readString(formData, "status") || "draft",
     tags: readString(formData, "tags"),
     editSummary: readString(formData, "edit_summary"),
+    relatedDocumentIds: readString(formData, "related_document_ids"),
   });
   const parsedTags = parseTagNames(parsed.tags);
+  const relatedDocumentIds = parseRelatedDocumentIds(
+    parsed.relatedDocumentIds,
+  );
   const slug = await uniqueSlug(slugify(parsed.slug || parsed.title));
 
   const { data, error } = await supabase
@@ -192,6 +260,7 @@ export async function createDocument(formData: FormData) {
   }
 
   await syncTags(supabase, data.id, parsedTags);
+  await syncRelatedDocuments(supabase, data.id, relatedDocumentIds, user.id);
   revalidatePath("/");
   redirect(documentPath(data.slug));
 }
@@ -207,8 +276,12 @@ export async function updateDocument(formData: FormData) {
     status: readString(formData, "status") || "draft",
     tags: readString(formData, "tags"),
     editSummary: readString(formData, "edit_summary"),
+    relatedDocumentIds: readString(formData, "related_document_ids"),
   });
   const parsedTags = parseTagNames(parsed.tags);
+  const relatedDocumentIds = parseRelatedDocumentIds(
+    parsed.relatedDocumentIds,
+  );
 
   if (!parsed.id) {
     throw new Error("수정할 문서 ID가 없습니다.");
@@ -247,6 +320,7 @@ export async function updateDocument(formData: FormData) {
   }
 
   await syncTags(supabase, parsed.id, parsedTags);
+  await syncRelatedDocuments(supabase, parsed.id, relatedDocumentIds, user.id);
   revalidatePath("/");
   revalidatePath(documentPath(currentDocument.slug));
   revalidatePath(`${documentPath(currentDocument.slug)}/edit`);

@@ -50,12 +50,24 @@ export function MermaidBlock({ chart }: { chart: string }) {
 
   if (error) {
     return (
-      <pre
-        className="overflow-x-auto rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"
+      <div
+        className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
         data-testid="mermaid-error"
       >
-        {error}
-      </pre>
+        <p className="font-medium">Mermaid 다이어그램 문법을 확인하세요.</p>
+        <p className="mt-1 text-xs leading-5 text-rose-700">
+          코드 블록 안의 Mermaid 문법이 유효하지 않아 미리보기를 만들지
+          못했습니다.
+        </p>
+        <details className="mt-3">
+          <summary className="cursor-pointer text-xs font-medium text-rose-700">
+            오류 자세히 보기
+          </summary>
+          <pre className="mt-2 max-h-40 overflow-auto rounded border border-rose-200 bg-white/70 p-2 text-xs leading-5">
+            {error}
+          </pre>
+        </details>
+      </div>
     );
   }
 

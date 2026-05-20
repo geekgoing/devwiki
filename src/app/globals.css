@@ -125,6 +125,24 @@ select {
   padding-left: 1.25rem;
 }
 
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown ul ul,
+.markdown ol ul {
+  list-style: circle;
+}
+
+.markdown ul ol,
+.markdown ol ol {
+  list-style: lower-alpha;
+}
+
 .markdown li + li {
   margin-top: 0.25rem;
 }

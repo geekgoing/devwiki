@@ -45,6 +45,8 @@ export type DocumentDetail = DocumentSummary & {
   updatedBy: string | null;
 };
 
+export type RelatedDocument = DocumentSummary;
+
 export type DocumentRevision = {
   id: string;
   title: string;

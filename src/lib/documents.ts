@@ -9,6 +9,7 @@ import type {
   DocumentStatus,
   DocumentStatusFilter,
   DocumentSummary,
+  RelatedDocument,
   Tag,
 } from "@/types/devwiki";
 
@@ -28,6 +29,10 @@ type RawDocument = {
   created_by?: string | null;
   updated_by?: string | null;
   document_tags?: RawTagRelation[] | null;
+};
+
+type RawDocumentLink = {
+  target_document_id: string;
 };
 
 const DOCUMENT_LIST_SELECT =
@@ -128,6 +133,17 @@ function hasVisibleStatus(
 
 function createReadClient(canReadPrivate: boolean) {
   return canReadPrivate ? createClient() : Promise.resolve(createAdminClient());
+}
+
+function isMissingDocumentLinksError(error?: { message?: string } | null) {
+  if (!error?.message) {
+    return false;
+  }
+
+  return (
+    error.message.includes("document_links") &&
+    /does not exist|could not find|schema cache|relation/i.test(error.message)
+  );
 }
 
 async function getCommentAuthorLabels(createdByIds: string[]) {
@@ -356,6 +372,90 @@ export async function getDocumentComments(
       ? (authorLabels.get(row.created_by) ?? row.created_by.slice(0, 8))
       : "알 수 없음",
   }));
+}
+
+export async function getRelatedDocuments(
+  documentId: string,
+  { canReadPrivate = false }: DocumentReadOptions = {},
+): Promise<RelatedDocument[]> {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  const supabase = await createReadClient(canReadPrivate);
+  const { data: linkRows, error: linkError } = await supabase
+    .from("document_links")
+    .select("target_document_id")
+    .eq("source_document_id", documentId);
+
+  if (linkError) {
+    if (isMissingDocumentLinksError(linkError)) {
+      return [];
+    }
+
+    throw new Error(linkError.message);
+  }
+
+  const targetIds = ((linkRows ?? []) as RawDocumentLink[]).map(
+    (row) => row.target_document_id,
+  );
+
+  if (!targetIds.length) {
+    return [];
+  }
+
+  let query = supabase
+    .from("documents")
+    .select(DOCUMENT_LIST_SELECT)
+    .in("id", targetIds);
+
+  if (!canReadPrivate) {
+    query = query.eq("status", "published");
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const documentById = new Map(
+    ((data ?? []) as RawDocument[]).map((document) => [
+      document.id,
+      toDocumentSummary(document),
+    ]),
+  );
+
+  return targetIds
+    .map((id) => documentById.get(id))
+    .filter((document): document is RelatedDocument => Boolean(document));
+}
+
+export async function getRelatedDocumentIds(
+  documentId: string,
+  { canReadPrivate = false }: DocumentReadOptions = {},
+): Promise<string[]> {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  const supabase = await createReadClient(canReadPrivate);
+  const { data, error } = await supabase
+    .from("document_links")
+    .select("target_document_id")
+    .eq("source_document_id", documentId);
+
+  if (error) {
+    if (isMissingDocumentLinksError(error)) {
+      return [];
+    }
+
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as RawDocumentLink[]).map(
+    (row) => row.target_document_id,
+  );
 }
 
 export async function slugExists(slug: string, exceptId?: string) {

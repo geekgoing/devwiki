@@ -1,4 +1,11 @@
-import { CalendarDays, Clock3, MessageSquare, Pencil, Tags } from "lucide-react";
+import {
+  CalendarDays,
+  Clock3,
+  Link2,
+  MessageSquare,
+  Pencil,
+  Tags,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -15,6 +22,7 @@ import {
   getDocumentBySlug,
   getDocumentComments,
   getDocumentRevisions,
+  getRelatedDocuments,
 } from "@/lib/documents";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -49,11 +57,14 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
     notFound();
   }
 
-  const [revisions, comments] = await Promise.all([
+  const [revisions, comments, relatedDocuments] = await Promise.all([
     getDocumentRevisions(document.id, { canReadPrivate }),
     getDocumentComments(document.id, { canReadPrivate }),
+    getRelatedDocuments(document.id, { canReadPrivate }),
   ]);
   const canContribute = Boolean(configured && member);
+  const shouldShowRelatedDocuments =
+    relatedDocuments.length > 0 || canContribute;
 
   return (
     <>
@@ -134,6 +145,53 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
 
         <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
           <MarkdownToc content={document.bodyMarkdown} />
+
+          {shouldShowRelatedDocuments ? (
+            <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
+              <div className="flex items-center gap-2">
+                <Link2 size={16} className="text-slate-500" aria-hidden />
+                <h2 className="text-sm font-semibold text-slate-950">
+                  연관 문서
+                </h2>
+              </div>
+              {relatedDocuments.length ? (
+                <ol className="mt-3 space-y-2">
+                  {relatedDocuments.map((relatedDocument) => (
+                    <li key={relatedDocument.id}>
+                      <Link
+                        href={`/documents/${encodeURIComponent(
+                          relatedDocument.slug,
+                        )}`}
+                        className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"
+                      >
+                        <span className="block text-sm font-medium text-slate-800">
+                          {relatedDocument.title}
+                        </span>
+                        {relatedDocument.summary ? (
+                          <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-500">
+                            {relatedDocument.summary}
+                          </span>
+                        ) : null}
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="mt-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3">
+                  <p className="text-xs leading-5 text-slate-500">
+                    아직 연결된 문서가 없습니다.
+                  </p>
+                  <Link
+                    href={`/documents/${encodeURIComponent(document.slug)}/edit`}
+                    className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
+                  >
+                    <Pencil size={13} aria-hidden />
+                    편집에서 추가
+                  </Link>
+                </div>
+              )}
+            </section>
+          ) : null}
 
           <RevisionHistory
             currentBody={document.bodyMarkdown}

@@ -1,7 +1,7 @@
 "use client";
 
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { redo, undo } from "@codemirror/commands";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import dynamic from "next/dynamic";
 import {
   Bold,
@@ -43,7 +43,7 @@ const CodeMirror = dynamic<CodeMirrorProps>(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[520px] items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-sm text-slate-500">
+      <div className="flex h-[760px] items-center justify-center bg-slate-50 text-sm text-slate-500">
         에디터 로딩 중
       </div>
     ),
@@ -53,6 +53,13 @@ const CodeMirror = dynamic<CodeMirrorProps>(
 type DocumentEditorProps = {
   action: (formData: FormData) => void | Promise<void>;
   mode: "create" | "edit";
+  linkableDocuments?: {
+    id: string;
+    title: string;
+    slug: string;
+    summary?: string | null;
+    status?: DocumentStatus;
+  }[];
   initialDocument?: {
     id?: string;
     title?: string;
@@ -61,6 +68,7 @@ type DocumentEditorProps = {
     bodyMarkdown?: string;
     status?: DocumentStatus;
     tags?: string;
+    relatedDocumentIds?: string[];
   };
 };
 
@@ -72,6 +80,7 @@ type EditorDraft = {
   status: DocumentStatus;
   tags: string;
   editSummary: string;
+  relatedDocumentIds: string[];
   savedAt: number;
 };
 
@@ -88,8 +97,8 @@ const starterMarkdown = `# 제목
 ## 시각 자료
 \`\`\`mermaid
 flowchart LR
-  A[개념] --> B[예시]
-  B --> C[면접 답변]
+  A["개념"] --> B["예시"]
+  B --> C["면접 답변"]
 \`\`\`
 
 ## 꼬리 질문
@@ -97,35 +106,16 @@ flowchart LR
 ## 참고 자료
 `;
 
-const quickSections = [
-  {
-    label: "정의",
-    markdown: "## 한 줄 정의\n\n",
-  },
-  {
-    label: "면접 답변",
-    markdown: "## 면접 답변\n\n",
-  },
-  {
-    label: "실무 예시",
-    markdown: "## 실무 예시\n\n",
-  },
-  {
-    label: "꼬리 질문",
-    markdown: "## 꼬리 질문\n\n",
-  },
-];
-
-const toolGroupClass =
-  "flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1";
-const toolButtonClass =
-  "inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-blue-50 hover:text-blue-700";
-
 const statusDescriptions: Record<DocumentStatus, string> = {
   draft: "로그인한 멤버에게만 노출됩니다.",
   published: "비로그인 사용자도 읽을 수 있습니다.",
   archived: "기본 목록에서는 숨기고 보관 필터에서만 봅니다.",
 };
+
+const toolGroupClass =
+  "inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1";
+const toolButtonClass =
+  "inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent disabled:hover:text-slate-300";
 
 function FieldLabel({
   children,
@@ -164,6 +154,7 @@ function parseTagNames(value = "") {
 
 export function DocumentEditor({
   action,
+  linkableDocuments = [],
   mode,
   initialDocument,
 }: DocumentEditorProps) {
@@ -185,6 +176,10 @@ export function DocumentEditor({
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
   const [storedDraft, setStoredDraft] = useState<EditorDraft | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [documentLinkQuery, setDocumentLinkQuery] = useState("");
+  const [relatedDocumentIds, setRelatedDocumentIds] = useState<string[]>(
+    initialDocument?.relatedDocumentIds ?? [],
+  );
   const editorViewRef = useRef<EditorViewInstance | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const draftKey = useMemo(
@@ -205,6 +200,50 @@ export function DocumentEditor({
     () => submittedTagNames.join(", "),
     [submittedTagNames],
   );
+  const submittedRelatedDocumentIds = useMemo(
+    () => relatedDocumentIds.join(","),
+    [relatedDocumentIds],
+  );
+  const selectedRelatedDocuments = useMemo(
+    () =>
+      relatedDocumentIds
+        .map((id) => linkableDocuments.find((document) => document.id === id))
+        .filter(
+          (
+            document,
+          ): document is NonNullable<(typeof linkableDocuments)[number]> =>
+            Boolean(document),
+        ),
+    [linkableDocuments, relatedDocumentIds],
+  );
+  const filteredLinkableDocuments = useMemo(() => {
+    const normalizedQuery = documentLinkQuery.trim().toLowerCase();
+
+    return linkableDocuments
+      .filter((document) => document.id !== initialDocument?.id)
+      .filter((document) => !relatedDocumentIds.includes(document.id))
+      .filter((document) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        return [
+          document.title,
+          document.slug,
+          document.summary ?? "",
+          document.status ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery);
+      })
+      .slice(0, 6);
+  }, [
+    documentLinkQuery,
+    initialDocument?.id,
+    linkableDocuments,
+    relatedDocumentIds,
+  ]);
 
   function markDirty() {
     setIsDirty(true);
@@ -249,6 +288,7 @@ export function DocumentEditor({
         status,
         tags: submittedTags,
         editSummary,
+        relatedDocumentIds,
         savedAt: Date.now(),
       };
 
@@ -271,6 +311,7 @@ export function DocumentEditor({
     slug,
     status,
     submittedTags,
+    relatedDocumentIds,
     summary,
     title,
   ]);
@@ -288,6 +329,35 @@ export function DocumentEditor({
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
+
+  useEffect(() => {
+    function handleSetMarkdown(event: Event) {
+      const markdownText = (event as CustomEvent<unknown>).detail;
+
+      if (typeof markdownText !== "string") {
+        return;
+      }
+
+      const view = editorViewRef.current;
+
+      if (view) {
+        view.dispatch({
+          changes: {
+            from: 0,
+            to: view.state.doc.length,
+            insert: markdownText,
+          },
+        });
+      }
+
+      setBody(markdownText);
+      setIsDirty(true);
+    }
+
+    window.addEventListener("devwiki:set-markdown", handleSetMarkdown);
+    return () =>
+      window.removeEventListener("devwiki:set-markdown", handleSetMarkdown);
+  }, []);
 
   function insertMarkdown(markdownText: string) {
     const view = editorViewRef.current;
@@ -361,9 +431,7 @@ export function DocumentEditor({
     });
   }
 
-  function runEditorCommand(
-    command: (view: EditorViewInstance) => boolean,
-  ) {
+  function runEditorCommand(command: (view: EditorViewInstance) => boolean) {
     const view = editorViewRef.current;
 
     if (!view) {
@@ -378,6 +446,20 @@ export function DocumentEditor({
     }
 
     view.focus();
+  }
+
+  function addRelatedDocument(documentId: string) {
+    setRelatedDocumentIds((current) =>
+      current.includes(documentId) ? current : [...current, documentId],
+    );
+    markDirty();
+  }
+
+  function removeRelatedDocument(documentId: string) {
+    setRelatedDocumentIds((current) =>
+      current.filter((id) => id !== documentId),
+    );
+    markDirty();
   }
 
   function setTagNames(nextTags: string[]) {
@@ -440,6 +522,7 @@ export function DocumentEditor({
     setStatus(draft.status);
     setTags(draft.tags);
     setEditSummary(draft.editSummary);
+    setRelatedDocumentIds(draft.relatedDocumentIds ?? []);
     setStoredDraft(null);
     setIsDirty(true);
     setDraftMessage("로컬 초안을 복원했습니다.");
@@ -487,27 +570,37 @@ export function DocumentEditor({
     }
   }
 
+  async function uploadImageAsset(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("alt", file.name.replace(/\.[^.]+$/, ""));
+
+    const response = await fetch("/api/assets/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      markdown?: string;
+      src?: string;
+    };
+
+    if (!response.ok || !payload.markdown || !payload.src) {
+      throw new Error(payload.error ?? "이미지 업로드에 실패했습니다.");
+    }
+
+    return {
+      markdown: payload.markdown,
+      src: payload.src,
+    };
+  }
+
   async function uploadImage(file: File) {
     setUploading(true);
     setUploadMessage(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("alt", file.name.replace(/\.[^.]+$/, ""));
-
-      const response = await fetch("/api/assets/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const payload = (await response.json()) as {
-        error?: string;
-        markdown?: string;
-      };
-
-      if (!response.ok || !payload.markdown) {
-        throw new Error(payload.error ?? "이미지 업로드에 실패했습니다.");
-      }
+      const payload = await uploadImageAsset(file);
 
       insertMarkdown(payload.markdown);
       setUploadMessage("이미지를 Markdown에 삽입했습니다.");
@@ -529,7 +622,7 @@ export function DocumentEditor({
   return (
     <form
       action={action}
-      className="space-y-5"
+      className="space-y-4"
       data-testid="document-editor"
       onSubmit={() => {
         window.localStorage.removeItem(draftKey);
@@ -542,6 +635,25 @@ export function DocumentEditor({
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="body_markdown" value={body} />
       <input type="hidden" name="tags" value={submittedTags} />
+      <input
+        type="hidden"
+        name="related_document_ids"
+        value={submittedRelatedDocumentIds}
+      />
+      <input
+        ref={fileInputRef}
+        data-testid="image-input"
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+
+          if (file) {
+            void uploadImage(file);
+          }
+        }}
+      />
 
       {storedDraft ? (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
@@ -569,12 +681,15 @@ export function DocumentEditor({
         </section>
       ) : null}
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-5">
-          <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-6">
-            <label className="block">
-              <FieldLabel>제목</FieldLabel>
+      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm shadow-slate-200/40">
+        <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <label className="sr-only" htmlFor="document-title-input">
+                제목
+              </label>
               <input
+                id="document-title-input"
                 name="title"
                 value={title}
                 onChange={(event) => {
@@ -587,243 +702,241 @@ export function DocumentEditor({
                   }
                 }}
                 required
-                className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-xl font-semibold text-slate-950 outline-none transition placeholder:text-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                placeholder="예: 멱등성"
+                className="h-10 w-full border-0 bg-transparent px-0 text-2xl font-semibold tracking-tight text-slate-950 outline-none placeholder:text-slate-300 focus:ring-0"
+                placeholder="문서 제목"
               />
-            </label>
-
-            <label className="mt-4 block">
-              <FieldLabel optional>요약</FieldLabel>
-              <input
-                name="summary"
-                value={summary}
-                onChange={(event) => {
-                  setSummary(event.target.value);
-                  markDirty();
-                }}
-                className="mt-2 h-11 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                placeholder="문서 목록에서 보일 짧은 설명"
-              />
-            </label>
-          </section>
-
-          <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm shadow-slate-200/40">
-            <div className="border-b border-slate-200 bg-white">
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-3 py-2">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-950">
-                    Markdown 에디터
-                  </h2>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    이미지 붙여넣기, 드래그 업로드, Mermaid 미리보기를 지원합니다.
-                  </p>
-                </div>
-
-                <input
-                  ref={fileInputRef}
-                  data-testid="image-input"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="hidden"
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-slate-500">
+                <select
+                  name="status"
+                  value={status}
                   onChange={(event) => {
-                    const file = event.target.files?.[0];
-
-                    if (file) {
-                      void uploadImage(file);
-                    }
+                    setStatus(event.target.value as DocumentStatus);
+                    markDirty();
                   }}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                  className="h-8 rounded-md border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                 >
-                  {uploading ? (
-                    <Loader2 size={16} className="animate-spin" aria-hidden />
-                  ) : (
-                    <ImagePlus size={16} aria-hidden />
-                  )}
-                  이미지
-                </button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 px-3 py-2">
-                <div className={toolGroupClass}>
-                  <button
-                    type="button"
-                    onClick={() => setView("edit")}
-                    className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
-                      view === "edit"
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-600 hover:text-slate-950"
-                    }`}
-                  >
-                    <Edit3 size={15} aria-hidden />
-                    편집
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setView("split")}
-                    className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
-                      view === "split"
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-600 hover:text-slate-950"
-                    }`}
-                  >
-                    <SplitSquareHorizontal size={15} aria-hidden />
-                    분할
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setView("preview")}
-                    className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
-                      view === "preview"
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-600 hover:text-slate-950"
-                    }`}
-                  >
-                    <Eye size={15} aria-hidden />
-                    미리보기
-                  </button>
-                </div>
-
-                <div className={toolGroupClass} aria-label="편집 기록">
-                  <button
-                    type="button"
-                    onClick={() => runEditorCommand(undo)}
-                    aria-label="되돌리기"
-                    title="되돌리기"
-                    className={toolButtonClass}
-                  >
-                    <Undo2 size={15} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => runEditorCommand(redo)}
-                    aria-label="다시 실행"
-                    title="다시 실행"
-                    className={toolButtonClass}
-                  >
-                    <Redo2 size={15} aria-hidden />
-                  </button>
-                </div>
-
-                <div className={toolGroupClass} aria-label="서식">
-                  <button
-                    type="button"
-                    onClick={() => wrapSelection("**", "**", "강조")}
-                    aria-label="굵게"
-                    title="굵게"
-                    className={toolButtonClass}
-                  >
-                    <Bold size={15} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown("## 새 섹션")}
-                    aria-label="제목"
-                    title="제목"
-                    className={toolButtonClass}
-                  >
-                    <Heading2 size={15} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => wrapSelection("`", "`", "code")}
-                    aria-label="인라인 코드"
-                    title="인라인 코드"
-                    className={toolButtonClass}
-                  >
-                    <Code2 size={15} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown("> 핵심 인용")}
-                    aria-label="인용"
-                    title="인용"
-                    className={toolButtonClass}
-                  >
-                    <Quote size={15} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown("- 항목")}
-                    aria-label="목록"
-                    title="목록"
-                    className={toolButtonClass}
-                  >
-                    <List size={15} aria-hidden />
-                  </button>
-                </div>
-
-                <div className={toolGroupClass} aria-label="삽입">
-                  <button
-                    type="button"
-                    onClick={() => wrapSelection("[", "](https://example.com)", "링크")}
-                    aria-label="링크"
-                    title="링크"
-                    className={toolButtonClass}
-                  >
-                    <Link2 size={15} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      insertMarkdown("| 항목 | 설명 |\n| --- | --- |\n| 예시 | 내용 |")
-                    }
-                    aria-label="표"
-                    title="표"
-                    className={toolButtonClass}
-                  >
-                    <Table2 size={15} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      insertMarkdown("```mermaid\nflowchart LR\n  A --> B\n```")
-                    }
-                    aria-label="Mermaid"
-                    title="Mermaid"
-                    className={toolButtonClass}
-                  >
-                    <Workflow size={15} aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertMarkdown("```\n// code\n```")}
-                    aria-label="코드 블록"
-                    title="코드 블록"
-                    className={toolButtonClass}
-                  >
-                    <Pilcrow size={15} aria-hidden />
-                  </button>
-                </div>
+                  <option value="draft">초안</option>
+                  <option value="published">공개</option>
+                  <option value="archived">보관</option>
+                </select>
+                <span className="font-mono text-slate-400">
+                  /{slug || slugify(title) || "document"}
+                </span>
+                <span>{body.trim().length.toLocaleString("ko-KR")}자</span>
+                <span>{submittedTagNames.length}개 태그</span>
+                <span className={isDirty ? "text-amber-600" : "text-slate-400"}>
+                  {isDirty ? "로컬 초안 있음" : "변경 없음"}
+                </span>
+                {uploading ? <span>이미지 업로드 중</span> : null}
+                {uploadMessage ? <span>{uploadMessage}</span> : null}
+                {draftMessage ? <span>{draftMessage}</span> : null}
               </div>
             </div>
 
-            {(uploadMessage || draftMessage) ? (
-              <div className="flex flex-wrap gap-3 border-b border-slate-200 px-4 py-2 text-xs text-slate-500">
-                {uploadMessage ? <p>{uploadMessage}</p> : null}
-                {draftMessage ? <p>{draftMessage}</p> : null}
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setView("edit")}
+                  className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
+                    view === "edit"
+                      ? "bg-white text-slate-950 shadow-sm"
+                      : "text-slate-500 hover:text-slate-950"
+                  }`}
+                >
+                  <Edit3 size={15} aria-hidden />
+                  편집
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("split")}
+                  className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
+                    view === "split"
+                      ? "bg-white text-slate-950 shadow-sm"
+                      : "text-slate-500 hover:text-slate-950"
+                  }`}
+                >
+                  <SplitSquareHorizontal size={15} aria-hidden />
+                  분할
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("preview")}
+                  className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
+                    view === "preview"
+                      ? "bg-white text-slate-950 shadow-sm"
+                      : "text-slate-500 hover:text-slate-950"
+                  }`}
+                >
+                  <Eye size={15} aria-hidden />
+                  미리보기
+                </button>
               </div>
-            ) : null}
 
+              <button
+                type="submit"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                <Save size={16} aria-hidden />
+                저장
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+            <div className={toolGroupClass} aria-label="편집 기록">
+              <button
+                type="button"
+                onClick={() => runEditorCommand(undo)}
+                aria-label="되돌리기"
+                title="되돌리기"
+                className={toolButtonClass}
+              >
+                <Undo2 size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => runEditorCommand(redo)}
+                aria-label="다시 실행"
+                title="다시 실행"
+                className={toolButtonClass}
+              >
+                <Redo2 size={15} aria-hidden />
+              </button>
+            </div>
+
+            <div className={toolGroupClass} aria-label="서식">
+              <button
+                type="button"
+                onClick={() => wrapSelection("**", "**", "강조")}
+                aria-label="굵게"
+                title="굵게"
+                className={toolButtonClass}
+              >
+                <Bold size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMarkdown("## 새 섹션")}
+                aria-label="제목"
+                title="제목"
+                className={toolButtonClass}
+              >
+                <Heading2 size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => wrapSelection("`", "`", "code")}
+                aria-label="인라인 코드"
+                title="인라인 코드"
+                className={toolButtonClass}
+              >
+                <Code2 size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMarkdown("> 핵심 인용")}
+                aria-label="인용"
+                title="인용"
+                className={toolButtonClass}
+              >
+                <Quote size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMarkdown("- 항목")}
+                aria-label="목록"
+                title="목록"
+                className={toolButtonClass}
+              >
+                <List size={15} aria-hidden />
+              </button>
+            </div>
+
+            <div className={toolGroupClass} aria-label="삽입">
+              <button
+                type="button"
+                onClick={() => wrapSelection("[", "](https://example.com)", "링크")}
+                aria-label="링크"
+                title="링크"
+                className={toolButtonClass}
+              >
+                <Link2 size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertMarkdown("| 항목 | 설명 |\n| --- | --- |\n| 예시 | 내용 |")
+                }
+                aria-label="표"
+                title="표"
+                className={toolButtonClass}
+              >
+                <Table2 size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertMarkdown(
+                    '```mermaid\nflowchart LR\n  A["개념"] --> B["예시"]\n```',
+                  )
+                }
+                aria-label="Mermaid"
+                title="Mermaid"
+                className={toolButtonClass}
+              >
+                <Workflow size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => insertMarkdown("```\n// code\n```")}
+                aria-label="코드 블록"
+                title="코드 블록"
+                className={toolButtonClass}
+              >
+                <Pilcrow size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                aria-label="이미지 업로드"
+                title="이미지 업로드"
+                className={toolButtonClass}
+              >
+                {uploading ? (
+                  <Loader2 size={15} className="animate-spin" aria-hidden />
+                ) : (
+                  <ImagePlus size={15} aria-hidden />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0">
             <div
               onPaste={handlePaste}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               className={
                 view === "split"
-                  ? "grid min-h-[580px] lg:grid-cols-2"
-                  : "min-h-[580px]"
+                  ? "grid min-h-[760px] 2xl:grid-cols-2"
+                  : "min-h-[760px]"
               }
             >
               {view !== "preview" ? (
-                <div className="border-slate-200 lg:border-r">
+                <div
+                  className={
+                    view === "split"
+                      ? "min-w-0 border-b border-slate-200 2xl:border-b-0 2xl:border-r"
+                      : "min-w-0"
+                  }
+                >
                   <CodeMirror
                     value={body}
-                    height="580px"
+                    height="760px"
                     extensions={extensions}
                     basicSetup={{
                       foldGutter: false,
@@ -841,142 +954,159 @@ export function DocumentEditor({
               ) : null}
 
               {view !== "edit" ? (
-                <div className="max-h-[580px] overflow-auto bg-white p-5 sm:p-6">
+                <div className="min-h-[760px] overflow-auto bg-white p-5 sm:p-7 2xl:max-h-[860px]">
                   <MarkdownRenderer content={body} />
                 </div>
               ) : null}
             </div>
-          </section>
-        </div>
+          </div>
 
-        <aside className="space-y-5 xl:sticky xl:top-24">
-          <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Settings2 size={16} className="text-slate-500" aria-hidden />
-              <h2 className="text-sm font-semibold text-slate-950">
-                문서 설정
-              </h2>
-            </div>
+          <aside className="border-t border-slate-200 bg-slate-50/70 p-4 xl:border-l xl:border-t-0">
+            <div className="space-y-5 xl:sticky xl:top-20">
+              <section>
+                <div className="flex items-center gap-2">
+                  <Settings2 size={16} className="text-slate-500" aria-hidden />
+                  <h2 className="text-sm font-semibold text-slate-950">
+                    문서 설정
+                  </h2>
+                </div>
 
-            <div className="mt-4 space-y-4">
-              <label className="block">
-                <FieldLabel>상태</FieldLabel>
-                <select
-                  name="status"
-                  value={status}
-                  onChange={(event) => {
-                    setStatus(event.target.value as DocumentStatus);
-                    markDirty();
-                  }}
-                  className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                >
-                  <option value="draft">초안</option>
-                  <option value="published">공개</option>
-                  <option value="archived">보관</option>
-                </select>
-                <p className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
+                <label className="mt-4 block">
+                  <FieldLabel optional>요약</FieldLabel>
+                  <textarea
+                    name="summary"
+                    value={summary}
+                    onChange={(event) => {
+                      setSummary(event.target.value);
+                      markDirty();
+                    }}
+                    rows={3}
+                    className="mt-2 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    placeholder="문서 목록에서 보일 짧은 설명"
+                  />
+                </label>
+
+                <div className="mt-4">
+                  <FieldLabel optional>태그</FieldLabel>
+                  <div className="mt-2 flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 transition focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-200">
+                    {tagNames.map((tag) => (
+                      <span
+                        key={tag}
+                        data-testid="tag-chip"
+                        className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-100 px-2 text-xs font-medium text-slate-700"
+                      >
+                        {tag}
+                        <button
+                          type="button"
+                          aria-label={`${tag} 태그 삭제`}
+                          data-testid="tag-chip-remove"
+                          onClick={() => removeTag(tag)}
+                          className="inline-flex size-4 items-center justify-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
+                        >
+                          <X size={12} aria-hidden />
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      value={tagInput}
+                      onChange={handleTagInputChange}
+                      onKeyDown={handleTagInputKeyDown}
+                      onBlur={() => commitTagInput()}
+                      data-testid="tag-input"
+                      className="h-7 min-w-28 flex-1 border-0 bg-transparent px-1 text-sm text-slate-950 outline-none placeholder:text-slate-300"
+                      placeholder={tagNames.length ? "" : "HTTP, API 설계"}
+                    />
+                  </div>
+                </div>
+
+                <label className="mt-4 block">
+                  <FieldLabel optional>수정 요약</FieldLabel>
+                  <input
+                    name="edit_summary"
+                    value={editSummary}
+                    onChange={(event) => {
+                      setEditSummary(event.target.value);
+                      markDirty();
+                    }}
+                    className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    placeholder={mode === "create" ? "문서 생성" : "예: 예시 보강"}
+                  />
+                </label>
+
+                <p className="mt-3 rounded-md bg-white px-3 py-2 text-xs leading-5 text-slate-500">
                   {statusDescriptions[status]}
                 </p>
-              </label>
+              </section>
 
-              <div>
-                <FieldLabel optional>태그</FieldLabel>
-                <div className="mt-2 flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 transition focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-200">
-                  {tagNames.map((tag) => (
-                    <span
-                      key={tag}
-                      data-testid="tag-chip"
-                      className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-100 px-2 text-xs font-medium text-slate-700"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        aria-label={`${tag} 태그 삭제`}
-                        data-testid="tag-chip-remove"
-                        onClick={() => removeTag(tag)}
-                        className="inline-flex size-4 items-center justify-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
-                      >
-                        <X size={12} aria-hidden />
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    value={tagInput}
-                    onChange={handleTagInputChange}
-                    onKeyDown={handleTagInputKeyDown}
-                    onBlur={() => commitTagInput()}
-                    data-testid="tag-input"
-                    className="h-7 min-w-28 flex-1 border-0 bg-transparent px-1 text-sm text-slate-950 outline-none placeholder:text-slate-300"
-                    placeholder={tagNames.length ? "" : "HTTP, API 설계"}
-                  />
+              <section className="border-t border-slate-200 pt-5">
+                <div className="flex items-center gap-2">
+                  <Link2 size={16} className="text-slate-500" aria-hidden />
+                  <h2 className="text-sm font-semibold text-slate-950">
+                    연관 문서
+                  </h2>
                 </div>
-              </div>
 
-              <label className="block">
-                <FieldLabel optional>수정 요약</FieldLabel>
+                {selectedRelatedDocuments.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedRelatedDocuments.map((document) => (
+                      <span
+                        key={document.id}
+                        className="inline-flex max-w-full items-center gap-2 rounded-md bg-blue-50 px-2.5 py-1.5 text-sm font-medium text-blue-800"
+                      >
+                        <span className="truncate">{document.title}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeRelatedDocument(document.id)}
+                          className="inline-flex size-5 shrink-0 items-center justify-center rounded text-blue-500 transition hover:bg-blue-100 hover:text-blue-900"
+                          aria-label={`${document.title} 연관 문서 제거`}
+                        >
+                          <X size={13} aria-hidden />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
                 <input
-                  name="edit_summary"
-                  value={editSummary}
-                  onChange={(event) => {
-                    setEditSummary(event.target.value);
-                    markDirty();
-                  }}
-                  className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  placeholder={mode === "create" ? "문서 생성" : "예: 예시 보강"}
+                  value={documentLinkQuery}
+                  onChange={(event) => setDocumentLinkQuery(event.target.value)}
+                  className="mt-3 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="연관 문서 검색"
                 />
-              </label>
+                {filteredLinkableDocuments.length ? (
+                  <div className="mt-3 space-y-2">
+                    {filteredLinkableDocuments.map((document) => (
+                      <button
+                        key={document.id}
+                        type="button"
+                        onClick={() => addRelatedDocument(document.id)}
+                        className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-blue-200 hover:bg-blue-50"
+                      >
+                        <span className="block truncate text-sm font-medium text-slate-800">
+                          {document.title}
+                        </span>
+                        {document.summary ? (
+                          <span className="mt-0.5 line-clamp-1 block text-xs text-slate-500">
+                            {document.summary}
+                          </span>
+                        ) : (
+                          <span className="mt-0.5 block font-mono text-xs text-slate-400">
+                            /{document.slug}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 rounded-md bg-white px-3 py-2 text-xs leading-5 text-slate-500">
+                    추가할 문서가 없습니다.
+                  </p>
+                )}
+              </section>
             </div>
-
-            <div className="mt-5 border-t border-slate-100 pt-4">
-              <p className="text-sm font-medium text-slate-700">빠른 섹션</p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {quickSections.map((section) => (
-                  <button
-                    key={section.label}
-                    type="button"
-                    onClick={() => insertMarkdown(section.markdown)}
-                    className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
-                  >
-                    {section.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
-            >
-              <Save size={16} aria-hidden />
-              저장
-            </button>
-          </section>
-
-          <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
-            <dl className="space-y-3 text-xs">
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-slate-500">본문</dt>
-                <dd className="font-medium text-slate-700">
-                  {body.trim().length.toLocaleString("ko-KR")}자
-                </dd>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-slate-500">태그</dt>
-                <dd className="font-medium text-slate-700">
-                  {submittedTagNames.length}
-                  개
-                </dd>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <dt className="text-slate-500">저장 상태</dt>
-                <dd className="font-medium text-slate-700">
-                  {isDirty ? "로컬 초안 있음" : "변경 없음"}
-                </dd>
-              </div>
-            </dl>
-          </section>
-        </aside>
-      </div>
+          </aside>
+        </div>
+      </section>
     </form>
   );
 }

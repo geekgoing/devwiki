@@ -499,16 +499,16 @@ async function assertNonMemberBrowserGate({
 }
 
 async function fillMarkdownEditor(page, markdown, marker) {
-  const editor = page.locator(".cm-content").first();
+  const editor = page.locator(".cm-editor").first();
   await editor.waitFor({ state: "visible", timeout: 15_000 });
 
-  try {
-    await editor.fill(markdown);
-  } catch {
-    await editor.click();
-    await page.keyboard.press("ControlOrMeta+A");
-    await page.keyboard.insertText(markdown);
-  }
+  await page.evaluate((nextMarkdown) => {
+    window.dispatchEvent(
+      new CustomEvent("devwiki:set-markdown", {
+        detail: nextMarkdown,
+      }),
+    );
+  }, markdown);
 
   await page.waitForFunction(
     (expected) =>
@@ -839,7 +839,7 @@ sequenceDiagram
     await assertMermaidErrorPreview(page, baseMarkdown);
     await fillMarkdownEditor(page, baseMarkdown, "retry-safe-command");
     await page.getByRole("button", { name: "편집" }).click();
-    await expect(page.locator(".cm-content").first()).toBeVisible();
+    await expect(page.locator(".cm-editor").first()).toBeVisible();
     await page.getByRole("button", { name: "분할" }).click();
     await expect(page.locator('[data-testid="markdown-content"]')).toBeVisible();
 
