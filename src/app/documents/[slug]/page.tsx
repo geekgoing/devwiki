@@ -1,4 +1,6 @@
 import {
+  ArrowLeft,
+  ArrowRight,
   CalendarDays,
   Clock3,
   Link2,
@@ -8,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 
 import { addComment } from "@/app/actions";
 import { AppHeader } from "@/components/app-header";
@@ -19,18 +22,93 @@ import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/format";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import {
+  getBacklinkDocuments,
   getDocumentBySlug,
   getDocumentComments,
   getDocumentRevisions,
   getRelatedDocuments,
 } from "@/lib/documents";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import type { RelatedDocument } from "@/types/devwiki";
 
 type DocumentPageProps = {
   params: Promise<{
     slug: string;
   }>;
 };
+
+function LinkedDocumentCard({ document }: { document: RelatedDocument }) {
+  return (
+    <li>
+      <Link
+        href={`/documents/${encodeURIComponent(document.slug)}`}
+        className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"
+      >
+        <span className="block text-sm font-medium text-slate-800">
+          {document.title}
+        </span>
+        {document.summary ? (
+          <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-500">
+            {document.summary}
+          </span>
+        ) : (
+          <span className="mt-1 block font-mono text-xs text-slate-400">
+            /{document.slug}
+          </span>
+        )}
+      </Link>
+    </li>
+  );
+}
+
+function LinkSection({
+  documents,
+  editHref,
+  emptyText,
+  icon,
+  showEmptyState = false,
+  title,
+}: {
+  documents: RelatedDocument[];
+  editHref?: string;
+  emptyText: string;
+  icon: ReactNode;
+  showEmptyState?: boolean;
+  title: string;
+}) {
+  if (!documents.length && !showEmptyState) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
+      <div className="flex items-center gap-2">
+        {icon}
+        <h2 className="text-sm font-semibold text-slate-950">{title}</h2>
+      </div>
+      {documents.length ? (
+        <ol className="mt-3 space-y-2">
+          {documents.map((document) => (
+            <LinkedDocumentCard key={document.id} document={document} />
+          ))}
+        </ol>
+      ) : (
+        <div className="mt-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3">
+          <p className="text-xs leading-5 text-slate-500">{emptyText}</p>
+          {editHref ? (
+            <Link
+              href={editHref}
+              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
+            >
+              <Pencil size={13} aria-hidden />
+              편집에서 추가
+            </Link>
+          ) : null}
+        </div>
+      )}
+    </section>
+  );
+}
 
 export default async function DocumentPage({ params }: DocumentPageProps) {
   const { slug: encodedSlug } = await params;
@@ -57,14 +135,17 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
     notFound();
   }
 
-  const [revisions, comments, relatedDocuments] = await Promise.all([
-    getDocumentRevisions(document.id, { canReadPrivate }),
-    getDocumentComments(document.id, { canReadPrivate }),
-    getRelatedDocuments(document.id, { canReadPrivate }),
-  ]);
+  const [revisions, comments, relatedDocuments, backlinkDocuments] =
+    await Promise.all([
+      getDocumentRevisions(document.id, { canReadPrivate }),
+      getDocumentComments(document.id, { canReadPrivate }),
+      getRelatedDocuments(document.id, { canReadPrivate }),
+      getBacklinkDocuments(document.id, { canReadPrivate }),
+    ]);
   const canContribute = Boolean(configured && member);
   const shouldShowRelatedDocuments =
     relatedDocuments.length > 0 || canContribute;
+  const editHref = `/documents/${encodeURIComponent(document.slug)}/edit`;
 
   return (
     <>
@@ -74,7 +155,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
         canManageMembers={member?.role === "owner"}
         user={user}
       />
-      <main className="mx-auto grid w-full max-w-7xl flex-1 gap-7 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
+      <main className="mx-auto grid w-full max-w-7xl flex-1 gap-7 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
         <section className="rounded-md border border-slate-200 bg-white px-5 py-6 shadow-sm shadow-slate-200/60 sm:px-7 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
@@ -101,7 +182,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
             </div>
             {canContribute ? (
               <Link
-                href={`/documents/${encodeURIComponent(document.slug)}/edit`}
+                href={editHref}
                 className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
               >
                 <Pencil size={16} aria-hidden />
@@ -110,15 +191,43 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
             ) : null}
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
-            <span className="inline-flex items-center gap-1.5">
-              <Clock3 size={14} aria-hidden />
-              마지막 수정 {formatDate(document.updatedAt)}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <CalendarDays size={14} aria-hidden />
-              생성 {formatDate(document.createdAt)}
-            </span>
+          <div className="mt-6 grid gap-3 border-t border-slate-100 pt-4 text-xs text-slate-500 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-md bg-slate-50 px-3 py-2">
+              <span className="inline-flex items-center gap-1.5">
+                <Clock3 size={14} aria-hidden />
+                마지막 수정
+              </span>
+              <strong className="mt-1 block font-medium text-slate-700">
+                {formatDate(document.updatedAt)}
+              </strong>
+            </div>
+            <div className="rounded-md bg-slate-50 px-3 py-2">
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays size={14} aria-hidden />
+                생성
+              </span>
+              <strong className="mt-1 block font-medium text-slate-700">
+                {formatDate(document.createdAt)}
+              </strong>
+            </div>
+            <div className="rounded-md bg-slate-50 px-3 py-2">
+              <span className="inline-flex items-center gap-1.5">
+                <Link2 size={14} aria-hidden />
+                연결
+              </span>
+              <strong className="mt-1 block font-medium text-slate-700">
+                {relatedDocuments.length + backlinkDocuments.length}개
+              </strong>
+            </div>
+            <div className="rounded-md bg-slate-50 px-3 py-2">
+              <span className="inline-flex items-center gap-1.5">
+                <MessageSquare size={14} aria-hidden />
+                토론
+              </span>
+              <strong className="mt-1 block font-medium text-slate-700">
+                {comments.length}개
+              </strong>
+            </div>
           </div>
 
           {document.tags.length ? (
@@ -146,52 +255,21 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
         <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
           <MarkdownToc content={document.bodyMarkdown} />
 
-          {shouldShowRelatedDocuments ? (
-            <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
-              <div className="flex items-center gap-2">
-                <Link2 size={16} className="text-slate-500" aria-hidden />
-                <h2 className="text-sm font-semibold text-slate-950">
-                  연관 문서
-                </h2>
-              </div>
-              {relatedDocuments.length ? (
-                <ol className="mt-3 space-y-2">
-                  {relatedDocuments.map((relatedDocument) => (
-                    <li key={relatedDocument.id}>
-                      <Link
-                        href={`/documents/${encodeURIComponent(
-                          relatedDocument.slug,
-                        )}`}
-                        className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"
-                      >
-                        <span className="block text-sm font-medium text-slate-800">
-                          {relatedDocument.title}
-                        </span>
-                        {relatedDocument.summary ? (
-                          <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-500">
-                            {relatedDocument.summary}
-                          </span>
-                        ) : null}
-                      </Link>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <div className="mt-3 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3">
-                  <p className="text-xs leading-5 text-slate-500">
-                    아직 연결된 문서가 없습니다.
-                  </p>
-                  <Link
-                    href={`/documents/${encodeURIComponent(document.slug)}/edit`}
-                    className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
-                  >
-                    <Pencil size={13} aria-hidden />
-                    편집에서 추가
-                  </Link>
-                </div>
-              )}
-            </section>
-          ) : null}
+          <LinkSection
+            documents={relatedDocuments}
+            editHref={editHref}
+            emptyText="아직 연결된 문서가 없습니다."
+            icon={<ArrowRight size={16} className="text-slate-500" aria-hidden />}
+            showEmptyState={shouldShowRelatedDocuments}
+            title="연관 문서"
+          />
+
+          <LinkSection
+            documents={backlinkDocuments}
+            emptyText="아직 이 문서를 참조하는 문서가 없습니다."
+            icon={<ArrowLeft size={16} className="text-slate-500" aria-hidden />}
+            title="이 문서를 참조하는 문서"
+          />
 
           <RevisionHistory
             currentBody={document.bodyMarkdown}

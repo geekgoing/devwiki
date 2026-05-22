@@ -32,6 +32,7 @@ type RawDocument = {
 };
 
 type RawDocumentLink = {
+  source_document_id?: string;
   target_document_id: string;
 };
 
@@ -427,6 +428,63 @@ export async function getRelatedDocuments(
   );
 
   return targetIds
+    .map((id) => documentById.get(id))
+    .filter((document): document is RelatedDocument => Boolean(document));
+}
+
+export async function getBacklinkDocuments(
+  documentId: string,
+  { canReadPrivate = false }: DocumentReadOptions = {},
+): Promise<RelatedDocument[]> {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  const supabase = await createReadClient(canReadPrivate);
+  const { data: linkRows, error: linkError } = await supabase
+    .from("document_links")
+    .select("source_document_id")
+    .eq("target_document_id", documentId);
+
+  if (linkError) {
+    if (isMissingDocumentLinksError(linkError)) {
+      return [];
+    }
+
+    throw new Error(linkError.message);
+  }
+
+  const sourceIds = ((linkRows ?? []) as RawDocumentLink[])
+    .map((row) => row.source_document_id)
+    .filter((id): id is string => Boolean(id));
+
+  if (!sourceIds.length) {
+    return [];
+  }
+
+  let query = supabase
+    .from("documents")
+    .select(DOCUMENT_LIST_SELECT)
+    .in("id", sourceIds);
+
+  if (!canReadPrivate) {
+    query = query.eq("status", "published");
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const documentById = new Map(
+    ((data ?? []) as RawDocument[]).map((document) => [
+      document.id,
+      toDocumentSummary(document),
+    ]),
+  );
+
+  return sourceIds
     .map((id) => documentById.get(id))
     .filter((document): document is RelatedDocument => Boolean(document));
 }
