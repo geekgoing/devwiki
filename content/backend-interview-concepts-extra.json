@@ -6,347 +6,1015 @@
     {
       "id": "tcp-handshake",
       "title": "TCP 3-Way Handshake",
-      "tags": ["네트워크", "TCP", "연결"],
+      "tags": [
+        "네트워크"
+      ],
       "summary": "TCP가 데이터를 보내기 전에 클라이언트와 서버가 서로의 송수신 가능 상태를 확인하고 연결을 맺는 과정입니다.",
       "problem": "TCP는 신뢰성 있는 바이트 스트림을 제공해야 하므로, 데이터를 보내기 전에 양쪽이 sequence number를 맞추고 연결 상태를 합의해야 합니다.",
-      "how": ["클라이언트가 SYN을 보내 연결 시작을 요청합니다.", "서버는 SYN-ACK로 요청을 수락하고 자신의 sequence number를 알립니다.", "클라이언트가 ACK를 보내면 연결이 성립되고 데이터 전송이 시작됩니다."],
-      "tradeoffs": ["연결 수립에 왕복 시간이 필요해 짧은 요청이 많으면 비용이 커집니다.", "연결 수가 많으면 서버의 파일 디스크립터와 커널 자원이 소모됩니다.", "TLS까지 함께 사용하면 추가 handshake 비용도 고려해야 합니다."],
+      "how": [
+        "클라이언트가 SYN을 보내 연결 시작을 요청합니다.",
+        "서버는 SYN-ACK로 요청을 수락하고 자신의 sequence number를 알립니다.",
+        "클라이언트가 ACK를 보내면 연결이 성립되고 데이터 전송이 시작됩니다."
+      ],
+      "tradeoffs": [
+        "연결 수립에 왕복 시간이 필요해 짧은 요청이 많으면 비용이 커집니다.",
+        "연결 수가 많으면 서버의 파일 디스크립터와 커널 자원이 소모됩니다.",
+        "TLS까지 함께 사용하면 추가 handshake 비용도 고려해야 합니다."
+      ],
       "answer": "TCP 3-way handshake는 SYN, SYN-ACK, ACK 세 단계로 연결을 맺고 양쪽 sequence number를 동기화하는 과정입니다. 연결 비용이 있기 때문에 HTTP keep-alive, 커넥션 풀, timeout 설정과 함께 설명하면 좋습니다.",
       "example": "브라우저가 처음 API 서버에 접속하면 TCP 연결을 만든 뒤 HTTP 요청을 보내고, keep-alive가 켜져 있으면 같은 연결을 재사용할 수 있습니다.",
-      "questions": ["왜 2-way가 아니라 3-way인가?", "SYN backlog가 꽉 차면 어떤 문제가 생기는가?", "keep-alive는 handshake 비용을 어떻게 줄이는가?"],
-      "related": ["http-keep-alive", "timeout-retry", "load-balancing", "connection-pool"],
-      "flow": [
-        { "text": "Client", "sub": "SYN" },
-        { "text": "Server", "sub": "SYN-ACK" },
-        { "text": "Client", "sub": "ACK" },
-        { "text": "Established", "sub": "data transfer" }
+      "questions": [
+        "왜 2-way가 아니라 3-way인가?",
+        "SYN backlog가 꽉 차면 어떤 문제가 생기는가?",
+        "keep-alive는 handshake 비용을 어떻게 줄이는가?"
       ],
-      "deep": ["핸드셰이크는 연결 가능 여부뿐 아니라 초기 sequence number를 교환해 이후 데이터 순서와 재전송 기준을 잡습니다.", "SYN flood 같은 공격은 연결 수립 과정의 서버 자원을 고갈시키는 방식입니다.", "HTTP/2, HTTP/3 같은 프로토콜을 말할 때도 하위 연결 수립 비용을 함께 이해해야 합니다."],
-      "implementation": ["서버의 backlog, keep-alive timeout, idle timeout 값을 운영 트래픽에 맞춥니다.", "클라이언트에는 connect timeout과 read timeout을 구분해 둡니다.", "로드밸런서와 애플리케이션 서버의 idle timeout 불일치를 확인합니다."],
+      "related": [
+        "http-keep-alive",
+        "timeout-retry",
+        "load-balancing",
+        "connection-pool"
+      ],
+      "flow": [
+        {
+          "text": "Client",
+          "sub": "SYN"
+        },
+        {
+          "text": "Server",
+          "sub": "SYN-ACK"
+        },
+        {
+          "text": "Client",
+          "sub": "ACK"
+        },
+        {
+          "text": "Established",
+          "sub": "data transfer"
+        }
+      ],
+      "deep": [
+        "핸드셰이크는 연결 가능 여부뿐 아니라 초기 sequence number를 교환해 이후 데이터 순서와 재전송 기준을 잡습니다.",
+        "SYN flood 같은 공격은 연결 수립 과정의 서버 자원을 고갈시키는 방식입니다.",
+        "HTTP/2, HTTP/3 같은 프로토콜을 말할 때도 하위 연결 수립 비용을 함께 이해해야 합니다."
+      ],
+      "implementation": [
+        "서버의 backlog, keep-alive timeout, idle timeout 값을 운영 트래픽에 맞춥니다.",
+        "클라이언트에는 connect timeout과 read timeout을 구분해 둡니다.",
+        "로드밸런서와 애플리케이션 서버의 idle timeout 불일치를 확인합니다."
+      ],
       "compare": "TCP는 연결형이고 신뢰성을 제공하지만, UDP는 연결 수립 없이 datagram을 보내므로 지연은 낮을 수 있어도 순서와 재전송은 애플리케이션이 책임져야 합니다.",
-      "redflags": ["TCP 연결 비용을 무시하고 매 요청마다 새 연결을 만든다.", "connect timeout과 read timeout을 구분하지 못한다.", "로드밸런서 idle timeout 때문에 중간 연결이 끊기는 문제를 애플리케이션 버그로만 본다."]
+      "redflags": [
+        "TCP 연결 비용을 무시하고 매 요청마다 새 연결을 만든다.",
+        "connect timeout과 read timeout을 구분하지 못한다.",
+        "로드밸런서 idle timeout 때문에 중간 연결이 끊기는 문제를 애플리케이션 버그로만 본다."
+      ]
     },
     {
       "id": "http-keep-alive",
       "title": "HTTP Keep-Alive",
-      "tags": ["HTTP", "성능", "네트워크"],
+      "tags": [
+        "HTTP",
+        "성능",
+        "네트워크"
+      ],
       "summary": "하나의 TCP 연결을 여러 HTTP 요청에 재사용해 연결 수립 비용과 지연시간을 줄이는 방식입니다.",
       "problem": "HTTP 요청마다 TCP와 TLS 연결을 새로 만들면 handshake 비용, CPU 비용, 포트 사용량이 커지고 tail latency가 나빠집니다.",
-      "how": ["클라이언트와 서버가 연결을 닫지 않고 일정 시간 유지합니다.", "같은 origin에 대한 후속 요청이 기존 연결을 재사용합니다.", "idle timeout, max requests, connection pool 설정으로 오래된 연결을 정리합니다."],
-      "tradeoffs": ["idle 연결이 많으면 서버 자원을 계속 점유합니다.", "중간 프록시나 로드밸런서 timeout과 맞지 않으면 재사용한 연결에서 실패가 날 수 있습니다.", "HTTP/2는 multiplexing으로 keep-alive의 효과를 더 확장하지만 head-of-line 문제를 다른 방식으로 봐야 합니다."],
+      "how": [
+        "클라이언트와 서버가 연결을 닫지 않고 일정 시간 유지합니다.",
+        "같은 origin에 대한 후속 요청이 기존 연결을 재사용합니다.",
+        "idle timeout, max requests, connection pool 설정으로 오래된 연결을 정리합니다."
+      ],
+      "tradeoffs": [
+        "idle 연결이 많으면 서버 자원을 계속 점유합니다.",
+        "중간 프록시나 로드밸런서 timeout과 맞지 않으면 재사용한 연결에서 실패가 날 수 있습니다.",
+        "HTTP/2는 multiplexing으로 keep-alive의 효과를 더 확장하지만 head-of-line 문제를 다른 방식으로 봐야 합니다."
+      ],
       "answer": "HTTP keep-alive는 TCP 연결을 재사용해 매 요청의 handshake 비용을 줄이는 기능입니다. 성능에는 도움이 되지만 idle timeout과 커넥션 풀 관리가 필요하고, 서버와 로드밸런서 설정이 맞아야 안정적입니다.",
       "example": "API 클라이언트가 같은 서버에 초당 수백 번 요청할 때 keep-alive와 커넥션 풀을 쓰면 연결 생성 비용과 TLS 협상 비용을 크게 줄일 수 있습니다.",
-      "questions": ["keep-alive timeout을 너무 길게 잡으면?", "HTTP/1.1 keep-alive와 HTTP/2 multiplexing은 어떻게 다른가?", "서버가 연결을 닫았는데 클라이언트가 재사용하면 어떻게 되는가?"],
-      "related": ["tcp-handshake", "connection-pool", "timeout-retry", "load-balancing"],
-      "flow": [
-        { "text": "요청 1", "sub": "TCP 연결 생성" },
-        { "text": "응답 1", "sub": "연결 유지" },
-        { "text": "요청 2", "sub": "기존 연결 재사용" },
-        { "text": "Idle timeout", "sub": "연결 정리" }
+      "questions": [
+        "keep-alive timeout을 너무 길게 잡으면?",
+        "HTTP/1.1 keep-alive와 HTTP/2 multiplexing은 어떻게 다른가?",
+        "서버가 연결을 닫았는데 클라이언트가 재사용하면 어떻게 되는가?"
       ],
-      "deep": ["keep-alive는 단순히 빠르게 만드는 옵션이 아니라 연결 생명주기를 관리하는 운영 설정입니다.", "로드밸런서가 먼저 연결을 닫으면 애플리케이션 클라이언트는 stale connection 재사용 오류를 볼 수 있습니다.", "HTTP client 라이브러리의 pool size와 idle eviction 정책을 알아야 운영 장애를 설명할 수 있습니다."],
-      "implementation": ["클라이언트 HTTP pool의 max idle, max per route, idle eviction을 설정합니다.", "서버, 프록시, 로드밸런서의 keep-alive timeout을 비교합니다.", "연결 재사용 실패는 한 번 재시도하되 멱등 요청에 제한합니다."],
+      "related": [
+        "tcp-handshake",
+        "connection-pool",
+        "timeout-retry",
+        "load-balancing"
+      ],
+      "flow": [
+        {
+          "text": "요청 1",
+          "sub": "TCP 연결 생성"
+        },
+        {
+          "text": "응답 1",
+          "sub": "연결 유지"
+        },
+        {
+          "text": "요청 2",
+          "sub": "기존 연결 재사용"
+        },
+        {
+          "text": "Idle timeout",
+          "sub": "연결 정리"
+        }
+      ],
+      "deep": [
+        "keep-alive는 단순히 빠르게 만드는 옵션이 아니라 연결 생명주기를 관리하는 운영 설정입니다.",
+        "로드밸런서가 먼저 연결을 닫으면 애플리케이션 클라이언트는 stale connection 재사용 오류를 볼 수 있습니다.",
+        "HTTP client 라이브러리의 pool size와 idle eviction 정책을 알아야 운영 장애를 설명할 수 있습니다."
+      ],
+      "implementation": [
+        "클라이언트 HTTP pool의 max idle, max per route, idle eviction을 설정합니다.",
+        "서버, 프록시, 로드밸런서의 keep-alive timeout을 비교합니다.",
+        "연결 재사용 실패는 한 번 재시도하되 멱등 요청에 제한합니다."
+      ],
       "compare": "짧은 요청이 많은 HTTP/1.1에서는 keep-alive가 연결 비용을 줄이고, HTTP/2는 하나의 연결에서 여러 stream을 multiplexing해 동시성 문제까지 더 완화합니다.",
-      "redflags": ["keep-alive를 무조건 길게 잡으면 좋다고 말한다.", "커넥션 풀 크기와 서버 thread/connection 한계를 함께 보지 않는다.", "stale connection 오류를 무제한 retry로 덮는다."]
+      "redflags": [
+        "keep-alive를 무조건 길게 잡으면 좋다고 말한다.",
+        "커넥션 풀 크기와 서버 thread/connection 한계를 함께 보지 않는다.",
+        "stale connection 오류를 무제한 retry로 덮는다."
+      ]
     },
     {
       "id": "cors",
       "title": "CORS",
-      "tags": ["HTTP", "보안", "브라우저"],
+      "tags": [
+        "HTTP",
+        "보안"
+      ],
       "summary": "브라우저가 다른 origin으로 요청할 때 서버가 허용한 출처인지 확인해 응답 접근을 제한하는 보안 정책입니다.",
       "problem": "브라우저는 사용자의 쿠키나 인증 상태를 가진 채 요청을 보낼 수 있으므로, 임의 사이트가 다른 서비스의 응답을 마음대로 읽지 못하게 제한해야 합니다.",
-      "how": ["브라우저는 요청 origin과 대상 origin이 다르면 CORS 정책을 적용합니다.", "서버는 Access-Control-Allow-Origin 같은 헤더로 허용 출처를 알립니다.", "복잡한 요청은 preflight OPTIONS 요청으로 메서드와 헤더 허용 여부를 먼저 확인합니다."],
-      "tradeoffs": ["CORS는 브라우저의 응답 접근 제한이지 서버 간 요청 차단 장치가 아닙니다.", "credentials를 허용할 때 wildcard origin을 쓸 수 없습니다.", "preflight가 많으면 지연시간이 늘어 캐시 정책을 고려해야 합니다."],
+      "how": [
+        "브라우저는 요청 origin과 대상 origin이 다르면 CORS 정책을 적용합니다.",
+        "서버는 Access-Control-Allow-Origin 같은 헤더로 허용 출처를 알립니다.",
+        "복잡한 요청은 preflight OPTIONS 요청으로 메서드와 헤더 허용 여부를 먼저 확인합니다."
+      ],
+      "tradeoffs": [
+        "CORS는 브라우저의 응답 접근 제한이지 서버 간 요청 차단 장치가 아닙니다.",
+        "credentials를 허용할 때 wildcard origin을 쓸 수 없습니다.",
+        "preflight가 많으면 지연시간이 늘어 캐시 정책을 고려해야 합니다."
+      ],
       "answer": "CORS는 브라우저가 cross-origin 응답을 읽을 수 있는지 서버 헤더로 판단하는 정책입니다. API 보안 자체를 대체하지 않으며, 인증과 권한 검사는 서버에서 별도로 해야 합니다.",
       "example": "프론트엔드가 app.example.com이고 API가 api.example.com이면 API 서버가 app.example.com을 허용 origin으로 내려줘야 브라우저에서 응답을 읽을 수 있습니다.",
-      "questions": ["CORS 에러는 서버가 요청을 못 받은 것인가?", "preflight는 언제 발생하는가?", "credentials와 wildcard origin을 같이 쓸 수 없는 이유는?"],
-      "related": ["jwt", "session-cookie", "api-gateway", "rate-limiting"],
-      "flow": [
-        { "text": "Browser", "sub": "cross-origin request" },
-        { "text": "Preflight", "sub": "OPTIONS" },
-        { "text": "API", "sub": "CORS headers" },
-        { "text": "Browser", "sub": "응답 접근 허용/차단" }
+      "questions": [
+        "CORS 에러는 서버가 요청을 못 받은 것인가?",
+        "preflight는 언제 발생하는가?",
+        "credentials와 wildcard origin을 같이 쓸 수 없는 이유는?"
       ],
-      "deep": ["CORS는 Same-Origin Policy의 예외를 서버가 명시적으로 열어주는 방식입니다.", "서버 로그에는 200이 찍혔는데 브라우저 콘솔에는 CORS 에러가 날 수 있습니다. 브라우저가 응답 접근을 막았기 때문입니다.", "쿠키 기반 인증에서는 SameSite, Secure, credentials 옵션까지 함께 맞아야 합니다."],
-      "implementation": ["허용 origin을 환경별 allowlist로 관리합니다.", "Authorization, Content-Type 등 필요한 요청 헤더를 명시합니다.", "preflight max-age를 적절히 두고 인증 실패와 CORS 실패를 로그에서 구분합니다."],
+      "related": [
+        "jwt",
+        "session-cookie",
+        "api-gateway",
+        "rate-limiting"
+      ],
+      "flow": [
+        {
+          "text": "Browser",
+          "sub": "cross-origin request"
+        },
+        {
+          "text": "Preflight",
+          "sub": "OPTIONS"
+        },
+        {
+          "text": "API",
+          "sub": "CORS headers"
+        },
+        {
+          "text": "Browser",
+          "sub": "응답 접근 허용/차단"
+        }
+      ],
+      "deep": [
+        "CORS는 Same-Origin Policy의 예외를 서버가 명시적으로 열어주는 방식입니다.",
+        "서버 로그에는 200이 찍혔는데 브라우저 콘솔에는 CORS 에러가 날 수 있습니다. 브라우저가 응답 접근을 막았기 때문입니다.",
+        "쿠키 기반 인증에서는 SameSite, Secure, credentials 옵션까지 함께 맞아야 합니다."
+      ],
+      "implementation": [
+        "허용 origin을 환경별 allowlist로 관리합니다.",
+        "Authorization, Content-Type 등 필요한 요청 헤더를 명시합니다.",
+        "preflight max-age를 적절히 두고 인증 실패와 CORS 실패를 로그에서 구분합니다."
+      ],
       "compare": "CORS는 브라우저 보안 정책이고 CSRF는 사용자의 인증 상태를 악용한 요청 위조 문제입니다. 쿠키 인증에서는 둘을 함께 고려해야 합니다.",
-      "redflags": ["CORS를 API 인증으로 착각한다.", "운영에서 Access-Control-Allow-Origin: *와 credentials를 동시에 쓰려 한다.", "OPTIONS 요청을 인증 미들웨어에서 막아 preflight가 실패한다."]
+      "redflags": [
+        "CORS를 API 인증으로 착각한다.",
+        "운영에서 Access-Control-Allow-Origin: *와 credentials를 동시에 쓰려 한다.",
+        "OPTIONS 요청을 인증 미들웨어에서 막아 preflight가 실패한다."
+      ]
     },
     {
       "id": "jwt",
       "title": "JWT",
-      "tags": ["인증", "보안", "API"],
+      "tags": [
+        "인증",
+        "보안",
+        "아키텍처"
+      ],
       "summary": "서명된 JSON 토큰에 사용자 식별자와 클레임을 담아 서버가 토큰 무결성을 검증할 수 있게 하는 방식입니다.",
       "problem": "분산된 API 서버가 매 요청마다 중앙 세션 저장소를 조회하지 않고도 사용자의 인증 정보를 검증해야 하는 경우가 있습니다.",
-      "how": ["발급자는 header, payload, signature로 구성된 토큰을 만듭니다.", "서버는 서명을 검증하고 exp, iss, aud 같은 클레임을 확인합니다.", "권한 변경과 탈취 대응을 위해 짧은 만료, refresh token, revoke 전략을 둡니다."],
-      "tradeoffs": ["토큰이 탈취되면 만료 전까지 악용될 수 있습니다.", "payload는 암호화가 아니라 인코딩이므로 민감 정보를 넣으면 안 됩니다.", "권한 변경을 즉시 반영하려면 blacklist나 세션 버전 같은 상태 저장이 필요할 수 있습니다."],
+      "how": [
+        "발급자는 header, payload, signature로 구성된 토큰을 만듭니다.",
+        "서버는 서명을 검증하고 exp, iss, aud 같은 클레임을 확인합니다.",
+        "권한 변경과 탈취 대응을 위해 짧은 만료, refresh token, revoke 전략을 둡니다."
+      ],
+      "tradeoffs": [
+        "토큰이 탈취되면 만료 전까지 악용될 수 있습니다.",
+        "payload는 암호화가 아니라 인코딩이므로 민감 정보를 넣으면 안 됩니다.",
+        "권한 변경을 즉시 반영하려면 blacklist나 세션 버전 같은 상태 저장이 필요할 수 있습니다."
+      ],
       "answer": "JWT는 서명된 클레임 기반 토큰입니다. 서버는 서명과 만료를 검증해 stateless하게 인증할 수 있지만, 탈취와 권한 변경 반영 문제가 있어 만료 시간, refresh token, revoke 전략이 중요합니다.",
       "example": "API Gateway가 Authorization Bearer 토큰의 서명과 만료를 검증하고, 내부 서비스에는 사용자 id와 role을 전달합니다.",
-      "questions": ["JWT payload는 안전하게 숨겨지는가?", "JWT를 즉시 무효화하려면?", "access token과 refresh token은 왜 나누는가?"],
-      "related": ["oauth2", "session-cookie", "api-gateway", "cors"],
-      "flow": [
-        { "text": "Login", "sub": "토큰 발급" },
-        { "text": "Client", "sub": "Bearer token" },
-        { "text": "API", "sub": "signature 검증" },
-        { "text": "Authorize", "sub": "claim 확인" }
+      "questions": [
+        "JWT payload는 안전하게 숨겨지는가?",
+        "JWT를 즉시 무효화하려면?",
+        "access token과 refresh token은 왜 나누는가?"
       ],
-      "deep": ["JWT의 핵심은 무결성 검증이지 기밀성 보장이 아닙니다.", "role 같은 권한 claim은 토큰 만료 전까지 오래된 값일 수 있어 중요한 권한은 서버 조회와 병행할 수 있습니다.", "서명 알고리즘과 key rotation 전략도 운영 관점에서 중요합니다."],
-      "implementation": ["짧은 access token 만료와 안전한 refresh token 저장 방식을 정합니다.", "iss, aud, exp, nbf를 검증합니다.", "권한 변경이 민감한 시스템은 token version이나 revoke list를 둡니다."],
+      "related": [
+        "oauth2",
+        "session-cookie",
+        "api-gateway",
+        "cors"
+      ],
+      "flow": [
+        {
+          "text": "Login",
+          "sub": "토큰 발급"
+        },
+        {
+          "text": "Client",
+          "sub": "Bearer token"
+        },
+        {
+          "text": "API",
+          "sub": "signature 검증"
+        },
+        {
+          "text": "Authorize",
+          "sub": "claim 확인"
+        }
+      ],
+      "deep": [
+        "JWT의 핵심은 무결성 검증이지 기밀성 보장이 아닙니다.",
+        "role 같은 권한 claim은 토큰 만료 전까지 오래된 값일 수 있어 중요한 권한은 서버 조회와 병행할 수 있습니다.",
+        "서명 알고리즘과 key rotation 전략도 운영 관점에서 중요합니다."
+      ],
+      "implementation": [
+        "짧은 access token 만료와 안전한 refresh token 저장 방식을 정합니다.",
+        "iss, aud, exp, nbf를 검증합니다.",
+        "권한 변경이 민감한 시스템은 token version이나 revoke list를 둡니다."
+      ],
       "compare": "세션은 서버가 상태를 저장해 즉시 무효화가 쉽고, JWT는 서버 조회 없이 검증하기 쉬우나 revoke와 권한 최신성 관리가 어렵습니다.",
-      "redflags": ["JWT payload에 개인정보나 비밀 값을 넣는다.", "서명 검증 없이 decode만 하고 신뢰한다.", "refresh token을 access token처럼 긴 수명으로 노출한다."]
+      "redflags": [
+        "JWT payload에 개인정보나 비밀 값을 넣는다.",
+        "서명 검증 없이 decode만 하고 신뢰한다.",
+        "refresh token을 access token처럼 긴 수명으로 노출한다."
+      ]
     },
     {
       "id": "oauth2",
       "title": "OAuth 2.0",
-      "tags": ["인증", "인가", "보안"],
+      "tags": [
+        "인증",
+        "보안"
+      ],
       "summary": "사용자 비밀번호를 직접 공유하지 않고, 클라이언트가 제한된 권한의 access token으로 리소스에 접근하게 하는 인가 프레임워크입니다.",
       "problem": "외부 앱이 사용자의 Google, GitHub 같은 리소스에 접근해야 할 때 사용자 비밀번호를 앱에 넘기는 방식은 위험합니다.",
-      "how": ["사용자는 authorization server에서 클라이언트 접근을 승인합니다.", "클라이언트는 authorization code를 받아 token endpoint에서 access token으로 교환합니다.", "resource server는 access token의 scope와 만료를 확인해 요청을 허용합니다."],
-      "tradeoffs": ["OAuth는 기본적으로 인증 프로토콜이 아니라 인가 프레임워크입니다.", "redirect URI, state, PKCE를 잘못 처리하면 code 탈취나 CSRF 문제가 생깁니다.", "scope를 넓게 발급하면 최소 권한 원칙이 깨집니다."],
+      "how": [
+        "사용자는 authorization server에서 클라이언트 접근을 승인합니다.",
+        "클라이언트는 authorization code를 받아 token endpoint에서 access token으로 교환합니다.",
+        "resource server는 access token의 scope와 만료를 확인해 요청을 허용합니다."
+      ],
+      "tradeoffs": [
+        "OAuth는 기본적으로 인증 프로토콜이 아니라 인가 프레임워크입니다.",
+        "redirect URI, state, PKCE를 잘못 처리하면 code 탈취나 CSRF 문제가 생깁니다.",
+        "scope를 넓게 발급하면 최소 권한 원칙이 깨집니다."
+      ],
       "answer": "OAuth 2.0은 사용자 비밀번호 대신 제한된 권한의 access token을 발급해 리소스 접근을 위임하는 방식입니다. 웹/모바일에서는 Authorization Code Flow와 PKCE, state 검증이 중요합니다.",
       "example": "DevWiki가 GitHub 로그인을 붙인다면 사용자는 GitHub에서 동의하고, DevWiki는 authorization code를 token으로 교환해 사용자 프로필 범위만 조회합니다.",
-      "questions": ["OAuth와 OpenID Connect의 차이는?", "PKCE는 왜 필요한가?", "state 파라미터는 어떤 공격을 막는가?"],
-      "related": ["jwt", "session-cookie", "api-gateway", "cors"],
-      "flow": [
-        { "text": "Client", "sub": "authorization request" },
-        { "text": "User", "sub": "동의" },
-        { "text": "Auth Server", "sub": "code 발급" },
-        { "text": "Token", "sub": "access token 교환" }
+      "questions": [
+        "OAuth와 OpenID Connect의 차이는?",
+        "PKCE는 왜 필요한가?",
+        "state 파라미터는 어떤 공격을 막는가?"
       ],
-      "deep": ["OAuth 2.0만으로 사용자가 누구인지 말하려면 부족하고, 로그인에는 OpenID Connect의 ID Token이 자주 함께 쓰입니다.", "PKCE는 public client에서 authorization code 탈취 위험을 줄입니다.", "scope는 기능 단위 권한을 작게 나누는 것이 운영과 보안에 유리합니다."],
-      "implementation": ["redirect URI를 정확히 등록하고 동적으로 열지 않습니다.", "state와 PKCE verifier/challenge를 검증합니다.", "refresh token 저장 위치와 rotation 정책을 정합니다."],
+      "related": [
+        "jwt",
+        "session-cookie",
+        "api-gateway",
+        "cors"
+      ],
+      "flow": [
+        {
+          "text": "Client",
+          "sub": "authorization request"
+        },
+        {
+          "text": "User",
+          "sub": "동의"
+        },
+        {
+          "text": "Auth Server",
+          "sub": "code 발급"
+        },
+        {
+          "text": "Token",
+          "sub": "access token 교환"
+        }
+      ],
+      "deep": [
+        "OAuth 2.0만으로 사용자가 누구인지 말하려면 부족하고, 로그인에는 OpenID Connect의 ID Token이 자주 함께 쓰입니다.",
+        "PKCE는 public client에서 authorization code 탈취 위험을 줄입니다.",
+        "scope는 기능 단위 권한을 작게 나누는 것이 운영과 보안에 유리합니다."
+      ],
+      "implementation": [
+        "redirect URI를 정확히 등록하고 동적으로 열지 않습니다.",
+        "state와 PKCE verifier/challenge를 검증합니다.",
+        "refresh token 저장 위치와 rotation 정책을 정합니다."
+      ],
       "compare": "OAuth는 제3자 접근 위임에 초점이 있고, OIDC는 OAuth 위에 인증 정보를 표준화해 로그인에 필요한 사용자 식별을 제공합니다.",
-      "redflags": ["OAuth를 비밀번호 없는 로그인이라고만 설명한다.", "state 없이 redirect를 처리한다.", "모바일이나 SPA에서 client secret을 안전하다고 가정한다."]
+      "redflags": [
+        "OAuth를 비밀번호 없는 로그인이라고만 설명한다.",
+        "state 없이 redirect를 처리한다.",
+        "모바일이나 SPA에서 client secret을 안전하다고 가정한다."
+      ]
     },
     {
       "id": "session-cookie",
       "title": "Session / Cookie Auth",
-      "tags": ["인증", "보안", "브라우저"],
+      "tags": [
+        "인증",
+        "보안",
+        "HTTP"
+      ],
       "summary": "서버가 세션 상태를 저장하고 브라우저는 세션 id가 담긴 쿠키를 자동으로 전송하는 인증 방식입니다.",
       "problem": "웹 애플리케이션은 사용자의 로그인 상태를 여러 요청에 걸쳐 유지해야 하며, 브라우저와 자연스럽게 동작하는 상태 전달 방식이 필요합니다.",
-      "how": ["로그인 성공 시 서버가 세션을 만들고 세션 id를 쿠키로 내려줍니다.", "브라우저는 같은 사이트 요청에 쿠키를 자동 첨부합니다.", "서버는 세션 저장소에서 사용자와 권한 정보를 조회합니다."],
-      "tradeoffs": ["서버 세션 저장소가 필요해 수평 확장 시 Redis 같은 공유 저장소가 필요할 수 있습니다.", "쿠키 자동 전송 특성 때문에 CSRF 방어가 필요합니다.", "세션 저장소 장애는 로그인 사용자 요청 전체에 영향을 줄 수 있습니다."],
+      "how": [
+        "로그인 성공 시 서버가 세션을 만들고 세션 id를 쿠키로 내려줍니다.",
+        "브라우저는 같은 사이트 요청에 쿠키를 자동 첨부합니다.",
+        "서버는 세션 저장소에서 사용자와 권한 정보를 조회합니다."
+      ],
+      "tradeoffs": [
+        "서버 세션 저장소가 필요해 수평 확장 시 Redis 같은 공유 저장소가 필요할 수 있습니다.",
+        "쿠키 자동 전송 특성 때문에 CSRF 방어가 필요합니다.",
+        "세션 저장소 장애는 로그인 사용자 요청 전체에 영향을 줄 수 있습니다."
+      ],
       "answer": "세션 쿠키 인증은 서버가 로그인 상태를 저장하고 브라우저가 쿠키로 세션 id를 보내는 방식입니다. 즉시 로그아웃과 권한 변경 반영은 쉽지만, 세션 저장소 확장성과 CSRF 방어를 고려해야 합니다.",
       "example": "관리자 페이지는 서버 세션으로 인증하고, 쿠키에는 HttpOnly, Secure, SameSite=Lax 또는 Strict 옵션을 설정합니다.",
-      "questions": ["세션과 JWT의 차이는?", "HttpOnly와 SameSite는 무엇을 막는가?", "CSRF는 왜 쿠키 인증에서 중요해지는가?"],
-      "related": ["jwt", "oauth2", "cors", "load-balancing"],
-      "flow": [
-        { "text": "Login", "sub": "session 생성" },
-        { "text": "Set-Cookie", "sub": "session id" },
-        { "text": "Request", "sub": "cookie 자동 전송" },
-        { "text": "Session Store", "sub": "사용자 조회" }
+      "questions": [
+        "세션과 JWT의 차이는?",
+        "HttpOnly와 SameSite는 무엇을 막는가?",
+        "CSRF는 왜 쿠키 인증에서 중요해지는가?"
       ],
-      "deep": ["쿠키는 브라우저가 자동 전송하기 때문에 XSS와 CSRF 모두 고려해야 합니다.", "HttpOnly는 JavaScript 접근을 막지만 요청 자동 첨부 자체를 막지는 않습니다.", "로드밸런서 sticky session 없이 로컬 메모리 세션을 쓰면 서버 확장이 어려워집니다."],
-      "implementation": ["쿠키에 HttpOnly, Secure, SameSite를 설정합니다.", "세션 저장소를 외부화하고 TTL과 갱신 정책을 정합니다.", "상태 변경 요청에는 CSRF 토큰이나 SameSite 전략을 적용합니다."],
+      "related": [
+        "jwt",
+        "oauth2",
+        "cors",
+        "load-balancing"
+      ],
+      "flow": [
+        {
+          "text": "Login",
+          "sub": "session 생성"
+        },
+        {
+          "text": "Set-Cookie",
+          "sub": "session id"
+        },
+        {
+          "text": "Request",
+          "sub": "cookie 자동 전송"
+        },
+        {
+          "text": "Session Store",
+          "sub": "사용자 조회"
+        }
+      ],
+      "deep": [
+        "쿠키는 브라우저가 자동 전송하기 때문에 XSS와 CSRF 모두 고려해야 합니다.",
+        "HttpOnly는 JavaScript 접근을 막지만 요청 자동 첨부 자체를 막지는 않습니다.",
+        "로드밸런서 sticky session 없이 로컬 메모리 세션을 쓰면 서버 확장이 어려워집니다."
+      ],
+      "implementation": [
+        "쿠키에 HttpOnly, Secure, SameSite를 설정합니다.",
+        "세션 저장소를 외부화하고 TTL과 갱신 정책을 정합니다.",
+        "상태 변경 요청에는 CSRF 토큰이나 SameSite 전략을 적용합니다."
+      ],
       "compare": "JWT는 토큰 자체 검증으로 서버 조회를 줄일 수 있고, 세션은 서버 상태를 보므로 강제 로그아웃과 권한 변경 반영이 쉽습니다.",
-      "redflags": ["세션 id를 localStorage에 저장한다.", "쿠키 보안 옵션 없이 운영에 배포한다.", "로컬 메모리 세션을 쓰면서 무상태 수평 확장을 기대한다."]
+      "redflags": [
+        "세션 id를 localStorage에 저장한다.",
+        "쿠키 보안 옵션 없이 운영에 배포한다.",
+        "로컬 메모리 세션을 쓰면서 무상태 수평 확장을 기대한다."
+      ]
     },
     {
       "id": "api-gateway",
       "title": "API Gateway",
-      "tags": ["MSA", "보안", "라우팅"],
+      "tags": [
+        "MSA",
+        "보안"
+      ],
       "summary": "클라이언트 요청의 단일 진입점에서 인증, 라우팅, 제한, 공통 정책을 처리하고 내부 서비스로 전달하는 계층입니다.",
       "problem": "MSA에서 클라이언트가 여러 서비스를 직접 호출하면 인증, 라우팅, 버전 관리, 장애 처리 정책이 흩어지고 내부 구조가 외부에 노출됩니다.",
-      "how": ["Gateway가 외부 요청을 받아 인증과 기본 검증을 수행합니다.", "경로, 헤더, 버전에 따라 내부 서비스로 라우팅합니다.", "rate limit, logging, timeout, circuit breaker 같은 공통 정책을 적용합니다."],
-      "tradeoffs": ["Gateway가 병목이나 단일 장애 지점이 될 수 있습니다.", "비즈니스 로직이 Gateway에 쌓이면 서비스 책임이 흐려집니다.", "서비스별 세밀한 정책과 공통 정책의 경계를 잘 나눠야 합니다."],
+      "how": [
+        "Gateway가 외부 요청을 받아 인증과 기본 검증을 수행합니다.",
+        "경로, 헤더, 버전에 따라 내부 서비스로 라우팅합니다.",
+        "rate limit, logging, timeout, circuit breaker 같은 공통 정책을 적용합니다."
+      ],
+      "tradeoffs": [
+        "Gateway가 병목이나 단일 장애 지점이 될 수 있습니다.",
+        "비즈니스 로직이 Gateway에 쌓이면 서비스 책임이 흐려집니다.",
+        "서비스별 세밀한 정책과 공통 정책의 경계를 잘 나눠야 합니다."
+      ],
       "answer": "API Gateway는 MSA의 외부 진입점으로 인증, 라우팅, rate limit, 관측성 같은 횡단 관심사를 처리합니다. 편리하지만 Gateway에 과도한 비즈니스 로직을 넣으면 결합도가 커집니다.",
       "example": "모바일 앱은 Gateway만 호출하고, Gateway는 /orders를 주문 서비스로, /payments를 결제 서비스로 라우팅하며 JWT 검증과 요청 로그를 공통 처리합니다.",
-      "questions": ["Gateway와 Load Balancer의 차이는?", "Gateway에 어떤 로직까지 넣어야 하는가?", "Gateway 장애는 어떻게 대비하는가?"],
-      "related": ["msa", "rate-limiting", "load-balancing", "circuit-breaker"],
-      "flow": [
-        { "text": "Client", "sub": "single endpoint" },
-        { "text": "Gateway", "sub": "auth/rate limit" },
-        { "text": "Routing", "sub": "service 선택" },
-        { "text": "Service", "sub": "business 처리" }
+      "questions": [
+        "Gateway와 Load Balancer의 차이는?",
+        "Gateway에 어떤 로직까지 넣어야 하는가?",
+        "Gateway 장애는 어떻게 대비하는가?"
       ],
-      "deep": ["Gateway는 BFF와 함께 논의되기도 합니다. BFF는 클라이언트 유형별 응답 조합과 화면 최적화에 더 초점을 둡니다.", "Gateway 정책은 모든 요청에 적용되므로 timeout, payload limit, retry 여부가 장애 전파에 직접 영향을 줍니다.", "인증은 Gateway에서 검증하더라도 내부 서비스가 중요한 권한 검사를 완전히 생략하면 위험할 수 있습니다."],
-      "implementation": ["인증, rate limit, request size limit, timeout 기본값을 중앙에서 관리합니다.", "Gateway 로그에 request id와 upstream latency를 남깁니다.", "서비스 discovery와 health check를 연결합니다."],
+      "related": [
+        "msa",
+        "rate-limiting",
+        "load-balancing",
+        "circuit-breaker"
+      ],
+      "flow": [
+        {
+          "text": "Client",
+          "sub": "single endpoint"
+        },
+        {
+          "text": "Gateway",
+          "sub": "auth/rate limit"
+        },
+        {
+          "text": "Routing",
+          "sub": "service 선택"
+        },
+        {
+          "text": "Service",
+          "sub": "business 처리"
+        }
+      ],
+      "deep": [
+        "Gateway는 BFF와 함께 논의되기도 합니다. BFF는 클라이언트 유형별 응답 조합과 화면 최적화에 더 초점을 둡니다.",
+        "Gateway 정책은 모든 요청에 적용되므로 timeout, payload limit, retry 여부가 장애 전파에 직접 영향을 줍니다.",
+        "인증은 Gateway에서 검증하더라도 내부 서비스가 중요한 권한 검사를 완전히 생략하면 위험할 수 있습니다."
+      ],
+      "implementation": [
+        "인증, rate limit, request size limit, timeout 기본값을 중앙에서 관리합니다.",
+        "Gateway 로그에 request id와 upstream latency를 남깁니다.",
+        "서비스 discovery와 health check를 연결합니다."
+      ],
       "compare": "로드밸런서는 주로 트래픽 분산과 헬스체크에 초점이 있고, API Gateway는 API 레벨 정책, 인증, 라우팅, 변환까지 담당할 수 있습니다.",
-      "redflags": ["Gateway에 주문 상태 변경 같은 핵심 비즈니스 로직을 넣는다.", "Gateway timeout이 내부 서비스 timeout보다 길어 장애 시 연결이 오래 쌓인다.", "Gateway 로그만 있고 내부 trace 연결이 없다."]
+      "redflags": [
+        "Gateway에 주문 상태 변경 같은 핵심 비즈니스 로직을 넣는다.",
+        "Gateway timeout이 내부 서비스 timeout보다 길어 장애 시 연결이 오래 쌓인다.",
+        "Gateway 로그만 있고 내부 trace 연결이 없다."
+      ]
     },
     {
       "id": "cqrs",
       "title": "CQRS",
-      "tags": ["아키텍처", "정합성", "성능"],
+      "tags": [
+        "아키텍처",
+        "정합성",
+        "성능"
+      ],
       "summary": "명령으로 상태를 변경하는 모델과 조회에 최적화된 읽기 모델을 분리하는 아키텍처 패턴입니다.",
       "problem": "복잡한 도메인에서는 쓰기 모델의 불변식 검증과 읽기 화면의 조회 최적화 요구가 서로 달라 하나의 모델로 처리하면 복잡해질 수 있습니다.",
-      "how": ["Command 모델은 상태 변경과 비즈니스 규칙 검증에 집중합니다.", "Query 모델은 화면이나 API 응답에 맞게 비정규화될 수 있습니다.", "쓰기 결과는 이벤트나 배치로 read model에 반영됩니다."],
-      "tradeoffs": ["읽기 모델이 쓰기 모델과 즉시 일치하지 않을 수 있습니다.", "이벤트 전파, 재처리, read model 재빌드 운영이 필요합니다.", "단순 CRUD에는 오히려 복잡도가 과합니다."],
+      "how": [
+        "Command 모델은 상태 변경과 비즈니스 규칙 검증에 집중합니다.",
+        "Query 모델은 화면이나 API 응답에 맞게 비정규화될 수 있습니다.",
+        "쓰기 결과는 이벤트나 배치로 read model에 반영됩니다."
+      ],
+      "tradeoffs": [
+        "읽기 모델이 쓰기 모델과 즉시 일치하지 않을 수 있습니다.",
+        "이벤트 전파, 재처리, read model 재빌드 운영이 필요합니다.",
+        "단순 CRUD에는 오히려 복잡도가 과합니다."
+      ],
       "answer": "CQRS는 Command와 Query 책임을 분리해 쓰기는 도메인 규칙에, 읽기는 조회 성능과 응답 형태에 최적화하는 패턴입니다. 보통 eventual consistency와 read model 운영 비용을 함께 설명해야 합니다.",
       "example": "주문 생성은 주문 aggregate가 처리하고, 마이페이지 주문 목록은 별도의 read model 테이블에 비정규화해 빠르게 조회합니다.",
-      "questions": ["CQRS는 항상 Event Sourcing과 같이 써야 하는가?", "read model 지연은 어떻게 사용자에게 설명하는가?", "단순 CRUD에도 CQRS가 필요한가?"],
-      "related": ["event-sourcing", "eventual-consistency", "cache-aside", "message-queue"],
-      "flow": [
-        { "text": "Command", "sub": "상태 변경" },
-        { "text": "Domain Model", "sub": "불변식 검증" },
-        { "text": "Event", "sub": "변경 전파" },
-        { "text": "Read Model", "sub": "조회 최적화" }
+      "questions": [
+        "CQRS는 항상 Event Sourcing과 같이 써야 하는가?",
+        "read model 지연은 어떻게 사용자에게 설명하는가?",
+        "단순 CRUD에도 CQRS가 필요한가?"
       ],
-      "deep": ["CQRS의 핵심은 DB를 두 개로 나누는 것이 아니라 쓰기와 읽기의 모델링 목적을 분리하는 것입니다.", "read model은 언제든 재구축 가능해야 운영이 쉬워집니다.", "조회 모델이 늦게 반영되는 문제는 제품 상태 표현과 함께 설계해야 합니다."],
-      "implementation": ["Command handler와 Query handler 책임을 분리합니다.", "read model 재빌드 스크립트와 이벤트 replay 전략을 둡니다.", "사용자에게 pending, syncing 같은 상태를 보여줄지 정합니다."],
+      "related": [
+        "event-sourcing",
+        "eventual-consistency",
+        "cache-aside",
+        "message-queue"
+      ],
+      "flow": [
+        {
+          "text": "Command",
+          "sub": "상태 변경"
+        },
+        {
+          "text": "Domain Model",
+          "sub": "불변식 검증"
+        },
+        {
+          "text": "Event",
+          "sub": "변경 전파"
+        },
+        {
+          "text": "Read Model",
+          "sub": "조회 최적화"
+        }
+      ],
+      "deep": [
+        "CQRS의 핵심은 DB를 두 개로 나누는 것이 아니라 쓰기와 읽기의 모델링 목적을 분리하는 것입니다.",
+        "read model은 언제든 재구축 가능해야 운영이 쉬워집니다.",
+        "조회 모델이 늦게 반영되는 문제는 제품 상태 표현과 함께 설계해야 합니다."
+      ],
+      "implementation": [
+        "Command handler와 Query handler 책임을 분리합니다.",
+        "read model 재빌드 스크립트와 이벤트 replay 전략을 둡니다.",
+        "사용자에게 pending, syncing 같은 상태를 보여줄지 정합니다."
+      ],
       "compare": "일반 CRUD는 하나의 모델로 읽기와 쓰기를 처리하고, CQRS는 복잡한 쓰기 규칙과 고성능 조회 요구가 갈라질 때 모델을 분리합니다.",
-      "redflags": ["단순 게시판 CRUD에 CQRS를 무조건 도입한다.", "read model 재빌드 방법이 없다.", "쓰기 성공 직후 조회가 늦게 보이는 UX를 설명하지 못한다."]
+      "redflags": [
+        "단순 게시판 CRUD에 CQRS를 무조건 도입한다.",
+        "read model 재빌드 방법이 없다.",
+        "쓰기 성공 직후 조회가 늦게 보이는 UX를 설명하지 못한다."
+      ]
     },
     {
       "id": "event-sourcing",
       "title": "Event Sourcing",
-      "tags": ["아키텍처", "이벤트", "정합성"],
+      "tags": [
+        "아키텍처",
+        "메시지",
+        "정합성"
+      ],
       "summary": "현재 상태만 저장하지 않고 상태 변경 사건의 순서를 이벤트로 저장한 뒤, 이벤트를 재생해 상태를 복원하는 방식입니다.",
       "problem": "중요한 도메인에서는 현재 값뿐 아니라 어떤 사건들이 어떤 순서로 발생해 현재 상태가 되었는지 추적해야 합니다.",
-      "how": ["상태 변경을 이벤트로 append-only 저장합니다.", "aggregate 상태는 이벤트를 순서대로 적용해 복원합니다.", "조회 성능을 위해 snapshot이나 read model을 함께 사용합니다."],
-      "tradeoffs": ["이벤트 스키마 진화와 replay 호환성이 어렵습니다.", "현재 상태 조회가 단순 row 조회보다 복잡할 수 있습니다.", "모든 도메인에 필요한 패턴은 아니며 운영 난이도가 높습니다."],
+      "how": [
+        "상태 변경을 이벤트로 append-only 저장합니다.",
+        "aggregate 상태는 이벤트를 순서대로 적용해 복원합니다.",
+        "조회 성능을 위해 snapshot이나 read model을 함께 사용합니다."
+      ],
+      "tradeoffs": [
+        "이벤트 스키마 진화와 replay 호환성이 어렵습니다.",
+        "현재 상태 조회가 단순 row 조회보다 복잡할 수 있습니다.",
+        "모든 도메인에 필요한 패턴은 아니며 운영 난이도가 높습니다."
+      ],
       "answer": "Event Sourcing은 상태 변경 이벤트를 원장처럼 저장하고, 이벤트를 재생해 현재 상태를 만드는 방식입니다. 감사 추적과 재처리에 강하지만 이벤트 스키마 관리, snapshot, read model 운영이 필요합니다.",
       "example": "계좌 잔액을 balance=10000으로만 저장하지 않고 입금, 출금, 취소 이벤트를 순서대로 저장해 잔액을 계산합니다.",
-      "questions": ["이벤트 스키마가 바뀌면 과거 이벤트는 어떻게 처리하는가?", "snapshot은 왜 필요한가?", "Event Sourcing과 Outbox는 어떻게 다른가?"],
-      "related": ["cqrs", "outbox", "eventual-consistency", "message-queue"],
-      "flow": [
-        { "text": "Command", "sub": "출금 요청" },
-        { "text": "Event Store", "sub": "MoneyWithdrawn append" },
-        { "text": "Replay", "sub": "상태 복원" },
-        { "text": "Read Model", "sub": "조회 반영" }
+      "questions": [
+        "이벤트 스키마가 바뀌면 과거 이벤트는 어떻게 처리하는가?",
+        "snapshot은 왜 필요한가?",
+        "Event Sourcing과 Outbox는 어떻게 다른가?"
       ],
-      "deep": ["Event Sourcing에서 이벤트는 기술 로그가 아니라 도메인 사실입니다.", "이벤트는 수정보다 보정 이벤트를 추가하는 방식으로 다루는 경우가 많습니다.", "read model은 이벤트를 소비해 만들어지는 투영이므로 지연과 재처리를 전제로 합니다."],
-      "implementation": ["이벤트 이름과 payload 버전 정책을 정합니다.", "aggregate id별 순서와 optimistic concurrency를 보장합니다.", "snapshot 주기와 replay 도구를 준비합니다."],
+      "related": [
+        "cqrs",
+        "outbox",
+        "eventual-consistency",
+        "message-queue"
+      ],
+      "flow": [
+        {
+          "text": "Command",
+          "sub": "출금 요청"
+        },
+        {
+          "text": "Event Store",
+          "sub": "MoneyWithdrawn append"
+        },
+        {
+          "text": "Replay",
+          "sub": "상태 복원"
+        },
+        {
+          "text": "Read Model",
+          "sub": "조회 반영"
+        }
+      ],
+      "deep": [
+        "Event Sourcing에서 이벤트는 기술 로그가 아니라 도메인 사실입니다.",
+        "이벤트는 수정보다 보정 이벤트를 추가하는 방식으로 다루는 경우가 많습니다.",
+        "read model은 이벤트를 소비해 만들어지는 투영이므로 지연과 재처리를 전제로 합니다."
+      ],
+      "implementation": [
+        "이벤트 이름과 payload 버전 정책을 정합니다.",
+        "aggregate id별 순서와 optimistic concurrency를 보장합니다.",
+        "snapshot 주기와 replay 도구를 준비합니다."
+      ],
       "compare": "Outbox는 DB 변경과 이벤트 발행의 원자성 문제를 줄이는 패턴이고, Event Sourcing은 애초에 상태의 원천을 이벤트로 보는 저장 모델입니다.",
-      "redflags": ["이벤트를 단순 DB row 변경 로그처럼 설계한다.", "이벤트 스키마 변경 전략 없이 운영한다.", "현재 상태 조회가 느려진 뒤에야 read model을 고민한다."]
+      "redflags": [
+        "이벤트를 단순 DB row 변경 로그처럼 설계한다.",
+        "이벤트 스키마 변경 전략 없이 운영한다.",
+        "현재 상태 조회가 느려진 뒤에야 read model을 고민한다."
+      ]
     },
     {
       "id": "sharding",
       "title": "Sharding",
-      "tags": ["DB", "확장성", "분산"],
+      "tags": [
+        "DB",
+        "확장성",
+        "분산시스템"
+      ],
       "summary": "큰 데이터를 shard key 기준으로 여러 데이터베이스나 파티션에 나눠 저장해 저장 용량과 처리량 한계를 늘리는 방식입니다.",
       "problem": "단일 DB 인스턴스가 저장 용량, 쓰기 처리량, 인덱스 크기 한계에 가까워지면 수직 확장만으로 버티기 어렵습니다.",
-      "how": ["shard key를 정해 데이터를 여러 shard에 분배합니다.", "요청은 shard key로 대상 shard를 찾아 query routing합니다.", "hot shard, cross-shard query, rebalancing 문제를 운영 전략으로 다룹니다."],
-      "tradeoffs": ["shard key를 잘못 고르면 특정 shard에 부하가 몰립니다.", "cross-shard join과 transaction이 어려워집니다.", "데이터 이동과 rebalancing은 운영 난이도가 높습니다."],
+      "how": [
+        "shard key를 정해 데이터를 여러 shard에 분배합니다.",
+        "요청은 shard key로 대상 shard를 찾아 query routing합니다.",
+        "hot shard, cross-shard query, rebalancing 문제를 운영 전략으로 다룹니다."
+      ],
+      "tradeoffs": [
+        "shard key를 잘못 고르면 특정 shard에 부하가 몰립니다.",
+        "cross-shard join과 transaction이 어려워집니다.",
+        "데이터 이동과 rebalancing은 운영 난이도가 높습니다."
+      ],
       "answer": "Sharding은 데이터를 shard key로 나눠 여러 DB에 분산 저장하는 확장 전략입니다. 쓰기와 저장 용량 확장에 유리하지만 shard key 설계, hot shard, cross-shard query, 재분배 비용을 고려해야 합니다.",
       "example": "대규모 주문 테이블을 user_id hash 기준으로 여러 shard에 나누면 사용자별 주문 조회는 빠르지만 전체 주문 집계는 별도 파이프라인이 필요합니다.",
-      "questions": ["좋은 shard key의 조건은?", "hot shard가 생기면 어떻게 완화하는가?", "cross-shard transaction은 어떻게 처리하는가?"],
-      "related": ["replication", "index", "load-balancing", "cache-aside"],
-      "flow": [
-        { "text": "Request", "sub": "user_id" },
-        { "text": "Shard Key", "sub": "hash/range" },
-        { "text": "Router", "sub": "shard 선택" },
-        { "text": "Shard DB", "sub": "부분 데이터" }
+      "questions": [
+        "좋은 shard key의 조건은?",
+        "hot shard가 생기면 어떻게 완화하는가?",
+        "cross-shard transaction은 어떻게 처리하는가?"
       ],
-      "deep": ["Sharding은 읽기 복제와 달리 데이터를 나누므로 write scale-out에 더 직접적입니다.", "range sharding은 범위 조회가 편하지만 hot range가 생길 수 있고, hash sharding은 분산은 좋지만 범위 조회가 어렵습니다.", "나중에 shard 수를 바꾸는 re-sharding 비용까지 초기에 고려해야 합니다."],
-      "implementation": ["쿼리 패턴을 보고 shard key 후보를 정합니다.", "shard routing 계층과 fallback 정책을 둡니다.", "global unique id 생성과 cross-shard 집계 전략을 마련합니다."],
+      "related": [
+        "replication",
+        "index",
+        "load-balancing",
+        "cache-aside"
+      ],
+      "flow": [
+        {
+          "text": "Request",
+          "sub": "user_id"
+        },
+        {
+          "text": "Shard Key",
+          "sub": "hash/range"
+        },
+        {
+          "text": "Router",
+          "sub": "shard 선택"
+        },
+        {
+          "text": "Shard DB",
+          "sub": "부분 데이터"
+        }
+      ],
+      "deep": [
+        "Sharding은 읽기 복제와 달리 데이터를 나누므로 write scale-out에 더 직접적입니다.",
+        "range sharding은 범위 조회가 편하지만 hot range가 생길 수 있고, hash sharding은 분산은 좋지만 범위 조회가 어렵습니다.",
+        "나중에 shard 수를 바꾸는 re-sharding 비용까지 초기에 고려해야 합니다."
+      ],
+      "implementation": [
+        "쿼리 패턴을 보고 shard key 후보를 정합니다.",
+        "shard routing 계층과 fallback 정책을 둡니다.",
+        "global unique id 생성과 cross-shard 집계 전략을 마련합니다."
+      ],
       "compare": "Replication은 같은 데이터를 복제해 읽기 확장과 가용성을 얻고, Sharding은 서로 다른 데이터 조각을 나눠 저장해 용량과 쓰기 처리량을 확장합니다.",
-      "redflags": ["사용자 id 없이 전체 테이블 검색이 많은데 user_id shard를 적용한다.", "shard key 변경 가능성을 전혀 고려하지 않는다.", "분산했으니 모든 join이 그대로 된다고 생각한다."]
+      "redflags": [
+        "사용자 id 없이 전체 테이블 검색이 많은데 user_id shard를 적용한다.",
+        "shard key 변경 가능성을 전혀 고려하지 않는다.",
+        "분산했으니 모든 join이 그대로 된다고 생각한다."
+      ]
     },
     {
       "id": "replication",
       "title": "Replication",
-      "tags": ["DB", "가용성", "정합성"],
+      "tags": [
+        "DB",
+        "가용성",
+        "정합성"
+      ],
       "summary": "같은 데이터를 하나 이상의 복제본에 유지해 읽기 확장, 장애 대응, 백업 안정성을 높이는 방식입니다.",
       "problem": "단일 DB 인스턴스가 장애나 읽기 부하의 병목이 되면 서비스 전체 가용성과 성능이 떨어집니다.",
-      "how": ["primary가 write를 받고 replica가 변경 로그를 따라갑니다.", "읽기 요청 일부를 replica로 보내 부하를 분산합니다.", "primary 장애 시 replica를 승격해 failover합니다."],
-      "tradeoffs": ["비동기 복제에서는 replication lag 때문에 오래된 데이터를 읽을 수 있습니다.", "failover 중 쓰기 중단이나 split brain 위험을 관리해야 합니다.", "강한 동기 복제는 쓰기 지연시간을 늘릴 수 있습니다."],
+      "how": [
+        "primary가 write를 받고 replica가 변경 로그를 따라갑니다.",
+        "읽기 요청 일부를 replica로 보내 부하를 분산합니다.",
+        "primary 장애 시 replica를 승격해 failover합니다."
+      ],
+      "tradeoffs": [
+        "비동기 복제에서는 replication lag 때문에 오래된 데이터를 읽을 수 있습니다.",
+        "failover 중 쓰기 중단이나 split brain 위험을 관리해야 합니다.",
+        "강한 동기 복제는 쓰기 지연시간을 늘릴 수 있습니다."
+      ],
       "answer": "Replication은 데이터를 복제해 읽기 확장과 장애 대응을 얻는 방식입니다. primary-replica 구조가 흔하고, 비동기 복제에서는 lag과 stale read, failover 전략을 함께 설명해야 합니다.",
       "example": "상품 상세 조회는 read replica로 보내고, 주문 생성 직후 주문 상태 확인처럼 최신성이 중요한 조회는 primary에서 읽게 할 수 있습니다.",
-      "questions": ["replication lag이 사용자에게 어떤 문제를 만들 수 있는가?", "read-after-write consistency는 어떻게 보장하는가?", "failover 중 split brain은 왜 위험한가?"],
-      "related": ["sharding", "eventual-consistency", "load-balancing", "isolation"],
-      "flow": [
-        { "text": "Primary", "sub": "write" },
-        { "text": "WAL/Binlog", "sub": "변경 전파" },
-        { "text": "Replica", "sub": "read" },
-        { "text": "Failover", "sub": "승격" }
+      "questions": [
+        "replication lag이 사용자에게 어떤 문제를 만들 수 있는가?",
+        "read-after-write consistency는 어떻게 보장하는가?",
+        "failover 중 split brain은 왜 위험한가?"
       ],
-      "deep": ["읽기 복제는 read scale-out에는 유리하지만 write 병목을 직접 해결하지 않습니다.", "replica lag이 있는 상황에서 방금 쓴 데이터를 replica에서 읽으면 사용자에게 사라진 것처럼 보일 수 있습니다.", "장애 조치 자동화에는 leader election과 fencing 같은 개념이 중요합니다."],
-      "implementation": ["최신성이 필요한 read path와 replica 허용 read path를 구분합니다.", "replication lag metric과 failover 시간을 모니터링합니다.", "장애 훈련으로 application connection 재연결과 DNS/endpoint 전환을 검증합니다."],
+      "related": [
+        "sharding",
+        "eventual-consistency",
+        "load-balancing",
+        "isolation"
+      ],
+      "flow": [
+        {
+          "text": "Primary",
+          "sub": "write"
+        },
+        {
+          "text": "WAL/Binlog",
+          "sub": "변경 전파"
+        },
+        {
+          "text": "Replica",
+          "sub": "read"
+        },
+        {
+          "text": "Failover",
+          "sub": "승격"
+        }
+      ],
+      "deep": [
+        "읽기 복제는 read scale-out에는 유리하지만 write 병목을 직접 해결하지 않습니다.",
+        "replica lag이 있는 상황에서 방금 쓴 데이터를 replica에서 읽으면 사용자에게 사라진 것처럼 보일 수 있습니다.",
+        "장애 조치 자동화에는 leader election과 fencing 같은 개념이 중요합니다."
+      ],
+      "implementation": [
+        "최신성이 필요한 read path와 replica 허용 read path를 구분합니다.",
+        "replication lag metric과 failover 시간을 모니터링합니다.",
+        "장애 훈련으로 application connection 재연결과 DNS/endpoint 전환을 검증합니다."
+      ],
       "compare": "Replication은 같은 데이터를 복제하고, Sharding은 데이터를 나눕니다. 복제는 가용성과 읽기 확장, 샤딩은 용량과 쓰기 확장에 더 가깝습니다.",
-      "redflags": ["replica에서 읽으면 항상 최신이라고 가정한다.", "failover 후 애플리케이션 커넥션 재연결을 고려하지 않는다.", "복제본을 늘리면 write 성능도 선형으로 오른다고 말한다."]
+      "redflags": [
+        "replica에서 읽으면 항상 최신이라고 가정한다.",
+        "failover 후 애플리케이션 커넥션 재연결을 고려하지 않는다.",
+        "복제본을 늘리면 write 성능도 선형으로 오른다고 말한다."
+      ]
     },
     {
       "id": "normalization-denormalization",
       "title": "정규화 / 반정규화",
-      "tags": ["DB", "모델링", "성능"],
+      "tags": [
+        "DB",
+        "성능"
+      ],
       "summary": "정규화는 중복을 줄이고 무결성을 높이는 모델링이고, 반정규화는 조회 성능이나 단순화를 위해 일부 중복을 의도적으로 허용하는 방식입니다.",
       "problem": "데이터 중복을 무작정 허용하면 갱신 불일치가 생기고, 반대로 모든 것을 지나치게 분리하면 조회가 복잡하고 느려질 수 있습니다.",
-      "how": ["정규화는 엔티티와 관계를 분리해 중복과 이상 현상을 줄입니다.", "반정규화는 자주 필요한 조회 형태에 맞춰 일부 값을 중복 저장합니다.", "중복 데이터는 이벤트, 트리거, 배치, 애플리케이션 로직으로 동기화합니다."],
-      "tradeoffs": ["정규화는 쓰기 무결성에 유리하지만 join이 많아질 수 있습니다.", "반정규화는 읽기 성능에 유리하지만 갱신 불일치 위험이 있습니다.", "성능 문제의 원인이 모델링인지 인덱스인지 쿼리 패턴인지 구분해야 합니다."],
+      "how": [
+        "정규화는 엔티티와 관계를 분리해 중복과 이상 현상을 줄입니다.",
+        "반정규화는 자주 필요한 조회 형태에 맞춰 일부 값을 중복 저장합니다.",
+        "중복 데이터는 이벤트, 트리거, 배치, 애플리케이션 로직으로 동기화합니다."
+      ],
+      "tradeoffs": [
+        "정규화는 쓰기 무결성에 유리하지만 join이 많아질 수 있습니다.",
+        "반정규화는 읽기 성능에 유리하지만 갱신 불일치 위험이 있습니다.",
+        "성능 문제의 원인이 모델링인지 인덱스인지 쿼리 패턴인지 구분해야 합니다."
+      ],
       "answer": "정규화는 데이터 중복과 이상 현상을 줄이는 설계이고, 반정규화는 읽기 성능과 단순화를 위해 중복을 허용하는 선택입니다. 반정규화할 때는 동기화 방식과 불일치 허용 범위를 함께 설명해야 합니다.",
       "example": "주문 목록에 상품명 스냅샷을 저장하면 상품명이 바뀌어도 과거 주문 표시가 안정적이고 조회 join도 줄일 수 있습니다.",
-      "questions": ["반정규화는 언제 고려하는가?", "중복 데이터 불일치는 어떻게 감지하는가?", "정규화와 인덱스 설계는 어떻게 함께 보는가?"],
-      "related": ["index", "n-plus-one", "cache-aside", "cqrs"],
-      "flow": [
-        { "text": "정규화", "sub": "중복 감소" },
-        { "text": "조회 병목", "sub": "join/집계 비용" },
-        { "text": "반정규화", "sub": "중복 저장" },
-        { "text": "동기화", "sub": "이벤트/배치" }
+      "questions": [
+        "반정규화는 언제 고려하는가?",
+        "중복 데이터 불일치는 어떻게 감지하는가?",
+        "정규화와 인덱스 설계는 어떻게 함께 보는가?"
       ],
-      "deep": ["반정규화는 정규화를 모르는 상태에서 테이블을 합치는 것이 아니라, 읽기 요구사항과 일관성 비용을 알고 선택하는 것입니다.", "스냅샷성 중복과 최신값 동기화 중복은 성격이 다릅니다.", "면접에서는 ERD 원칙보다 실제 조회 API와 갱신 흐름을 연결해 말하는 것이 좋습니다."],
-      "implementation": ["조회 빈도, join 비용, 갱신 빈도를 근거로 반정규화 후보를 정합니다.", "중복 컬럼의 원천과 갱신 트리거를 문서화합니다.", "불일치 검출 배치나 재동기화 스크립트를 준비합니다."],
+      "related": [
+        "index",
+        "n-plus-one",
+        "cache-aside",
+        "cqrs"
+      ],
+      "flow": [
+        {
+          "text": "정규화",
+          "sub": "중복 감소"
+        },
+        {
+          "text": "조회 병목",
+          "sub": "join/집계 비용"
+        },
+        {
+          "text": "반정규화",
+          "sub": "중복 저장"
+        },
+        {
+          "text": "동기화",
+          "sub": "이벤트/배치"
+        }
+      ],
+      "deep": [
+        "반정규화는 정규화를 모르는 상태에서 테이블을 합치는 것이 아니라, 읽기 요구사항과 일관성 비용을 알고 선택하는 것입니다.",
+        "스냅샷성 중복과 최신값 동기화 중복은 성격이 다릅니다.",
+        "면접에서는 ERD 원칙보다 실제 조회 API와 갱신 흐름을 연결해 말하는 것이 좋습니다."
+      ],
+      "implementation": [
+        "조회 빈도, join 비용, 갱신 빈도를 근거로 반정규화 후보를 정합니다.",
+        "중복 컬럼의 원천과 갱신 트리거를 문서화합니다.",
+        "불일치 검출 배치나 재동기화 스크립트를 준비합니다."
+      ],
       "compare": "캐시는 원본 밖에 임시 복사본을 두는 성격이 강하고, 반정규화는 영속 모델 자체에 중복 데이터를 설계로 포함하는 선택입니다.",
-      "redflags": ["성능을 위해 모든 테이블을 하나로 합친다.", "중복 데이터의 원천과 갱신 책임자가 없다.", "정규화가 항상 느리고 반정규화가 항상 빠르다고 단정한다."]
+      "redflags": [
+        "성능을 위해 모든 테이블을 하나로 합친다.",
+        "중복 데이터의 원천과 갱신 책임자가 없다.",
+        "정규화가 항상 느리고 반정규화가 항상 빠르다고 단정한다."
+      ]
     },
     {
       "id": "connection-pool",
       "title": "Connection Pool",
-      "tags": ["DB", "성능", "운영"],
+      "tags": [
+        "DB",
+        "성능",
+        "운영"
+      ],
       "summary": "DB나 외부 서비스 연결을 매번 새로 만들지 않고 미리 만들어 둔 연결을 재사용해 비용과 자원 사용을 제어하는 방식입니다.",
       "problem": "연결 생성은 handshake와 인증 비용이 있고, 동시에 너무 많은 연결이 생기면 DB나 외부 서비스가 감당할 수 없습니다.",
-      "how": ["애플리케이션은 pool에서 idle connection을 빌려 요청을 처리합니다.", "처리가 끝나면 연결을 닫지 않고 pool에 반환합니다.", "max pool size, idle timeout, acquisition timeout으로 동시 연결과 대기 시간을 제한합니다."],
-      "tradeoffs": ["pool이 너무 작으면 요청이 대기하고, 너무 크면 DB connection limit을 고갈시킵니다.", "누수된 connection은 pool starvation을 만듭니다.", "서버 인스턴스 수와 pool size의 곱이 실제 DB 연결 수가 됩니다."],
+      "how": [
+        "애플리케이션은 pool에서 idle connection을 빌려 요청을 처리합니다.",
+        "처리가 끝나면 연결을 닫지 않고 pool에 반환합니다.",
+        "max pool size, idle timeout, acquisition timeout으로 동시 연결과 대기 시간을 제한합니다."
+      ],
+      "tradeoffs": [
+        "pool이 너무 작으면 요청이 대기하고, 너무 크면 DB connection limit을 고갈시킵니다.",
+        "누수된 connection은 pool starvation을 만듭니다.",
+        "서버 인스턴스 수와 pool size의 곱이 실제 DB 연결 수가 됩니다."
+      ],
       "answer": "Connection Pool은 연결 생성 비용을 줄이고 동시에 사용할 연결 수를 제한하는 장치입니다. pool size는 애플리케이션 인스턴스 수, DB max connection, 쿼리 시간, 트래픽을 함께 보고 정해야 합니다.",
       "example": "서버 10대가 각자 DB pool 50개를 가지면 최대 500개 연결이 DB로 몰릴 수 있으므로 DB 한계와 worker 수를 함께 계산해야 합니다.",
-      "questions": ["pool size를 크게 잡으면 항상 좋은가?", "connection leak은 어떻게 감지하는가?", "acquisition timeout과 query timeout은 어떻게 다른가?"],
-      "related": ["timeout-retry", "backpressure", "load-balancing", "http-keep-alive"],
-      "flow": [
-        { "text": "Request", "sub": "connection 요청" },
-        { "text": "Pool", "sub": "idle 대여" },
-        { "text": "DB Query", "sub": "작업 수행" },
-        { "text": "Return", "sub": "pool 반환" }
+      "questions": [
+        "pool size를 크게 잡으면 항상 좋은가?",
+        "connection leak은 어떻게 감지하는가?",
+        "acquisition timeout과 query timeout은 어떻게 다른가?"
       ],
-      "deep": ["Connection Pool은 성능 최적화이면서 backpressure 장치입니다. DB가 감당할 수 있는 동시성을 넘기지 않게 막습니다.", "pool wait time이 늘어나는 것은 DB가 느린지, pool이 작은지, connection leak이 있는지 분리해서 봐야 합니다.", "클라우드 함수처럼 인스턴스가 급증하는 환경에서는 pool 폭증 문제가 더 쉽게 생깁니다."],
-      "implementation": ["DB max connection에서 관리용 연결과 다른 앱 연결을 빼고 pool size를 계산합니다.", "pool acquisition time, active/idle count, timeout count를 모니터링합니다.", "트랜잭션과 result set을 닫아 connection leak을 막습니다."],
+      "related": [
+        "timeout-retry",
+        "backpressure",
+        "load-balancing",
+        "http-keep-alive"
+      ],
+      "flow": [
+        {
+          "text": "Request",
+          "sub": "connection 요청"
+        },
+        {
+          "text": "Pool",
+          "sub": "idle 대여"
+        },
+        {
+          "text": "DB Query",
+          "sub": "작업 수행"
+        },
+        {
+          "text": "Return",
+          "sub": "pool 반환"
+        }
+      ],
+      "deep": [
+        "Connection Pool은 성능 최적화이면서 backpressure 장치입니다. DB가 감당할 수 있는 동시성을 넘기지 않게 막습니다.",
+        "pool wait time이 늘어나는 것은 DB가 느린지, pool이 작은지, connection leak이 있는지 분리해서 봐야 합니다.",
+        "클라우드 함수처럼 인스턴스가 급증하는 환경에서는 pool 폭증 문제가 더 쉽게 생깁니다."
+      ],
+      "implementation": [
+        "DB max connection에서 관리용 연결과 다른 앱 연결을 빼고 pool size를 계산합니다.",
+        "pool acquisition time, active/idle count, timeout count를 모니터링합니다.",
+        "트랜잭션과 result set을 닫아 connection leak을 막습니다."
+      ],
       "compare": "HTTP keep-alive가 네트워크 연결 재사용이라면, DB connection pool은 DB 세션과 인증된 연결을 재사용하면서 동시성 상한도 함께 제공하는 장치입니다.",
-      "redflags": ["트래픽이 늘면 pool size만 계속 키운다.", "서버 인스턴스 수 증가가 DB 연결 수 증가로 이어지는 것을 계산하지 않는다.", "timeout 없이 pool에서 무한 대기한다."]
+      "redflags": [
+        "트래픽이 늘면 pool size만 계속 키운다.",
+        "서버 인스턴스 수 증가가 DB 연결 수 증가로 이어지는 것을 계산하지 않는다.",
+        "timeout 없이 pool에서 무한 대기한다."
+      ]
     },
     {
       "id": "observability",
       "title": "Observability",
-      "tags": ["운영", "장애대응", "모니터링"],
+      "tags": [
+        "운영",
+        "장애대응"
+      ],
       "summary": "로그, 메트릭, 트레이스를 통해 시스템 내부 상태를 외부 출력으로 추론하고 장애 원인을 빠르게 좁히는 능력입니다.",
       "problem": "분산 시스템에서는 장애가 한 서비스 로그만으로 드러나지 않고, 지연과 실패가 여러 계층을 거쳐 나타납니다.",
-      "how": ["로그는 사건의 상세 문맥과 request id를 남깁니다.", "메트릭은 latency, error rate, saturation 같은 추세를 수치로 봅니다.", "트레이스는 요청이 여러 서비스와 DB를 거치는 경로와 시간을 연결합니다."],
-      "tradeoffs": ["모든 것을 자세히 남기면 비용과 개인정보 노출 위험이 커집니다.", "카디널리티가 높은 label은 메트릭 저장 비용과 성능 문제를 만듭니다.", "대시보드만 있고 알림 기준과 대응 runbook이 없으면 실효성이 낮습니다."],
+      "how": [
+        "로그는 사건의 상세 문맥과 request id를 남깁니다.",
+        "메트릭은 latency, error rate, saturation 같은 추세를 수치로 봅니다.",
+        "트레이스는 요청이 여러 서비스와 DB를 거치는 경로와 시간을 연결합니다."
+      ],
+      "tradeoffs": [
+        "모든 것을 자세히 남기면 비용과 개인정보 노출 위험이 커집니다.",
+        "카디널리티가 높은 label은 메트릭 저장 비용과 성능 문제를 만듭니다.",
+        "대시보드만 있고 알림 기준과 대응 runbook이 없으면 실효성이 낮습니다."
+      ],
       "answer": "Observability는 로그, 메트릭, 트레이스로 시스템 상태를 이해하는 능력입니다. 특히 MSA에서는 request id와 distributed tracing으로 어느 구간에서 지연과 오류가 발생했는지 추적하는 것이 중요합니다.",
       "example": "주문 API p95 latency가 늘면 trace에서 결제 서비스 호출이 느린지, DB 쿼리가 느린지, 큐 lag이 쌓였는지 단계별로 확인합니다.",
-      "questions": ["로그, 메트릭, 트레이스는 각각 언제 보는가?", "RED/USE 지표는 무엇인가?", "카디널리티가 높은 메트릭 label은 왜 위험한가?"],
-      "related": ["msa", "circuit-breaker", "timeout-retry", "dlq"],
-      "flow": [
-        { "text": "Request", "sub": "request id" },
-        { "text": "Logs", "sub": "사건 문맥" },
-        { "text": "Metrics", "sub": "추세/알림" },
-        { "text": "Traces", "sub": "구간별 지연" }
+      "questions": [
+        "로그, 메트릭, 트레이스는 각각 언제 보는가?",
+        "RED/USE 지표는 무엇인가?",
+        "카디널리티가 높은 메트릭 label은 왜 위험한가?"
       ],
-      "deep": ["관측성은 장애가 난 뒤 로그를 많이 찍는 것이 아니라, 모르는 장애를 질문할 수 있게 신호를 설계하는 것입니다.", "SLI/SLO를 정하면 어떤 지표에 알림을 걸어야 하는지 명확해집니다.", "비즈니스 이벤트와 기술 메트릭을 함께 보면 사용자 영향도를 더 잘 판단할 수 있습니다."],
-      "implementation": ["모든 요청에 correlation id를 전파합니다.", "latency, traffic, error, saturation 지표를 서비스별로 수집합니다.", "개인정보와 토큰이 로그에 남지 않도록 필터링합니다."],
+      "related": [
+        "msa",
+        "circuit-breaker",
+        "timeout-retry",
+        "dlq"
+      ],
+      "flow": [
+        {
+          "text": "Request",
+          "sub": "request id"
+        },
+        {
+          "text": "Logs",
+          "sub": "사건 문맥"
+        },
+        {
+          "text": "Metrics",
+          "sub": "추세/알림"
+        },
+        {
+          "text": "Traces",
+          "sub": "구간별 지연"
+        }
+      ],
+      "deep": [
+        "관측성은 장애가 난 뒤 로그를 많이 찍는 것이 아니라, 모르는 장애를 질문할 수 있게 신호를 설계하는 것입니다.",
+        "SLI/SLO를 정하면 어떤 지표에 알림을 걸어야 하는지 명확해집니다.",
+        "비즈니스 이벤트와 기술 메트릭을 함께 보면 사용자 영향도를 더 잘 판단할 수 있습니다."
+      ],
+      "implementation": [
+        "모든 요청에 correlation id를 전파합니다.",
+        "latency, traffic, error, saturation 지표를 서비스별로 수집합니다.",
+        "개인정보와 토큰이 로그에 남지 않도록 필터링합니다."
+      ],
       "compare": "Monitoring은 알려진 실패를 감시하는 성격이 강하고, Observability는 예상하지 못한 문제도 출력 신호로 탐색할 수 있게 만드는 능력에 가깝습니다.",
-      "redflags": ["장애 때 서버에 들어가 로그 grep만 한다.", "메트릭 label에 user id 같은 고카디널리티 값을 넣는다.", "알림이 너무 많아 실제 장애를 놓친다."]
+      "redflags": [
+        "장애 때 서버에 들어가 로그 grep만 한다.",
+        "메트릭 label에 user id 같은 고카디널리티 값을 넣는다.",
+        "알림이 너무 많아 실제 장애를 놓친다."
+      ]
     },
     {
       "id": "cap-theorem",
       "title": "CAP Theorem",
-      "tags": ["분산시스템", "정합성", "가용성"],
+      "tags": [
+        "분산시스템",
+        "정합성",
+        "가용성"
+      ],
       "summary": "네트워크 파티션이 발생한 분산 시스템에서는 일관성 Consistency와 가용성 Availability 중 하나를 희생할 수밖에 없다는 정리입니다.",
       "problem": "분산 시스템은 네트워크 장애를 피할 수 없고, 노드 사이 통신이 끊긴 상태에서 모든 요청에 최신 데이터와 응답 성공을 동시에 보장하기 어렵습니다.",
-      "how": ["Partition tolerance는 네트워크 분할 상황에서도 시스템이 동작을 계속 고려하는 성질입니다.", "CP 시스템은 파티션 중 일관성을 위해 일부 요청을 거절할 수 있습니다.", "AP 시스템은 응답 가능성을 유지하지만 일시적 불일치를 허용합니다."],
-      "tradeoffs": ["CAP는 정상 상황의 지연시간이나 운영 복잡도를 모두 설명하지는 않습니다.", "실제 시스템은 기능별로 CP/AP 선택이 섞일 수 있습니다.", "Consistency가 ACID의 C와 같은 의미가 아니라는 점을 구분해야 합니다."],
+      "how": [
+        "Partition tolerance는 네트워크 분할 상황에서도 시스템이 동작을 계속 고려하는 성질입니다.",
+        "CP 시스템은 파티션 중 일관성을 위해 일부 요청을 거절할 수 있습니다.",
+        "AP 시스템은 응답 가능성을 유지하지만 일시적 불일치를 허용합니다."
+      ],
+      "tradeoffs": [
+        "CAP는 정상 상황의 지연시간이나 운영 복잡도를 모두 설명하지는 않습니다.",
+        "실제 시스템은 기능별로 CP/AP 선택이 섞일 수 있습니다.",
+        "Consistency가 ACID의 C와 같은 의미가 아니라는 점을 구분해야 합니다."
+      ],
       "answer": "CAP는 네트워크 파티션 상황에서 일관성과 가용성을 동시에 완벽히 만족할 수 없다는 정리입니다. 실무에서는 기능의 요구사항에 따라 어떤 구간은 CP, 어떤 구간은 AP 성격으로 설계합니다.",
       "example": "결제 승인 상태는 파티션 상황에서 잘못 승인하는 것보다 실패를 반환하는 CP 선택이 적절하고, 추천 카운트는 잠시 오래된 값을 보여주는 AP 선택이 가능할 수 있습니다.",
-      "questions": ["CAP의 C는 ACID의 Consistency와 같은가?", "파티션이 없을 때도 C와 A 중 하나를 골라야 하는가?", "실무 시스템은 항상 CP 또는 AP로만 나뉘는가?"],
-      "related": ["eventual-consistency", "replication", "msa", "saga"],
-      "flow": [
-        { "text": "Network Partition", "sub": "노드 통신 실패" },
-        { "text": "Consistency", "sub": "최신/동일 상태" },
-        { "text": "Availability", "sub": "응답 성공" },
-        { "text": "Trade-off", "sub": "도메인별 선택" }
+      "questions": [
+        "CAP의 C는 ACID의 Consistency와 같은가?",
+        "파티션이 없을 때도 C와 A 중 하나를 골라야 하는가?",
+        "실무 시스템은 항상 CP 또는 AP로만 나뉘는가?"
       ],
-      "deep": ["CAP에서 P는 선택 사항이라기보다 분산 시스템에서 받아들여야 하는 장애 조건입니다.", "면접에서는 CAP 암기보다 어떤 도메인 요청에서 불일치를 허용할 수 있는지 설명하는 것이 중요합니다.", "PACELC는 파티션이 없을 때도 latency와 consistency trade-off가 있다는 관점을 보탭니다."],
-      "implementation": ["요구사항별로 stale read 허용 여부와 실패 응답 기준을 정합니다.", "불일치가 허용되는 데이터에는 reconciliation과 재처리를 둡니다.", "정확성이 중요한 요청은 quorum, leader, lock 같은 강한 조정 방식을 검토합니다."],
+      "related": [
+        "eventual-consistency",
+        "replication",
+        "msa",
+        "saga"
+      ],
+      "flow": [
+        {
+          "text": "Network Partition",
+          "sub": "노드 통신 실패"
+        },
+        {
+          "text": "Consistency",
+          "sub": "최신/동일 상태"
+        },
+        {
+          "text": "Availability",
+          "sub": "응답 성공"
+        },
+        {
+          "text": "Trade-off",
+          "sub": "도메인별 선택"
+        }
+      ],
+      "deep": [
+        "CAP에서 P는 선택 사항이라기보다 분산 시스템에서 받아들여야 하는 장애 조건입니다.",
+        "면접에서는 CAP 암기보다 어떤 도메인 요청에서 불일치를 허용할 수 있는지 설명하는 것이 중요합니다.",
+        "PACELC는 파티션이 없을 때도 latency와 consistency trade-off가 있다는 관점을 보탭니다."
+      ],
+      "implementation": [
+        "요구사항별로 stale read 허용 여부와 실패 응답 기준을 정합니다.",
+        "불일치가 허용되는 데이터에는 reconciliation과 재처리를 둡니다.",
+        "정확성이 중요한 요청은 quorum, leader, lock 같은 강한 조정 방식을 검토합니다."
+      ],
       "compare": "Eventual Consistency는 AP 성격의 설계에서 자주 쓰이는 일관성 모델이고, CAP는 파티션 상황에서 일관성과 가용성 선택을 설명하는 더 큰 틀입니다.",
-      "redflags": ["CAP 때문에 세 가지 중 항상 두 개만 고르면 된다고 단순화한다.", "Partition tolerance를 포기할 수 있다고 말한다.", "일관성 요구가 다른 기능을 모두 같은 정책으로 설계한다."]
+      "redflags": [
+        "CAP 때문에 세 가지 중 항상 두 개만 고르면 된다고 단순화한다.",
+        "Partition tolerance를 포기할 수 있다고 말한다.",
+        "일관성 요구가 다른 기능을 모두 같은 정책으로 설계한다."
+      ]
     }
   ]
 }

@@ -9,7 +9,7 @@ const defaultSourcePaths = [
   "content/backend-interview-concepts.json",
   "content/backend-interview-concepts-extra.json",
 ].map((path) => resolve(projectRoot, path));
-const importEditSummary = "백엔드 면접 개념 데이터 가져오기";
+const importEditSummary = "백엔드 면접 개념 데이터 동기화";
 
 function loadEnvFile(path) {
   try {
@@ -103,8 +103,11 @@ function makeRelatedList(related, conceptById) {
 
   return related
     .map((id) => {
-      const title = conceptById.get(id)?.title ?? id;
-      return `- ${title}`;
+      const concept = conceptById.get(id);
+      const title = concept?.title ?? id;
+      const slug = concept?.slug ?? slugify(id);
+
+      return `- [${title}](/documents/${encodeURIComponent(slug)})`;
     })
     .join("\n");
 }
