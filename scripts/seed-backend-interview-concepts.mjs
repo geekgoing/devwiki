@@ -1,14 +1,14 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
-const defaultSourcePath = resolve(
-  projectRoot,
+const defaultSourcePaths = [
   "content/backend-interview-concepts.json",
-);
+  "content/backend-interview-concepts-extra.json",
+].map((path) => resolve(projectRoot, path));
 const importEditSummary = "백엔드 면접 개념 데이터 가져오기";
 
 function loadEnvFile(path) {
@@ -33,14 +33,16 @@ function loadEnvFile(path) {
   }
 }
 
-function readArg(name) {
-  const index = process.argv.indexOf(name);
+function readArgs(name) {
+  const values = [];
 
-  if (index < 0) {
-    return null;
+  for (let index = 0; index < process.argv.length; index += 1) {
+    if (process.argv[index] === name && process.argv[index + 1]) {
+      values.push(process.argv[index + 1]);
+    }
   }
 
-  return process.argv[index + 1] ?? null;
+  return values;
 }
 
 function slugify(value, maxLength = 80) {
@@ -146,11 +148,11 @@ function makeBodyMarkdown(concept, conceptById) {
   return `${sections.join("\n\n")}\n`;
 }
 
-function loadConceptData(path) {
+function loadConceptFile(path) {
   const raw = JSON.parse(readFileSync(path, "utf8"));
 
   if (!Array.isArray(raw.concepts)) {
-    throw new Error("concepts 배열을 찾을 수 없습니다.");
+    throw new Error(`${path}에서 concepts 배열을 찾을 수 없습니다.`);
   }
 
   const concepts = raw.concepts.map((concept) => {
@@ -169,7 +171,25 @@ function loadConceptData(path) {
 
   return {
     ...raw,
+    path,
     concepts,
+  };
+}
+
+function loadConceptData(paths) {
+  const conceptsById = new Map();
+
+  for (const path of paths) {
+    const data = loadConceptFile(path);
+
+    for (const concept of data.concepts) {
+      conceptsById.set(concept.id, concept);
+    }
+  }
+
+  return {
+    concepts: [...conceptsById.values()],
+    paths,
   };
 }
 
@@ -422,13 +442,16 @@ async function replaceDocumentLinks(admin, documents, documentIdsBySlug) {
 }
 
 async function main() {
-  const sourcePath = resolve(readArg("--source") ?? defaultSourcePath);
+  const explicitSources = readArgs("--source").map((path) => resolve(path));
+  const sourcePaths = explicitSources.length
+    ? explicitSources
+    : defaultSourcePaths.filter((path) => existsSync(path));
   const dryRun = process.argv.includes("--dry-run");
-  const data = loadConceptData(sourcePath);
+  const data = loadConceptData(sourcePaths);
   const documents = makeDocuments(data.concepts);
 
   console.log(
-    `INFO ${documents.length}개 백엔드 면접 개념 문서를 준비했습니다.`,
+    `INFO ${documents.length}개 백엔드 면접 개념 문서를 준비했습니다. source=${sourcePaths.length}개`,
   );
 
   if (dryRun) {
