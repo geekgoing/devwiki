@@ -180,6 +180,7 @@ export function DocumentEditor({
   const [relatedDocumentIds, setRelatedDocumentIds] = useState<string[]>(
     initialDocument?.relatedDocumentIds ?? [],
   );
+  const formRef = useRef<HTMLFormElement | null>(null);
   const editorViewRef = useRef<EditorViewInstance | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const draftKey = useMemo(
@@ -448,6 +449,15 @@ export function DocumentEditor({
     view.focus();
   }
 
+  function handleEditorShortcut(event: React.KeyboardEvent<HTMLFormElement>) {
+    if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") {
+      return;
+    }
+
+    event.preventDefault();
+    formRef.current?.requestSubmit();
+  }
+
   function addRelatedDocument(documentId: string) {
     setRelatedDocumentIds((current) =>
       current.includes(documentId) ? current : [...current, documentId],
@@ -621,9 +631,11 @@ export function DocumentEditor({
 
   return (
     <form
+      ref={formRef}
       action={action}
       className="space-y-4"
       data-testid="document-editor"
+      onKeyDown={handleEditorShortcut}
       onSubmit={() => {
         window.localStorage.removeItem(draftKey);
         setIsDirty(false);
@@ -922,42 +934,46 @@ export function DocumentEditor({
               onDragOver={handleDragOver}
               className={
                 view === "split"
-                  ? "grid min-h-[760px] 2xl:grid-cols-2"
+                  ? "grid min-h-[760px] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
                   : "min-h-[760px]"
               }
             >
-              {view !== "preview" ? (
-                <div
-                  className={
-                    view === "split"
+              <div
+                className={
+                  view === "preview"
+                    ? "hidden"
+                    : view === "split"
                       ? "min-w-0 border-b border-slate-200 2xl:border-b-0 2xl:border-r"
                       : "min-w-0"
-                  }
-                >
-                  <CodeMirror
-                    value={body}
-                    height="760px"
-                    extensions={extensions}
-                    basicSetup={{
-                      foldGutter: false,
-                      highlightActiveLine: false,
-                    }}
-                    onChange={(value) => {
-                      setBody(value);
-                      markDirty();
-                    }}
-                    onCreateEditor={(view) => {
-                      editorViewRef.current = view;
-                    }}
-                  />
-                </div>
-              ) : null}
+                }
+              >
+                <CodeMirror
+                  value={body}
+                  height="760px"
+                  extensions={extensions}
+                  basicSetup={{
+                    foldGutter: false,
+                    highlightActiveLine: false,
+                  }}
+                  onChange={(value) => {
+                    setBody(value);
+                    markDirty();
+                  }}
+                  onCreateEditor={(view) => {
+                    editorViewRef.current = view;
+                  }}
+                />
+              </div>
 
-              {view !== "edit" ? (
-                <div className="min-h-[760px] overflow-auto bg-white p-5 sm:p-7 2xl:max-h-[860px]">
-                  <MarkdownRenderer content={body} />
-                </div>
-              ) : null}
+              <div
+                className={
+                  view === "edit"
+                    ? "hidden"
+                    : "min-h-[760px] overflow-auto bg-white p-5 sm:p-7 2xl:max-h-[860px]"
+                }
+              >
+                <MarkdownRenderer content={body} />
+              </div>
             </div>
           </div>
 
