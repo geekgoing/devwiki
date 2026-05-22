@@ -543,11 +543,11 @@ export default async function Home({ searchParams }: HomeProps) {
               <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
                 <div>
                   <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
-                    백엔드 면접 개념 사전
+                    개발자 지식 베이스
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                    개발자들이 백엔드 면접 개념, 꼬리 질문, 예시, 시각 자료를
-                    함께 정리하는 협업형 위키입니다.
+                    개발자들이 기술 개념, 면접 질문, 실무 예시, 시각 자료를
+                    함께 정리하는 협업형 지식 베이스입니다.
                   </p>
                 </div>
 

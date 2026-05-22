@@ -470,7 +470,7 @@ async function assertNonMemberBrowserGate({
     const memberGate = page.getByText("멤버 등록이 필요합니다");
 
     await page.goto(baseUrl);
-    await expect(page.getByText("백엔드 면접 개념 사전")).toBeVisible();
+    await expect(page.getByText("개발자 지식 베이스")).toBeVisible();
     await page.goto(`${baseUrl}/documents/new`);
     await expect(memberGate).toBeVisible();
     await expect(page.locator('[data-testid="document-editor"]')).toHaveCount(0);
@@ -560,7 +560,7 @@ async function assertPasswordLogin(page, baseUrl, email, password) {
     );
   }
 
-  await expect(page.getByText("백엔드 면접 개념 사전")).toBeVisible();
+  await expect(page.getByText("개발자 지식 베이스")).toBeVisible();
   await expect(
     page.getByRole("link", { name: "새 문서", exact: true }),
   ).toBeVisible();
@@ -819,7 +819,7 @@ sequenceDiagram
       session: memberSession.session,
     });
     await page.goto(baseUrl);
-    await expect(page.getByText("백엔드 면접 개념 사전")).toBeVisible();
+    await expect(page.getByText("개발자 지식 베이스")).toBeVisible();
     await expect(
       page.getByRole("link", { name: "새 문서", exact: true }),
     ).toBeVisible();

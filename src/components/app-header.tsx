@@ -29,7 +29,7 @@ export function AppHeader({
               DevWiki
             </span>
             <span className="block text-xs text-slate-500">
-              기술 면접 지식 베이스
+              개발자 지식 베이스
             </span>
           </span>
         </Link>
