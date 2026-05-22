@@ -1,0 +1,1695 @@
+{
+  "schemaVersion": 1,
+  "source": "backend-interview-concepts.html",
+  "description": "백엔드 면접 주요 개념을 DevWiki 문서로 가져오기 위한 정규화 데이터",
+  "concepts": [
+    {
+      "id": "msa",
+      "title": "MSA",
+      "tags": [
+        "MSA",
+        "확장성",
+        "장애격리"
+      ],
+      "summary": "서비스를 독립 배포 가능한 단위로 쪼개고, 도메인별로 개발·배포·확장을 분리하는 아키텍처입니다.",
+      "problem": "모놀리스가 커지면 작은 변경도 전체 배포가 필요하고, 특정 기능의 트래픽 증가가 전체 시스템 확장으로 이어질 수 있습니다. MSA는 도메인 경계를 기준으로 팀과 배포 단위를 나눠 변경 속도와 확장성을 얻으려는 선택입니다.",
+      "how": [
+        "도메인 경계를 나누고 서비스별 책임과 데이터를 분리합니다.",
+        "서비스 간 통신은 HTTP/gRPC 같은 동기 호출이나 메시지 기반 비동기 이벤트로 연결합니다.",
+        "각 서비스는 독립적으로 배포·확장하지만, 관측성·장애 대응·데이터 정합성 전략이 함께 필요합니다."
+      ],
+      "tradeoffs": [
+        "네트워크 호출, 분산 트랜잭션, 배포 파이프라인, 모니터링 복잡도가 증가합니다.",
+        "도메인 경계를 잘못 나누면 분산 모놀리스가 됩니다.",
+        "초기 서비스에는 모놀리스가 더 단순하고 빠를 수 있습니다."
+      ],
+      "answer": "MSA는 독립 배포와 확장을 위해 서비스를 도메인 단위로 나누는 구조입니다. 대신 네트워크 실패, 데이터 정합성, 관측성 복잡도가 커지므로 Saga, Outbox, Circuit Breaker 같은 패턴을 함께 고려해야 합니다.",
+      "example": "주문, 결제, 배송, 알림을 별도 서비스로 나누면 결제 트래픽만 독립 확장할 수 있지만, 주문 완료 흐름은 이벤트와 보상 트랜잭션으로 설계해야 합니다.",
+      "questions": [
+        "MSA와 모놀리스 중 무엇을 선택할 기준은?",
+        "서비스 경계는 어떻게 잡는가?",
+        "분산 트랜잭션은 어떻게 피하는가?"
+      ],
+      "related": [
+        "saga",
+        "outbox",
+        "circuit-breaker",
+        "eventual-consistency"
+      ],
+      "flow": [
+        {
+          "text": "도메인",
+          "sub": "주문/결제/배송"
+        },
+        {
+          "text": "서비스 분리",
+          "sub": "독립 배포"
+        },
+        {
+          "text": "통신",
+          "sub": "API/Event"
+        },
+        {
+          "text": "운영",
+          "sub": "관측성/장애대응"
+        }
+      ],
+      "deep": [
+        "MSA의 핵심은 서비스를 많이 쪼개는 것이 아니라 변경·배포·확장 단위와 도메인 소유권을 맞추는 것입니다.",
+        "서비스 간 동기 호출이 늘어나면 장애 전파와 지연시간이 커지므로 이벤트 기반 통신과 fallback 전략을 함께 고려합니다.",
+        "데이터베이스를 공유하면 독립 배포와 소유권 장점이 약해지므로, 공유 DB는 강한 결합의 신호로 설명할 수 있습니다."
+      ],
+      "implementation": [
+        "서비스별 owner와 bounded context를 명확히 정합니다.",
+        "API 계약, 이벤트 스키마, 배포 파이프라인, 관측성 로그/트레이싱을 먼저 준비합니다.",
+        "장애 격리를 위해 timeout, circuit breaker, bulkhead, fallback 기준을 둡니다."
+      ],
+      "compare": "모놀리스는 단순한 배포와 트랜잭션이 장점이고, MSA는 독립 배포와 확장이 장점입니다. 팀·도메인·운영 성숙도가 낮으면 MSA가 오히려 비용이 됩니다.",
+      "redflags": [
+        "서비스는 나눴지만 DB를 모두 공유한다.",
+        "서비스 간 호출이 체인처럼 길고 fallback이 없다.",
+        "분산 추적 없이 장애 원인을 로그 grep으로 찾는다."
+      ]
+    },
+    {
+      "id": "idempotency",
+      "title": "멱등성",
+      "tags": [
+        "정합성",
+        "재시도",
+        "메시지"
+      ],
+      "summary": "같은 요청을 여러 번 처리해도 최종 결과가 한 번 처리한 것과 같도록 만드는 성질입니다.",
+      "problem": "네트워크 타임아웃이 나면 클라이언트는 성공 여부를 모른 채 재시도할 수 있습니다. 메시지 큐도 at least once 처리에서는 같은 메시지를 두 번 전달할 수 있습니다. 이때 결제, 주문, 포인트 적립이 중복되면 치명적입니다.",
+      "how": [
+        "비즈니스 요청을 구분하는 idempotency key 또는 request id를 받습니다.",
+        "처리 결과를 저장하고 같은 키가 다시 오면 기존 결과를 반환하거나 무시합니다.",
+        "DB unique constraint, 상태 머신, consumer 처리 로그를 함께 사용해 경쟁 조건을 막습니다."
+      ],
+      "tradeoffs": [
+        "멱등키 저장소의 TTL과 저장 범위를 정해야 합니다.",
+        "동시에 같은 키가 들어오는 race condition을 DB 제약이나 락으로 막아야 합니다.",
+        "모든 연산을 자연스럽게 멱등하게 만들 수는 없으므로 보상 설계가 필요할 수 있습니다."
+      ],
+      "answer": "멱등성은 중복 요청이나 재시도 상황에서도 결과가 한 번 처리한 것과 같게 만드는 성질입니다. 보통 idempotency key와 DB unique constraint를 사용하고, 메시지 소비자는 처리 로그를 남겨 중복 소비를 방어합니다.",
+      "example": "결제 API에서 같은 주문번호와 결제 요청 키가 다시 들어오면 새 결제를 만들지 않고 기존 결제 상태를 조회해 반환합니다.",
+      "questions": [
+        "POST 요청도 멱등하게 만들 수 있는가?",
+        "멱등키는 어느 계층에서 생성하고 저장하는가?",
+        "동시에 같은 멱등키가 들어오면 어떻게 막는가?"
+      ],
+      "related": [
+        "delivery-semantics",
+        "outbox",
+        "timeout-retry",
+        "locking"
+      ],
+      "flow": [
+        {
+          "text": "요청",
+          "sub": "idempotency key"
+        },
+        {
+          "text": "처리 로그 조회",
+          "sub": "이미 처리?"
+        },
+        {
+          "text": "처리/저장",
+          "sub": "unique 보장"
+        },
+        {
+          "text": "같은 결과 반환",
+          "sub": "중복 방지"
+        }
+      ],
+      "deep": [
+        "멱등성은 HTTP 메서드 성질만이 아니라 비즈니스 요청의 중복 처리 문제입니다.",
+        "결제·주문 생성처럼 POST도 idempotency key와 상태 저장을 통해 멱등하게 만들 수 있습니다.",
+        "메시지 소비에서는 at least once를 전제로 두고 consumer가 중복 메시지를 안전하게 처리해야 합니다."
+      ],
+      "implementation": [
+        "요청마다 idempotency key 또는 business key를 정합니다.",
+        "처리 결과와 상태를 저장하고 같은 키가 오면 기존 결과를 반환합니다.",
+        "동시 요청 race를 막기 위해 unique constraint, 상태 전이 검증, 짧은 트랜잭션을 사용합니다."
+      ],
+      "compare": "멱등성은 같은 요청의 반복 결과를 안정화하는 것이고, 재시도는 실패 가능성을 줄이는 실행 정책입니다. 재시도를 안전하게 하려면 멱등성이 필요합니다.",
+      "redflags": [
+        "타임아웃 후 결제 생성 요청을 그냥 다시 보낸다.",
+        "멱등키를 메모리에만 저장해 서버 재시작 시 사라진다.",
+        "중복 요청이 동시에 들어올 때 unique 제약 없이 조회 후 삽입만 한다."
+      ]
+    },
+    {
+      "id": "timeout-retry",
+      "title": "타임아웃 / 재시도 / 백오프",
+      "tags": [
+        "장애대응",
+        "MSA"
+      ],
+      "summary": "느린 호출을 무한정 기다리지 않고 끊으며, 일시 실패는 제한된 정책으로 다시 시도하는 전략입니다.",
+      "problem": "의존 서비스가 느려졌을 때 호출자가 계속 기다리면 스레드, 커넥션, 큐가 고갈됩니다. 반대로 즉시 무한 재시도하면 장애 서비스에 더 큰 부하를 줍니다.",
+      "how": [
+        "connect timeout과 read timeout을 구분해 설정합니다.",
+        "재시도는 멱등한 요청에 제한적으로 적용합니다.",
+        "exponential backoff와 jitter로 재시도 시점을 분산합니다.",
+        "retry budget을 두어 장애 상황에서 재시도 폭증을 막습니다."
+      ],
+      "tradeoffs": [
+        "타임아웃이 너무 짧으면 정상 요청도 실패합니다.",
+        "재시도는 tail latency와 하위 서비스 부하를 키울 수 있습니다.",
+        "멱등하지 않은 요청에 재시도를 걸면 중복 처리 위험이 있습니다."
+      ],
+      "answer": "타임아웃은 자원 고갈을 막는 기본 안전장치이고, 재시도는 일시 장애에만 제한적으로 써야 합니다. 재시도는 지수 백오프와 지터를 적용하고, 멱등성 보장이 없는 요청에는 신중해야 합니다.",
+      "example": "외부 결제 승인 조회는 짧은 read timeout과 제한된 retry를 두지만, 결제 생성 요청은 멱등키 없이 무작정 재시도하지 않습니다.",
+      "questions": [
+        "retry storm이 무엇인가?",
+        "connect timeout과 read timeout은 어떻게 다른가?",
+        "재시도는 어느 계층에서 하는 것이 좋은가?"
+      ],
+      "related": [
+        "circuit-breaker",
+        "idempotency",
+        "rate-limiting",
+        "backpressure"
+      ],
+      "flow": [
+        {
+          "text": "호출",
+          "sub": "timeout 설정"
+        },
+        {
+          "text": "실패",
+          "sub": "일시 오류 판단"
+        },
+        {
+          "text": "backoff",
+          "sub": "jitter 포함"
+        },
+        {
+          "text": "제한 재시도",
+          "sub": "budget 적용"
+        }
+      ],
+      "deep": [
+        "타임아웃은 장애 대응의 시작점입니다. timeout 없이 retry나 circuit breaker를 말하면 자원 고갈을 막지 못합니다.",
+        "재시도는 일시 장애에 유효하지만, 영구 장애나 과부하 상황에서는 장애를 증폭시킬 수 있습니다.",
+        "jitter는 여러 클라이언트가 같은 간격으로 동시에 재시도하는 현상을 줄입니다."
+      ],
+      "implementation": [
+        "connect timeout, read timeout, 전체 deadline을 구분합니다.",
+        "retry 가능한 오류와 불가능한 오류를 분리합니다.",
+        "retry 횟수, backoff, jitter, retry budget을 설정하고 메트릭으로 관찰합니다."
+      ],
+      "compare": "Timeout은 기다림을 끊는 장치, Retry는 다시 시도하는 정책, Backoff는 재시도 간격을 늘리는 방식, Circuit Breaker는 실패 호출 자체를 잠시 차단하는 방식입니다.",
+      "redflags": [
+        "모든 500 오류에 무제한 retry를 건다.",
+        "멱등하지 않은 생성 요청을 멱등키 없이 재시도한다.",
+        "timeout이 기본값이라 실제 운영 지연시간보다 훨씬 길다."
+      ]
+    },
+    {
+      "id": "circuit-breaker",
+      "title": "서킷 브레이커",
+      "tags": [
+        "장애대응",
+        "MSA"
+      ],
+      "summary": "의존 서비스가 불안정할 때 호출을 잠시 차단해 장애 전파를 막는 패턴입니다.",
+      "problem": "하위 서비스가 느려졌는데 계속 호출하면 호출자도 대기 자원이 고갈되고, 장애가 연쇄적으로 퍼집니다. 빠르게 실패시키거나 fallback을 제공해야 전체 시스템을 보호할 수 있습니다.",
+      "how": [
+        "Closed 상태에서는 요청을 보내고 실패율과 지연시간을 관찰합니다.",
+        "임계치를 넘으면 Open 상태로 전환해 실제 호출을 막고 즉시 실패 또는 fallback을 반환합니다.",
+        "일정 시간 뒤 Half-Open에서 일부 요청만 보내 회복 여부를 테스트합니다."
+      ],
+      "tradeoffs": [
+        "임계치가 너무 민감하면 정상 서비스도 자주 차단합니다.",
+        "fallback 데이터가 stale할 수 있습니다.",
+        "서킷 브레이커만으로는 느린 호출을 막을 수 없으므로 timeout이 먼저 필요합니다."
+      ],
+      "answer": "서킷 브레이커는 실패율이 높은 의존 서비스 호출을 잠시 끊어 호출자의 자원 고갈을 막는 패턴입니다. Closed, Open, Half-Open 상태로 동작하며 timeout, retry, fallback과 함께 설계합니다.",
+      "example": "추천 서비스가 장애일 때 상품 상세 API는 추천 영역만 기본값으로 내려주고, 핵심 상품 정보 응답은 유지합니다.",
+      "questions": [
+        "timeout과 circuit breaker 중 무엇이 먼저 필요한가?",
+        "Open 상태에서 사용자는 어떤 응답을 받는가?",
+        "Half-Open은 왜 필요한가?"
+      ],
+      "related": [
+        "timeout-retry",
+        "load-balancing",
+        "backpressure",
+        "rate-limiting"
+      ],
+      "flow": [
+        {
+          "text": "Closed",
+          "sub": "정상 호출"
+        },
+        {
+          "text": "실패율 증가",
+          "sub": "임계치 초과"
+        },
+        {
+          "text": "Open",
+          "sub": "호출 차단"
+        },
+        {
+          "text": "Half-Open",
+          "sub": "회복 테스트"
+        }
+      ],
+      "deep": [
+        "서킷 브레이커는 하위 장애를 고치는 기능이 아니라 호출자를 보호하는 기능입니다.",
+        "Open 상태에서 fallback, cached response, partial response, fail fast 중 무엇을 줄지 제품 요구사항과 연결해야 합니다.",
+        "Half-Open은 회복 확인을 위한 제한된 탐색이며, 바로 전체 트래픽을 열지 않는 것이 핵심입니다."
+      ],
+      "implementation": [
+        "실패율, slow call 비율, 최소 호출 수, open 유지 시간을 정합니다.",
+        "fallback이 가능한 기능과 즉시 실패해야 하는 기능을 분리합니다.",
+        "circuit state 변화와 fallback 비율을 모니터링합니다."
+      ],
+      "compare": "Retry는 성공 가능성을 높이지만 장애 시 부하를 키울 수 있고, Circuit Breaker는 성공 가능성을 잠시 포기하고 시스템 보호를 우선합니다.",
+      "redflags": [
+        "timeout 없이 circuit breaker만 둔다.",
+        "fallback이 핵심 데이터 정합성을 깨뜨린다.",
+        "서킷이 열렸는지 알림이나 대시보드가 없다."
+      ]
+    },
+    {
+      "id": "saga",
+      "title": "Saga 패턴",
+      "tags": [
+        "MSA",
+        "트랜잭션",
+        "정합성"
+      ],
+      "summary": "여러 서비스의 로컬 트랜잭션을 이어 붙이고, 실패 시 보상 트랜잭션으로 전체 흐름을 맞추는 패턴입니다.",
+      "problem": "MSA에서는 주문 DB, 결제 DB, 재고 DB를 하나의 ACID 트랜잭션으로 묶기 어렵습니다. 그렇다고 중간 실패를 방치하면 주문은 생성됐는데 결제나 재고 상태가 어긋납니다.",
+      "how": [
+        "각 서비스는 자기 DB에서 로컬 트랜잭션을 완료합니다.",
+        "다음 단계는 이벤트나 오케스트레이터 명령으로 진행합니다.",
+        "중간 단계가 실패하면 이전 단계에 대한 보상 트랜잭션을 실행합니다.",
+        "전체 상태는 즉시가 아니라 최종적으로 일관되게 만듭니다."
+      ],
+      "tradeoffs": [
+        "사용자에게 중간 상태가 보일 수 있습니다.",
+        "보상 트랜잭션도 실패할 수 있어 재시도와 운영 도구가 필요합니다.",
+        "흐름이 길어질수록 상태 추적과 디버깅이 어려워집니다."
+      ],
+      "answer": "Saga는 분산 트랜잭션 대신 각 서비스의 로컬 트랜잭션과 보상 트랜잭션으로 긴 비즈니스 흐름을 관리하는 패턴입니다. orchestration과 choreography 방식이 있고, eventual consistency를 전제로 합니다.",
+      "example": "주문 생성 후 결제 승인, 재고 차감 중 재고 차감이 실패하면 결제 취소와 주문 취소 이벤트를 실행합니다.",
+      "questions": [
+        "orchestration과 choreography의 차이는?",
+        "보상 트랜잭션도 실패하면 어떻게 하는가?",
+        "Saga는 강한 일관성을 보장하는가?"
+      ],
+      "related": [
+        "compensation",
+        "eventual-consistency",
+        "outbox",
+        "message-queue"
+      ],
+      "flow": [
+        {
+          "text": "주문 생성",
+          "sub": "로컬 Tx"
+        },
+        {
+          "text": "결제 승인",
+          "sub": "로컬 Tx"
+        },
+        {
+          "text": "재고 차감 실패",
+          "sub": "오류"
+        },
+        {
+          "text": "보상 실행",
+          "sub": "결제/주문 취소"
+        }
+      ],
+      "deep": [
+        "Saga는 2PC 같은 강한 분산 트랜잭션을 피하고 비즈니스적으로 수용 가능한 최종 일관성을 택하는 방식입니다.",
+        "Orchestration은 중앙 조정자가 흐름을 지휘하고, Choreography는 이벤트를 통해 각 서비스가 다음 행동을 결정합니다.",
+        "Saga 설계의 난점은 성공 흐름보다 실패·중복·순서 역전·보상 실패를 정의하는 데 있습니다."
+      ],
+      "implementation": [
+        "각 단계의 로컬 트랜잭션과 보상 액션을 표로 정의합니다.",
+        "Saga instance id와 현재 상태를 저장해 재시작 후에도 이어갈 수 있게 합니다.",
+        "각 명령과 이벤트는 멱등하게 처리하고, 실패 단계별 재시도/보상/수동 개입 기준을 둡니다."
+      ],
+      "compare": "2PC는 참여자들이 commit을 강하게 합의하지만 가용성과 결합도가 희생됩니다. Saga는 단계별 완료와 보상으로 유연성을 얻지만 중간 상태와 보상 복잡도를 감수합니다.",
+      "redflags": [
+        "보상 액션이 정의되지 않은 단계가 있다.",
+        "이벤트 한 번 놓치면 Saga 상태를 복구할 방법이 없다.",
+        "사용자에게 보이는 중간 상태를 제품적으로 설명하지 못한다."
+      ]
+    },
+    {
+      "id": "compensation",
+      "title": "보상 트랜잭션",
+      "tags": [
+        "정합성",
+        "복구"
+      ],
+      "summary": "이미 완료된 작업을 물리적으로 롤백하지 않고, 반대 의미의 비즈니스 작업으로 상쇄하는 방식입니다.",
+      "problem": "외부 결제 승인, 쿠폰 발급, 포인트 적립처럼 이미 외부 시스템이나 다른 서비스에 반영된 작업은 DB rollback처럼 되돌릴 수 없습니다.",
+      "how": [
+        "각 성공 단계마다 실패 시 수행할 보상 동작을 정의합니다.",
+        "보상 동작 자체도 재시도 가능하고 멱등하게 만듭니다.",
+        "상태 전이를 기록해 어디까지 성공했고 어디부터 보상해야 하는지 추적합니다."
+      ],
+      "tradeoffs": [
+        "보상은 원래 상태를 완벽히 복구하지 못할 수 있습니다.",
+        "보상 실패를 감시하고 수동 개입할 운영 절차가 필요합니다.",
+        "돈이나 재고처럼 민감한 도메인은 감사 로그가 중요합니다."
+      ],
+      "answer": "보상 트랜잭션은 분산 환경에서 이미 완료된 단계를 논리적으로 취소하는 후속 작업입니다. Saga에서 많이 쓰이며, 보상 작업도 멱등성과 재시도를 고려해야 합니다.",
+      "example": "결제 승인 후 배송 예약이 실패하면 결제 취소 API를 호출하고 주문 상태를 취소로 변경합니다.",
+      "questions": [
+        "보상 트랜잭션은 DB rollback과 어떻게 다른가?",
+        "보상 작업이 실패하면 어떻게 감지하고 복구하는가?",
+        "모든 작업에 보상이 가능한가?"
+      ],
+      "related": [
+        "saga",
+        "idempotency",
+        "dlq",
+        "eventual-consistency"
+      ],
+      "flow": [
+        {
+          "text": "작업 성공",
+          "sub": "결제 승인"
+        },
+        {
+          "text": "후속 실패",
+          "sub": "재고 부족"
+        },
+        {
+          "text": "보상 요청",
+          "sub": "결제 취소"
+        },
+        {
+          "text": "상태 기록",
+          "sub": "취소 완료"
+        }
+      ],
+      "deep": [
+        "보상은 과거를 지우는 것이 아니라 새로운 비즈니스 사실을 추가하는 것입니다. 결제 승인을 삭제하는 것이 아니라 결제 취소를 기록합니다.",
+        "외부 시스템 호출이 들어간 보상은 실패와 지연을 전제로 해야 합니다.",
+        "보상 가능 여부는 도메인 정책에 따라 달라집니다. 이미 배송된 상품처럼 완전 복구가 불가능한 경우도 있습니다."
+      ],
+      "implementation": [
+        "성공 단계마다 대응되는 cancel/refund/release 액션을 정의합니다.",
+        "보상 요청에도 idempotency key를 붙입니다.",
+        "보상 실패를 DLQ나 운영 화면에 노출하고 재처리할 수 있게 합니다."
+      ],
+      "compare": "DB rollback은 같은 트랜잭션 안의 변경을 되돌리는 기술적 작업이고, 보상 트랜잭션은 이미 commit된 일을 반대 의미의 비즈니스 이벤트로 상쇄하는 작업입니다.",
+      "redflags": [
+        "보상 API가 멱등하지 않다.",
+        "보상 실패를 로그만 남기고 끝낸다.",
+        "재고 복구, 쿠폰 복원, 결제 취소 순서가 정의되어 있지 않다."
+      ]
+    },
+    {
+      "id": "eventual-consistency",
+      "title": "Eventual Consistency",
+      "tags": [
+        "정합성",
+        "비동기"
+      ],
+      "summary": "분산된 데이터가 즉시 같지는 않아도 시간이 지나면 최종적으로 일관된 상태에 도달하는 모델입니다.",
+      "problem": "분산 시스템에서 모든 요청마다 강한 일관성을 보장하려면 지연시간과 가용성 비용이 큽니다. 많은 도메인은 잠깐의 지연을 허용하고 비동기로 맞추는 편이 실용적입니다.",
+      "how": [
+        "원천 서비스가 상태 변경 이벤트를 발행합니다.",
+        "다른 서비스는 이벤트를 소비해 자기 read model이나 상태를 갱신합니다.",
+        "누락·중복·순서 문제를 재시도, 멱등성, reconciliation으로 보정합니다."
+      ],
+      "tradeoffs": [
+        "사용자가 일시적으로 오래된 상태를 볼 수 있습니다.",
+        "불일치 윈도우를 제품 요구사항과 맞춰야 합니다.",
+        "정산, 결제 승인처럼 강한 일관성이 필요한 구간은 별도 설계가 필요합니다."
+      ],
+      "answer": "Eventual Consistency는 즉시 모든 서비스가 같은 값을 보는 대신, 이벤트와 재시도를 통해 최종적으로 맞추는 일관성 모델입니다. 성능과 가용성을 얻지만 중복 처리와 상태 보정이 필요합니다.",
+      "example": "주문 완료 직후 마이페이지 주문 목록은 바로 갱신되지만, 추천 시스템이나 분석 집계는 이벤트 소비 후 몇 초 뒤 반영될 수 있습니다.",
+      "questions": [
+        "언제 eventual consistency를 허용하면 안 되는가?",
+        "불일치 상태를 어떻게 감지하는가?",
+        "사용자 경험은 어떻게 설계하는가?"
+      ],
+      "related": [
+        "saga",
+        "outbox",
+        "message-queue",
+        "idempotency"
+      ],
+      "flow": [
+        {
+          "text": "상태 변경",
+          "sub": "주문 완료"
+        },
+        {
+          "text": "이벤트 발행",
+          "sub": "비동기"
+        },
+        {
+          "text": "각 서비스 반영",
+          "sub": "지연 가능"
+        },
+        {
+          "text": "최종 일치",
+          "sub": "보정/재시도"
+        }
+      ],
+      "deep": [
+        "최종 일관성은 '대충 맞는다'가 아니라 불일치가 발생할 수 있는 시간 창을 인정하고 복구 경로를 설계하는 것입니다.",
+        "사용자 경험에서는 pending, processing, syncing 같은 상태 표현이 중요합니다.",
+        "정합성 보정은 이벤트 재처리, 주기적 reconciliation, 소스 오브 트루스 재조회로 구현합니다."
+      ],
+      "implementation": [
+        "원천 데이터 소유 서비스를 명확히 합니다.",
+        "이벤트 중복·유실·순서 역전을 처리할 수 있게 version, timestamp, idempotency key를 둡니다.",
+        "불일치 탐지 배치와 수동 보정 도구를 준비합니다."
+      ],
+      "compare": "Strong consistency는 읽는 즉시 최신 값을 기대하는 모델이고, eventual consistency는 지연 후 수렴을 기대하는 모델입니다. 어떤 값을 사용자에게 즉시 보장해야 하는지로 선택합니다.",
+      "redflags": [
+        "최종 일관성이라고 말하면서 불일치 탐지 방법이 없다.",
+        "결제 승인처럼 즉시 정확해야 하는 상태에도 지연 반영을 허용한다.",
+        "이벤트 순서가 바뀌었을 때 오래된 상태로 덮어쓴다."
+      ]
+    },
+    {
+      "id": "outbox",
+      "title": "Outbox Pattern",
+      "tags": [
+        "DB",
+        "메시지",
+        "정합성"
+      ],
+      "summary": "비즈니스 데이터 변경과 발행할 이벤트 기록을 같은 DB 트랜잭션에 저장하고, 별도 relay가 메시지를 발행하는 패턴입니다.",
+      "problem": "주문 저장 DB commit은 성공했지만 MQ publish가 실패하면 다른 서비스는 주문 생성 사실을 모릅니다. 반대로 MQ publish 후 DB commit이 실패하면 존재하지 않는 주문 이벤트가 퍼질 수 있습니다.",
+      "how": [
+        "비즈니스 테이블과 outbox 테이블을 같은 DB 트랜잭션으로 저장합니다.",
+        "relay가 outbox row를 polling하거나 CDC로 읽어 MQ에 발행합니다.",
+        "발행 성공 row는 sent 처리하거나 삭제합니다.",
+        "중복 발행 가능성이 있으므로 consumer는 멱등해야 합니다."
+      ],
+      "tradeoffs": [
+        "메시지 발행이 즉시가 아니라 약간 지연됩니다.",
+        "relay, outbox 정리, 재처리, 모니터링 운영이 필요합니다.",
+        "Outbox만으로 exactly once end-to-end가 보장되지는 않습니다."
+      ],
+      "answer": "Outbox는 DB commit과 메시지 발행 사이의 원자성 문제를 줄이는 패턴입니다. 같은 트랜잭션에 비즈니스 데이터와 outbox row를 저장하고, relay가 outbox를 읽어 MQ로 발행합니다. 보통 at least once가 되므로 consumer 멱등성이 필요합니다.",
+      "example": "주문 생성 API가 order row와 order_created outbox row를 함께 저장하고, relay가 이 이벤트를 Kafka로 발행해 결제·알림 서비스가 처리합니다.",
+      "questions": [
+        "Outbox와 CDC의 관계는?",
+        "Outbox relay가 죽으면 어떻게 되는가?",
+        "중복 발행은 어떻게 처리하는가?"
+      ],
+      "related": [
+        "idempotency",
+        "delivery-semantics",
+        "eventual-consistency",
+        "message-queue"
+      ],
+      "flow": [
+        {
+          "text": "API",
+          "sub": "주문 생성"
+        },
+        {
+          "text": "DB Tx",
+          "sub": "order + outbox"
+        },
+        {
+          "text": "Relay",
+          "sub": "polling/CDC"
+        },
+        {
+          "text": "MQ",
+          "sub": "event publish"
+        },
+        {
+          "text": "Consumer",
+          "sub": "멱등 처리"
+        }
+      ],
+      "deep": [
+        "Outbox의 본질은 DB commit과 이벤트 발행 사이의 dual write 문제를 줄이는 것입니다.",
+        "Outbox는 보통 at least once 발행을 만들기 때문에 consumer 멱등성과 함께 설명해야 완성됩니다.",
+        "Relay 구현은 polling 방식과 CDC 방식이 있으며, 운영 난이도와 지연시간 특성이 다릅니다."
+      ],
+      "implementation": [
+        "비즈니스 row와 outbox row를 같은 DB transaction에 저장합니다.",
+        "outbox row에는 event id, aggregate id, type, payload, created_at, status/retry count를 둡니다.",
+        "relay는 발행 성공 표시, 재시도, 오래된 row 정리, lag 모니터링을 수행합니다."
+      ],
+      "compare": "Outbox는 애플리케이션 DB 안에 발행 예정 이벤트를 남기는 패턴이고, CDC는 DB 변경 로그를 읽어 외부로 전달하는 기술입니다. CDC를 Outbox relay 수단으로 쓸 수 있습니다.",
+      "redflags": [
+        "outbox row 저장과 비즈니스 row 저장이 다른 트랜잭션이다.",
+        "consumer 중복 처리가 없다.",
+        "relay lag과 실패 row를 관찰하지 않는다."
+      ]
+    },
+    {
+      "id": "acid",
+      "title": "ACID",
+      "tags": [
+        "DB",
+        "트랜잭션"
+      ],
+      "summary": "트랜잭션이 원자성, 일관성, 격리성, 지속성을 만족해야 한다는 성질입니다.",
+      "problem": "계좌 이체, 재고 차감, 주문 상태 변경은 중간 실패나 동시 실행에도 데이터가 깨지면 안 됩니다. ACID는 단일 DB 트랜잭션 안에서 이런 안정성을 제공하는 기준입니다.",
+      "how": [
+        "Atomicity: 전부 성공하거나 전부 취소됩니다.",
+        "Consistency: 트랜잭션 전후 데이터 제약이 유지됩니다.",
+        "Isolation: 동시에 실행되어도 서로의 중간 상태가 잘 격리됩니다.",
+        "Durability: commit 후 장애가 나도 결과가 보존됩니다."
+      ],
+      "tradeoffs": [
+        "강한 격리는 동시성과 성능을 낮출 수 있습니다.",
+        "ACID는 보통 단일 DB 내부 기준이며, 여러 서비스에 걸치면 별도 패턴이 필요합니다.",
+        "DB 제약과 애플리케이션 불변식을 함께 설계해야 합니다."
+      ],
+      "answer": "ACID는 트랜잭션의 안정성을 설명하는 네 가지 성질입니다. 단일 DB 안에서는 commit/rollback과 격리 수준으로 보장하지만, MSA처럼 여러 DB를 넘어서면 Saga나 Outbox 같은 다른 정합성 전략이 필요합니다.",
+      "example": "계좌 A에서 출금하고 계좌 B에 입금하는 작업은 둘 중 하나만 성공하면 안 되므로 하나의 트랜잭션으로 묶습니다.",
+      "questions": [
+        "Consistency는 애플리케이션 불변식과 어떤 관계인가?",
+        "Isolation level과 ACID의 I는 어떻게 연결되는가?",
+        "분산 환경에서 ACID를 그대로 적용하기 어려운 이유는?"
+      ],
+      "related": [
+        "isolation",
+        "locking",
+        "saga",
+        "eventual-consistency"
+      ],
+      "flow": [
+        {
+          "text": "Begin",
+          "sub": "트랜잭션 시작"
+        },
+        {
+          "text": "변경",
+          "sub": "여러 쿼리"
+        },
+        {
+          "text": "Commit/Rollback",
+          "sub": "원자성"
+        },
+        {
+          "text": "Durable",
+          "sub": "결과 보존"
+        }
+      ],
+      "deep": [
+        "ACID는 단일 트랜잭션의 신뢰성 기준입니다. 면접에서는 네 글자 암기보다 각 성질이 어떤 장애를 막는지 말해야 합니다.",
+        "Consistency는 DB가 자동으로 모든 비즈니스 규칙을 이해한다는 뜻이 아니라 제약조건과 애플리케이션 로직을 통해 불변식이 지켜진다는 뜻입니다.",
+        "MSA에서는 각 서비스 내부는 ACID, 서비스 간 흐름은 Saga/Outbox/Eventual Consistency로 나뉘는 경우가 많습니다."
+      ],
+      "implementation": [
+        "트랜잭션 경계를 짧고 명확하게 잡습니다.",
+        "DB constraint, foreign key, unique key로 중요한 불변식을 DB에도 둡니다.",
+        "외부 API 호출을 긴 DB 트랜잭션 안에 넣지 않습니다."
+      ],
+      "compare": "ACID는 단일 트랜잭션의 강한 정합성 모델이고, BASE/Eventual Consistency는 분산 환경에서 가용성과 확장성을 우선하는 관점입니다.",
+      "redflags": [
+        "트랜잭션 안에서 오래 걸리는 외부 호출을 한다.",
+        "중요한 unique 제약을 애플리케이션 if문으로만 막는다.",
+        "여러 서비스 DB를 ACID처럼 쉽게 묶을 수 있다고 말한다."
+      ]
+    },
+    {
+      "id": "isolation",
+      "title": "트랜잭션 격리 수준",
+      "tags": [
+        "DB",
+        "동시성"
+      ],
+      "summary": "동시에 실행되는 트랜잭션들이 서로의 변경 내용을 어느 정도 볼 수 있는지 정하는 수준입니다.",
+      "problem": "동시 요청이 많을 때 모든 트랜잭션을 완전히 직렬화하면 안전하지만 느립니다. 반대로 너무 느슨하면 dirty read, non-repeatable read, phantom read 같은 이상 현상이 발생합니다.",
+      "how": [
+        "Read Uncommitted는 commit 전 변경도 볼 수 있습니다.",
+        "Read Committed는 commit된 데이터만 읽습니다.",
+        "Repeatable Read는 같은 row를 반복 조회할 때 같은 값을 보장합니다.",
+        "Serializable은 가장 강하지만 동시성이 낮아질 수 있습니다."
+      ],
+      "tradeoffs": [
+        "격리 수준이 강할수록 락 대기와 충돌 가능성이 커집니다.",
+        "DBMS마다 같은 이름의 격리 수준도 구현 세부가 다릅니다.",
+        "격리 수준만 믿지 말고 비즈니스 제약, 락, unique key도 함께 봐야 합니다."
+      ],
+      "answer": "격리 수준은 동시 트랜잭션 간 가시성을 조절해 정합성과 성능을 trade-off하는 설정입니다. dirty read, non-repeatable read, phantom read를 어느 수준까지 막는지가 핵심입니다.",
+      "example": "정산 데이터처럼 정확성이 중요한 조회는 더 강한 격리가 필요할 수 있지만, 일반 목록 조회는 read committed로 충분할 수 있습니다.",
+      "questions": [
+        "Dirty read와 phantom read의 차이는?",
+        "MySQL InnoDB 기본 격리 수준은?",
+        "격리 수준을 올리면 항상 문제가 해결되는가?"
+      ],
+      "related": [
+        "acid",
+        "locking",
+        "deadlock",
+        "index"
+      ],
+      "flow": [
+        {
+          "text": "동시 Tx",
+          "sub": "읽기/쓰기 충돌"
+        },
+        {
+          "text": "격리 수준",
+          "sub": "가시성 제어"
+        },
+        {
+          "text": "이상 현상",
+          "sub": "허용/차단"
+        },
+        {
+          "text": "성능",
+          "sub": "대기/충돌 trade-off"
+        }
+      ],
+      "deep": [
+        "격리 수준은 동시 트랜잭션이 서로 어떤 중간 결과를 볼 수 있는지에 대한 계약입니다.",
+        "이상 현상은 dirty read, non-repeatable read, phantom read로 설명하고, DBMS별 구현 차이를 언급하면 좋습니다.",
+        "무조건 Serializable을 쓰는 답은 성능·락 경합 trade-off를 놓칩니다."
+      ],
+      "implementation": [
+        "도메인에서 허용할 수 없는 이상 현상을 먼저 정의합니다.",
+        "DB 기본 격리 수준과 실제 lock/MVCC 구현을 확인합니다.",
+        "필요한 구간에만 명시적 lock, unique constraint, 재시도 정책을 추가합니다."
+      ],
+      "compare": "격리 수준은 트랜잭션 가시성 정책이고, 락은 이를 구현하거나 보강하는 수단 중 하나입니다. MVCC DB에서는 읽기와 쓰기 락 동작이 단순하지 않습니다.",
+      "redflags": [
+        "격리 수준을 올리면 모든 동시성 문제가 해결된다고 말한다.",
+        "DB별 기본 격리 수준 차이를 모른다.",
+        "성능 영향 없이 Serializable을 적용한다고 말한다."
+      ]
+    },
+    {
+      "id": "locking",
+      "title": "낙관적 락 / 비관적 락",
+      "tags": [
+        "DB",
+        "동시성"
+      ],
+      "summary": "동시 수정 충돌을 막기 위해 충돌을 나중에 검증하거나, 미리 잠그고 작업하는 두 가지 전략입니다.",
+      "problem": "동시에 재고를 차감하거나 쿠폰을 사용하면 최종 수량이 음수가 되거나 한 쿠폰이 여러 번 쓰일 수 있습니다.",
+      "how": [
+        "낙관적 락은 version 컬럼을 두고 update 시 version이 같은지 확인합니다.",
+        "비관적 락은 select for update처럼 먼저 row를 잠그고 작업합니다.",
+        "충돌 빈도, 대기 비용, 사용자 경험에 따라 선택합니다."
+      ],
+      "tradeoffs": [
+        "낙관적 락은 충돌이 잦으면 재시도가 많아집니다.",
+        "비관적 락은 대기와 데드락 위험이 커질 수 있습니다.",
+        "분산 환경에서는 DB 락만으로 모든 외부 시스템 상태를 보호할 수 없습니다."
+      ],
+      "answer": "낙관적 락은 충돌이 드물다고 보고 version으로 커밋 시점에 검증하고, 비관적 락은 충돌 가능성이 높다고 보고 먼저 잠급니다. 재고처럼 경쟁이 심한 구간은 비관적 락이나 원자적 update를 고려합니다.",
+      "example": "게시글 수정은 낙관적 락으로 충돌 시 사용자에게 재수정을 요청할 수 있고, 선착순 쿠폰 차감은 원자적 update나 비관적 락이 더 적합할 수 있습니다.",
+      "questions": [
+        "재고 차감에는 어떤 방식을 쓸 것인가?",
+        "version 충돌이 나면 사용자에게 어떻게 응답하는가?",
+        "DB 락과 분산 락은 어떻게 다른가?"
+      ],
+      "related": [
+        "deadlock",
+        "isolation",
+        "idempotency",
+        "index"
+      ],
+      "flow": [
+        {
+          "text": "동시 수정",
+          "sub": "같은 row"
+        },
+        {
+          "text": "낙관적",
+          "sub": "version 검증"
+        },
+        {
+          "text": "비관적",
+          "sub": "먼저 lock"
+        },
+        {
+          "text": "재시도/대기",
+          "sub": "충돌 처리"
+        }
+      ],
+      "deep": [
+        "낙관적 락은 충돌이 드물다는 가정, 비관적 락은 충돌 가능성이 높다는 가정에서 출발합니다.",
+        "재고 차감처럼 수치 조건이 중요하면 version 방식 외에도 조건부 update가 더 단순할 수 있습니다.",
+        "분산 락은 DB row lock과 목적이 다르며, 네트워크 파티션과 lock 만료를 고려해야 합니다."
+      ],
+      "implementation": [
+        "낙관적 락은 version 컬럼과 update where version = ? 패턴을 사용합니다.",
+        "비관적 락은 트랜잭션 범위 안에서 select for update를 사용하고 lock 순서를 통일합니다.",
+        "충돌 시 사용자 응답, 재시도 횟수, 실패 메시지를 정합니다."
+      ],
+      "compare": "낙관적 락은 대기 대신 실패 후 재시도, 비관적 락은 먼저 대기시켜 충돌을 막는 방식입니다. 읽기 많은 환경과 쓰기 충돌 많은 환경에서 선택이 달라집니다.",
+      "redflags": [
+        "조회 후 수정 사이에 아무 보호가 없다.",
+        "비관적 락을 잡은 채 외부 API를 호출한다.",
+        "락 충돌을 사용자에게 어떻게 처리할지 정의하지 않았다."
+      ]
+    },
+    {
+      "id": "deadlock",
+      "title": "데드락",
+      "tags": [
+        "DB",
+        "장애"
+      ],
+      "summary": "둘 이상의 트랜잭션이 서로가 가진 락을 기다리며 더 이상 진행하지 못하는 상태입니다.",
+      "problem": "트랜잭션 A는 주문 row를 잡고 재고 row를 기다리고, 트랜잭션 B는 재고 row를 잡고 주문 row를 기다리면 둘 다 진행할 수 없습니다.",
+      "how": [
+        "DB는 deadlock detector로 한 트랜잭션을 희생시켜 롤백합니다.",
+        "애플리케이션은 deadlock 오류를 일시 실패로 보고 제한적으로 재시도합니다.",
+        "락 획득 순서를 통일하고 트랜잭션 범위를 짧게 유지합니다."
+      ],
+      "tradeoffs": [
+        "재시도만 넣으면 근본 원인이 숨겨질 수 있습니다.",
+        "긴 트랜잭션과 인덱스 누락은 락 범위를 넓혀 데드락 가능성을 키웁니다.",
+        "락 순서 통일은 설계 규칙으로 지켜야 효과가 있습니다."
+      ],
+      "answer": "데드락은 서로의 락을 기다리며 멈춘 상태입니다. DB가 하나를 롤백시키므로 애플리케이션은 재시도할 수 있어야 하고, 락 순서 통일, 짧은 트랜잭션, 적절한 인덱스로 발생 가능성을 줄입니다.",
+      "example": "주문 취소와 재고 복구가 서로 다른 순서로 order와 stock row를 잠그면 데드락이 발생할 수 있습니다.",
+      "questions": [
+        "데드락 오류는 500으로 끝내면 되는가?",
+        "인덱스가 데드락과 무슨 관련이 있는가?",
+        "락 타임아웃과 데드락은 어떻게 다른가?"
+      ],
+      "related": [
+        "locking",
+        "isolation",
+        "timeout-retry",
+        "index"
+      ],
+      "flow": [
+        {
+          "text": "Tx A",
+          "sub": "order lock"
+        },
+        {
+          "text": "Tx B",
+          "sub": "stock lock"
+        },
+        {
+          "text": "상호 대기",
+          "sub": "deadlock"
+        },
+        {
+          "text": "rollback/retry",
+          "sub": "복구"
+        }
+      ],
+      "deep": [
+        "데드락은 버그라기보다 높은 동시성에서 발생 가능한 실패 모드입니다. 중요한 것은 발생 확률을 낮추고 재시도 가능하게 만드는 것입니다.",
+        "락 순서 통일, 인덱스 최적화, 트랜잭션 축소는 데드락 완화의 핵심입니다.",
+        "데드락 로그를 보면 어떤 쿼리와 인덱스가 락을 잡았는지 알 수 있습니다."
+      ],
+      "implementation": [
+        "동일 자원은 항상 같은 순서로 접근합니다.",
+        "트랜잭션 안에서 사용자 입력 대기나 외부 API 호출을 하지 않습니다.",
+        "deadlock victim 오류는 제한적으로 재시도하고, 빈도가 높으면 쿼리/인덱스를 분석합니다."
+      ],
+      "compare": "락 타임아웃은 너무 오래 기다려 포기하는 것이고, 데드락은 서로 기다리는 순환 관계를 DB가 감지해 하나를 롤백시키는 것입니다.",
+      "redflags": [
+        "데드락을 무조건 DB 문제로만 본다.",
+        "재시도만 추가하고 락 순서나 인덱스를 보지 않는다.",
+        "긴 배치 트랜잭션이 운영 API와 같은 row를 오래 잠근다."
+      ]
+    },
+    {
+      "id": "index",
+      "title": "인덱스",
+      "tags": [
+        "DB",
+        "성능"
+      ],
+      "summary": "테이블 전체를 훑지 않고 조건에 맞는 데이터를 빠르게 찾기 위한 자료구조입니다.",
+      "problem": "데이터가 커질수록 full scan은 응답 시간을 급격히 늘리고 DB 부하를 키웁니다. 검색 조건과 정렬 조건에 맞는 인덱스가 없으면 작은 트래픽도 병목이 됩니다.",
+      "how": [
+        "where, join, order by, group by에 자주 쓰는 컬럼을 기준으로 설계합니다.",
+        "복합 인덱스는 선두 컬럼과 선택도를 고려합니다.",
+        "실행 계획으로 실제 인덱스 사용 여부와 rows estimate를 확인합니다."
+      ],
+      "tradeoffs": [
+        "인덱스는 쓰기 성능과 저장 공간을 희생합니다.",
+        "선택도가 낮은 컬럼은 효과가 작을 수 있습니다.",
+        "잘못된 복합 인덱스는 기대와 다르게 사용되지 않습니다."
+      ],
+      "answer": "인덱스는 조회 성능을 높이지만 쓰기 비용과 저장 공간을 증가시키므로 쿼리 패턴 기반으로 설계해야 합니다. 복합 인덱스는 선두 컬럼, 선택도, 정렬 조건을 보고 실행 계획으로 검증합니다.",
+      "example": "주문 목록을 user_id와 created_at desc로 자주 조회한다면 (user_id, created_at) 복합 인덱스를 고려합니다.",
+      "questions": [
+        "복합 인덱스의 leftmost prefix란?",
+        "인덱스를 많이 만들면 왜 쓰기가 느려지는가?",
+        "카디널리티가 낮은 컬럼은 인덱스 효과가 어떤가?"
+      ],
+      "related": [
+        "n-plus-one",
+        "cache-aside",
+        "deadlock",
+        "isolation"
+      ],
+      "flow": [
+        {
+          "text": "쿼리 패턴",
+          "sub": "where/order"
+        },
+        {
+          "text": "인덱스 설계",
+          "sub": "선택도/복합"
+        },
+        {
+          "text": "실행 계획",
+          "sub": "검증"
+        },
+        {
+          "text": "운영",
+          "sub": "쓰기 비용 관찰"
+        }
+      ],
+      "deep": [
+        "인덱스는 조회를 빠르게 하지만 쓰기와 저장 공간 비용을 늘립니다. 읽기 패턴을 모른 채 만드는 인덱스는 부채가 됩니다.",
+        "복합 인덱스는 컬럼 순서가 핵심이며, where 조건과 order by를 함께 봐야 합니다.",
+        "실행 계획은 rows, filtered, key, extra를 보고 실제로 도움이 되는지 확인해야 합니다."
+      ],
+      "implementation": [
+        "느린 쿼리 로그와 실행 계획으로 병목 쿼리를 찾습니다.",
+        "동등 조건, 범위 조건, 정렬 조건 순서로 복합 인덱스를 설계합니다.",
+        "사용하지 않는 인덱스와 중복 인덱스를 주기적으로 제거합니다."
+      ],
+      "compare": "인덱스는 DB 내부 접근 경로를 줄이는 방법이고, 캐시는 DB 접근 자체를 줄이는 방법입니다. 둘은 대체재가 아니라 계층이 다릅니다.",
+      "redflags": [
+        "컬럼마다 일단 인덱스를 만든다.",
+        "복합 인덱스 컬럼 순서를 설명하지 못한다.",
+        "실행 계획 확인 없이 인덱스 추가만 한다."
+      ]
+    },
+    {
+      "id": "n-plus-one",
+      "title": "N+1 문제",
+      "tags": [
+        "DB",
+        "성능"
+      ],
+      "summary": "목록을 한 번 조회한 뒤 각 항목의 연관 데이터를 N번 추가 조회해 DB 왕복이 폭증하는 문제입니다.",
+      "problem": "개발 환경에서는 데이터가 적어 티가 나지 않지만, 목록 100개를 조회하며 연관 데이터를 100번 더 조회하면 트래픽 증가 시 DB가 병목이 됩니다.",
+      "how": [
+        "쿼리 로그와 APM으로 요청당 쿼리 수를 확인합니다.",
+        "fetch join, batch fetch, DTO projection으로 필요한 데이터를 한 번에 가져옵니다.",
+        "페이지네이션과 조인 폭증을 고려해 전략을 선택합니다."
+      ],
+      "tradeoffs": [
+        "fetch join은 중복 row와 페이지네이션 문제를 만들 수 있습니다.",
+        "모든 연관을 eager로 바꾸면 다른 화면에서 불필요한 조회가 늘어납니다.",
+        "캐시로 숨기기 전에 쿼리 구조를 먼저 확인해야 합니다."
+      ],
+      "answer": "N+1은 목록 조회 후 연관 데이터를 row 수만큼 추가 조회하는 문제입니다. 쿼리 로그로 확인하고 fetch join, batch size, DTO projection 등으로 해결하지만, 페이지네이션과 중복 row trade-off를 봐야 합니다.",
+      "example": "주문 목록 50개를 조회한 뒤 각 주문의 사용자 정보를 50번 조회하는 대신, 필요한 사용자 정보를 join 또는 batch로 가져옵니다.",
+      "questions": [
+        "fetch join을 항상 쓰면 안 되는 이유는?",
+        "batch size는 어떻게 동작하는가?",
+        "N+1은 ORM에서만 생기는가?"
+      ],
+      "related": [
+        "index",
+        "cache-aside",
+        "load-balancing"
+      ],
+      "flow": [
+        {
+          "text": "목록 1회",
+          "sub": "orders"
+        },
+        {
+          "text": "연관 N회",
+          "sub": "users/items"
+        },
+        {
+          "text": "쿼리 폭증",
+          "sub": "DB round-trip"
+        },
+        {
+          "text": "join/batch",
+          "sub": "완화"
+        }
+      ],
+      "deep": [
+        "N+1은 ORM 기능 문제가 아니라 데이터 접근 패턴 문제입니다. 직접 SQL을 써도 반복 조회를 하면 같은 문제가 납니다.",
+        "해결책은 fetch join 하나가 아니라 화면에 필요한 데이터 모양에 따라 join, batch, projection을 선택하는 것입니다.",
+        "페이지네이션과 컬렉션 fetch join은 중복 row와 메모리 사용 문제를 만들 수 있습니다."
+      ],
+      "implementation": [
+        "요청 단위 쿼리 수를 테스트나 APM으로 관찰합니다.",
+        "목록 API는 DTO projection을 우선 고려합니다.",
+        "연관 엔티티 접근 시점과 fetch 전략을 코드 리뷰 기준으로 둡니다."
+      ],
+      "compare": "Lazy loading은 필요할 때 읽는 전략이고, N+1은 그 전략이 반복문 안에서 잘못 드러난 증상입니다. Lazy 자체가 항상 나쁜 것은 아닙니다.",
+      "redflags": [
+        "개발 DB에서 빠르다는 이유로 쿼리 수를 확인하지 않는다.",
+        "모든 연관관계를 eager로 바꾼다.",
+        "fetch join으로 페이지네이션이 깨지는 것을 놓친다."
+      ]
+    },
+    {
+      "id": "message-queue",
+      "title": "Message Queue",
+      "tags": [
+        "메시지",
+        "비동기"
+      ],
+      "summary": "생산자와 소비자 사이에 메시지를 저장해 비동기 처리와 완충을 가능하게 하는 중간 계층입니다.",
+      "problem": "요청 안에서 모든 후속 작업을 동기로 처리하면 응답이 느려지고, 후속 서비스 장애가 API 장애로 바로 전파됩니다.",
+      "how": [
+        "producer가 메시지를 queue/topic에 적재합니다.",
+        "consumer는 자기 처리 속도에 맞춰 메시지를 가져가 처리합니다.",
+        "실패 시 retry, DLQ, offset commit 정책으로 복구합니다."
+      ],
+      "tradeoffs": [
+        "비동기이므로 결과 반영 지연이 생깁니다.",
+        "메시지 중복, 순서, 유실 가능성을 이해해야 합니다.",
+        "consumer lag과 DLQ를 모니터링해야 합니다."
+      ],
+      "answer": "Message Queue는 생산자와 소비자를 분리해 비동기 처리와 트래픽 완충을 제공합니다. 하지만 중복 전달과 지연이 생길 수 있어 전송 보장, 멱등 소비, DLQ 설계가 필요합니다.",
+      "example": "주문 생성 API는 빠르게 응답하고, 이메일 발송과 분석 적재는 큐 메시지를 소비하는 별도 worker가 처리합니다.",
+      "questions": [
+        "큐를 쓰면 정합성 문제가 사라지는가?",
+        "메시지가 중복 처리되면 어떻게 하는가?",
+        "consumer lag은 무엇인가?"
+      ],
+      "related": [
+        "delivery-semantics",
+        "dlq",
+        "outbox",
+        "consumer-group"
+      ],
+      "flow": [
+        {
+          "text": "Producer",
+          "sub": "event 생성"
+        },
+        {
+          "text": "Queue",
+          "sub": "buffer"
+        },
+        {
+          "text": "Consumer",
+          "sub": "비동기 처리"
+        },
+        {
+          "text": "Retry/DLQ",
+          "sub": "실패 처리"
+        }
+      ],
+      "deep": [
+        "Queue는 비동기 완충 장치이지 정합성 보장 만능 도구가 아닙니다.",
+        "메시지 발행 성공, consumer 처리 성공, offset commit 성공은 각각 다른 사건입니다.",
+        "큐를 도입하면 API 응답은 빨라질 수 있지만, 사용자는 처리 중 상태와 실패 보정 흐름을 보게 됩니다."
+      ],
+      "implementation": [
+        "메시지 스키마와 id를 정의합니다.",
+        "producer 발행 실패와 consumer 처리 실패 정책을 나눕니다.",
+        "consumer lag, retry count, DLQ depth를 모니터링합니다."
+      ],
+      "compare": "Queue는 보통 작업을 하나의 소비자 그룹이 나눠 처리하는 데 초점이 있고, Pub/Sub은 하나의 이벤트를 여러 구독자에게 fan-out하는 데 초점이 있습니다.",
+      "redflags": [
+        "큐를 쓰면 중복 처리가 필요 없다고 말한다.",
+        "DLQ와 재처리 절차가 없다.",
+        "consumer lag을 보고도 API 트래픽과 연결해 해석하지 못한다."
+      ]
+    },
+    {
+      "id": "pubsub",
+      "title": "Pub/Sub",
+      "tags": [
+        "메시지",
+        "확장성"
+      ],
+      "summary": "발행자가 이벤트를 발행하면 여러 구독자가 독립적으로 받아 처리하는 메시징 모델입니다.",
+      "problem": "주문 생성 후 알림, 추천, 분석, 배송 준비 같은 후속 작업을 주문 서비스가 모두 직접 호출하면 결합도가 커집니다.",
+      "how": [
+        "producer는 특정 topic에 이벤트를 발행합니다.",
+        "각 subscriber는 자기 목적에 맞게 이벤트를 소비합니다.",
+        "새로운 구독자를 추가해도 producer 변경을 최소화할 수 있습니다."
+      ],
+      "tradeoffs": [
+        "이벤트 스키마 변경과 버전 관리가 중요합니다.",
+        "구독자가 늘수록 이벤트 의미와 소유권이 흐려질 수 있습니다.",
+        "각 구독자의 실패 처리는 독립적으로 설계해야 합니다."
+      ],
+      "answer": "Pub/Sub은 이벤트 발행자와 여러 구독자를 느슨하게 연결하는 모델입니다. fan-out에 유리하지만 이벤트 스키마 관리, 중복 처리, 구독자별 실패 처리 전략이 필요합니다.",
+      "example": "order_created 이벤트를 알림 서비스, 쿠폰 통계 서비스, 추천 피처 적재 서비스가 각각 구독합니다.",
+      "questions": [
+        "Queue와 Pub/Sub의 차이는?",
+        "이벤트 스키마는 어떻게 변경하는가?",
+        "구독자 하나가 실패하면 발행자는 영향을 받는가?"
+      ],
+      "related": [
+        "message-queue",
+        "consumer-group",
+        "eventual-consistency",
+        "outbox"
+      ],
+      "flow": [
+        {
+          "text": "Publisher",
+          "sub": "이벤트 발행"
+        },
+        {
+          "text": "Topic",
+          "sub": "fan-out"
+        },
+        {
+          "text": "Sub A",
+          "sub": "알림"
+        },
+        {
+          "text": "Sub B",
+          "sub": "분석"
+        }
+      ],
+      "deep": [
+        "Pub/Sub은 producer가 후속 처리 대상을 몰라도 되게 만들어 결합도를 낮춥니다.",
+        "이벤트는 API보다 더 오래 남는 계약이므로 schema evolution 전략이 중요합니다.",
+        "구독자가 많아질수록 같은 이벤트의 의미가 여러 방식으로 해석될 수 있어 ownership이 필요합니다."
+      ],
+      "implementation": [
+        "이벤트 이름과 payload 스키마, 버전 정책을 정의합니다.",
+        "구독자별 실패가 다른 구독자에게 영향을 주지 않게 합니다.",
+        "이벤트 재처리와 중복 소비 기준을 문서화합니다."
+      ],
+      "compare": "API 호출은 요청자가 응답을 기다리는 동기 계약이고, Pub/Sub은 발행자가 결과를 기다리지 않는 비동기 계약입니다.",
+      "redflags": [
+        "이벤트 payload를 DB row 전체 덤프로 만든다.",
+        "스키마 변경 시 구독자 호환성을 고려하지 않는다.",
+        "이벤트 순서가 중요하지만 partition key를 설계하지 않는다."
+      ]
+    },
+    {
+      "id": "delivery-semantics",
+      "title": "At least once / At most once / Exactly once",
+      "tags": [
+        "메시지",
+        "정합성"
+      ],
+      "summary": "메시지가 소비자에게 전달되는 횟수와 유실·중복 가능성을 설명하는 보장 모델입니다.",
+      "problem": "네트워크와 consumer 장애가 있는 환경에서 메시지를 한 번만 정확히 처리하는 것은 어렵습니다. 보장 모델을 이해하지 못하면 중복 결제, 누락 알림, 잘못된 집계가 생깁니다.",
+      "how": [
+        "At most once는 중복은 줄이지만 유실 가능성이 있습니다.",
+        "At least once는 유실을 줄이지만 중복 가능성이 있습니다.",
+        "Exactly once는 특정 시스템 범위 안에서만 성립하는 경우가 많고 end-to-end 멱등성은 여전히 중요합니다."
+      ],
+      "tradeoffs": [
+        "강한 보장을 얻을수록 성능과 운영 복잡도가 증가합니다.",
+        "브로커의 보장과 애플리케이션 side effect 보장은 다릅니다.",
+        "offset commit 시점에 따라 중복 또는 유실이 발생할 수 있습니다."
+      ],
+      "answer": "전송 보장은 메시지가 유실되거나 중복될 가능성을 설명합니다. 실무에서는 at least once를 많이 쓰고, consumer를 멱등하게 만들어 중복 처리에 대비합니다. exactly once도 시스템 경계 밖 side effect까지 자동 보장하지는 않습니다.",
+      "example": "Kafka consumer가 DB 저장 후 offset commit 전에 죽으면 같은 메시지를 다시 받을 수 있으므로 DB 저장 로직이 멱등해야 합니다.",
+      "questions": [
+        "Exactly once는 정말 한 번만 처리한다는 뜻인가?",
+        "offset commit은 언제 해야 하는가?",
+        "중복 처리는 producer와 consumer 중 어디서 하는가?"
+      ],
+      "related": [
+        "idempotency",
+        "outbox",
+        "consumer-group",
+        "message-queue"
+      ],
+      "flow": [
+        {
+          "text": "메시지 처리",
+          "sub": "consumer"
+        },
+        {
+          "text": "장애 시점",
+          "sub": "처리/commit 사이"
+        },
+        {
+          "text": "중복/유실",
+          "sub": "보장 모델"
+        },
+        {
+          "text": "멱등 처리",
+          "sub": "안전장치"
+        }
+      ],
+      "deep": [
+        "브로커가 말하는 exactly once와 비즈니스 side effect의 exactly once는 다릅니다.",
+        "실무에서는 at least once + idempotent consumer 조합이 가장 자주 등장합니다.",
+        "offset commit 위치를 설명할 수 있으면 중복/유실의 원리를 제대로 이해한 것입니다."
+      ],
+      "implementation": [
+        "처리 전 commit, 처리 후 commit의 유실/중복 trade-off를 정합니다.",
+        "메시지 id나 business key로 처리 로그를 남깁니다.",
+        "중복 처리 시 같은 결과를 반환하거나 무시하도록 consumer를 설계합니다."
+      ],
+      "compare": "At most once는 유실 가능성을 감수하고 중복을 줄이며, at least once는 중복 가능성을 감수하고 유실을 줄입니다. Exactly once는 특정 경계 안에서만 성립하는 경우가 많습니다.",
+      "redflags": [
+        "Exactly once를 쓰면 멱등성이 필요 없다고 말한다.",
+        "offset commit 시점을 설명하지 못한다.",
+        "외부 API 호출 side effect 중복을 고려하지 않는다."
+      ]
+    },
+    {
+      "id": "consumer-group",
+      "title": "Consumer Group",
+      "tags": [
+        "메시지",
+        "확장성"
+      ],
+      "summary": "여러 consumer가 하나의 그룹으로 메시지를 나눠 처리해 처리량과 가용성을 높이는 구조입니다.",
+      "problem": "단일 consumer만으로는 메시지 처리량을 따라가지 못하거나, consumer 장애 시 처리가 멈출 수 있습니다.",
+      "how": [
+        "같은 group의 consumer들이 partition을 나눠 맡습니다.",
+        "consumer가 추가·제거되면 rebalancing으로 partition 소유권이 재분배됩니다.",
+        "offset으로 각 group의 처리 위치를 관리합니다."
+      ],
+      "tradeoffs": [
+        "partition 수보다 consumer가 많으면 놀고 있는 consumer가 생깁니다.",
+        "rebalancing 중에는 처리 지연이 생길 수 있습니다.",
+        "partition 단위 ordering은 보장되지만 전체 순서는 보장되지 않을 수 있습니다."
+      ],
+      "answer": "Consumer Group은 여러 consumer가 메시지를 나눠 처리하는 방식입니다. partition과 offset 개념이 중요하고, 확장성을 얻는 대신 rebalancing과 ordering 제약을 이해해야 합니다.",
+      "example": "주문 이벤트 topic의 partition이 12개라면 같은 group의 consumer를 최대 12개까지 효과적으로 늘려 처리량을 높일 수 있습니다.",
+      "questions": [
+        "partition 수보다 consumer가 많으면?",
+        "consumer lag은 어떻게 해석하는가?",
+        "rebalancing은 왜 발생하는가?"
+      ],
+      "related": [
+        "message-queue",
+        "delivery-semantics",
+        "backpressure",
+        "pubsub"
+      ],
+      "flow": [
+        {
+          "text": "Topic",
+          "sub": "partitions"
+        },
+        {
+          "text": "Group",
+          "sub": "consumer 묶음"
+        },
+        {
+          "text": "Offset",
+          "sub": "처리 위치"
+        },
+        {
+          "text": "Rebalance",
+          "sub": "소유권 재분배"
+        }
+      ],
+      "deep": [
+        "Consumer Group은 처리량 확장의 단위이지만, partition 수가 병렬성 상한을 결정합니다.",
+        "Rebalancing은 장애 복구와 확장의 핵심이지만 처리 중단과 중복 가능성을 만듭니다.",
+        "Ordering은 보통 partition 내부에서만 보장되므로 key 설계가 중요합니다."
+      ],
+      "implementation": [
+        "partition key가 순서 요구사항과 부하 분산을 동시에 만족하는지 봅니다.",
+        "consumer lag 기준 알림과 scale-out 기준을 둡니다.",
+        "rebalancing 중 처리 중복을 고려해 멱등 consumer를 만듭니다."
+      ],
+      "compare": "Consumer Group 안에서는 한 메시지를 그룹 내 한 consumer가 처리하고, 다른 group은 같은 메시지를 독립적으로 받을 수 있습니다. 이것이 queue와 pub/sub 성격을 함께 만드는 지점입니다.",
+      "redflags": [
+        "consumer를 partition 수보다 많이 늘리면 무조건 빨라진다고 말한다.",
+        "hot partition을 모니터링하지 않는다.",
+        "순서가 중요한 메시지를 랜덤 key로 보낸다."
+      ]
+    },
+    {
+      "id": "dlq",
+      "title": "Dead Letter Queue",
+      "tags": [
+        "메시지",
+        "장애대응"
+      ],
+      "summary": "정해진 횟수만큼 처리에 실패한 메시지를 정상 흐름에서 분리해 저장하는 큐입니다.",
+      "problem": "잘못된 payload나 영구적인 외부 API 오류 때문에 한 메시지가 계속 실패하면 정상 메시지 처리까지 막을 수 있습니다.",
+      "how": [
+        "일시 오류는 retry와 backoff로 재시도합니다.",
+        "정해진 횟수를 넘으면 DLQ로 이동시킵니다.",
+        "DLQ 메시지는 alert, 분석, 수정 후 replay 절차로 처리합니다."
+      ],
+      "tradeoffs": [
+        "DLQ에 넣는 것으로 문제가 해결되는 것은 아닙니다.",
+        "재처리 순서와 중복 처리에 주의해야 합니다.",
+        "DLQ 적재 기준이 너무 낮으면 일시 오류도 격리되고, 너무 높으면 정상 처리가 지연됩니다."
+      ],
+      "answer": "DLQ는 계속 실패하는 메시지를 격리해 정상 처리 흐름을 보호하는 장치입니다. retry limit, backoff, 알림, 재처리 도구를 함께 설계해야 하며, consumer 멱등성도 필요합니다.",
+      "example": "알림 발송 consumer가 잘못된 전화번호 payload를 계속 실패시키면 해당 메시지를 DLQ로 보내고 정상 메시지는 계속 처리합니다.",
+      "questions": [
+        "DLQ 메시지는 누가, 어떻게 재처리하는가?",
+        "retry 횟수는 어떻게 정하는가?",
+        "DLQ가 쌓이면 어떤 알림이 필요한가?"
+      ],
+      "related": [
+        "message-queue",
+        "backpressure",
+        "compensation",
+        "delivery-semantics"
+      ],
+      "flow": [
+        {
+          "text": "처리 실패",
+          "sub": "consumer error"
+        },
+        {
+          "text": "Retry",
+          "sub": "횟수 제한"
+        },
+        {
+          "text": "DLQ",
+          "sub": "격리"
+        },
+        {
+          "text": "분석/Replay",
+          "sub": "운영 처리"
+        }
+      ],
+      "deep": [
+        "DLQ는 실패 메시지를 버리는 곳이 아니라 정상 처리 흐름을 보호하고 복구를 분리하는 운영 장치입니다.",
+        "DLQ에 들어간 메시지는 원인 유형별로 payload 문제, 일시 인프라 문제, 코드 버그를 구분해야 합니다.",
+        "재처리는 원래 topic으로 되돌릴지 별도 replay consumer로 처리할지 정해야 합니다."
+      ],
+      "implementation": [
+        "retry 횟수, backoff, DLQ 이동 조건을 명확히 둡니다.",
+        "DLQ depth와 oldest message age에 알림을 겁니다.",
+        "수정 후 replay할 때 중복 처리와 순서 문제를 확인합니다."
+      ],
+      "compare": "Retry queue는 일시 실패를 다시 시도하는 경로이고, DLQ는 자동 처리로는 해결되지 않은 메시지를 격리하는 경로입니다.",
+      "redflags": [
+        "DLQ를 만들었지만 아무도 모니터링하지 않는다.",
+        "DLQ 메시지를 재처리할 도구가 없다.",
+        "무한 retry로 정상 메시지 처리를 막는다."
+      ]
+    },
+    {
+      "id": "backpressure",
+      "title": "Backpressure",
+      "tags": [
+        "장애대응",
+        "성능"
+      ],
+      "summary": "처리 속도보다 입력 속도가 빠를 때 상위 계층이나 생산자에게 속도 조절을 요구하는 메커니즘입니다.",
+      "problem": "consumer가 초당 100건 처리하는데 producer가 초당 10,000건을 밀어 넣으면 큐, 메모리, DB가 결국 포화됩니다.",
+      "how": [
+        "bounded queue로 무한 적재를 막습니다.",
+        "consumer lag, 큐 길이, 처리 지연을 관찰합니다.",
+        "rate limit, load shedding, 생산자 제어, autoscaling으로 입력 속도를 조절합니다."
+      ],
+      "tradeoffs": [
+        "요청 거절이나 지연을 사용자에게 노출할 수 있습니다.",
+        "무조건 autoscaling만 하면 하위 DB 병목을 더 키울 수 있습니다.",
+        "어느 계층에서 압력을 걸지 정해야 합니다."
+      ],
+      "answer": "Backpressure는 하위 시스템이 감당할 수 없는 입력을 계속 받지 않도록 흐름을 제어하는 방식입니다. 큐가 있다고 끝이 아니라, 큐 길이와 consumer lag을 기준으로 rate limit이나 load shedding을 적용해야 합니다.",
+      "example": "이미지 처리 worker가 밀리면 업로드 API는 일정량 이상 요청을 429로 제한하거나 낮은 우선순위 작업을 나중으로 미룹니다.",
+      "questions": [
+        "큐가 있으면 backpressure가 필요 없는가?",
+        "load shedding은 언제 쓰는가?",
+        "consumer lag이 늘면 어떤 조치를 할 것인가?"
+      ],
+      "related": [
+        "consumer-group",
+        "rate-limiting",
+        "dlq",
+        "circuit-breaker"
+      ],
+      "flow": [
+        {
+          "text": "입력 폭주",
+          "sub": "producer"
+        },
+        {
+          "text": "처리 지연",
+          "sub": "consumer lag"
+        },
+        {
+          "text": "압력 신호",
+          "sub": "limit/shed"
+        },
+        {
+          "text": "안정화",
+          "sub": "속도 조절"
+        }
+      ],
+      "deep": [
+        "Backpressure는 시스템이 감당 가능한 속도를 넘을 때 입력을 조절하는 피드백입니다.",
+        "큐는 완충이지 무한 저장소가 아니므로 큐가 길어지는 순간부터 이미 압력이 필요합니다.",
+        "상위 요청을 늦추거나 거절하는 것이 전체 장애보다 나을 수 있습니다."
+      ],
+      "implementation": [
+        "bounded queue, semaphore, rate limit, worker pool 크기를 설정합니다.",
+        "queue length, lag, 처리 시간, drop count를 관찰합니다.",
+        "과부하 시 degrade, shed, reject 중 어떤 정책을 쓸지 정합니다."
+      ],
+      "compare": "Rate limiting은 주로 입력량을 규칙으로 제한하는 것이고, backpressure는 하위 처리 상태를 보고 동적으로 압력을 전달하는 개념입니다.",
+      "redflags": [
+        "큐를 무한히 키우면 해결된다고 생각한다.",
+        "consumer lag이 늘어도 producer를 제어하지 않는다.",
+        "DB가 병목인데 worker만 계속 늘린다."
+      ]
+    },
+    {
+      "id": "cache-aside",
+      "title": "Cache Aside",
+      "tags": [
+        "캐시",
+        "DB"
+      ],
+      "summary": "애플리케이션이 캐시를 먼저 조회하고, 없으면 DB에서 읽어 캐시에 채우는 전략입니다.",
+      "problem": "읽기 요청이 많은 데이터는 매번 DB에서 조회하면 비용이 큽니다. 하지만 캐시는 원본 데이터와 다를 수 있으므로 읽기·쓰기 경로를 명확히 해야 합니다.",
+      "how": [
+        "요청이 들어오면 cache get을 먼저 수행합니다.",
+        "miss면 DB를 조회하고 결과를 cache에 set합니다.",
+        "데이터 변경 시 캐시 삭제 또는 갱신 정책을 적용합니다."
+      ],
+      "tradeoffs": [
+        "첫 요청은 DB를 조회해야 합니다.",
+        "캐시와 DB 사이에 stale 데이터가 생길 수 있습니다.",
+        "인기 키 miss가 동시에 발생하면 cache stampede가 생깁니다."
+      ],
+      "answer": "Cache Aside는 애플리케이션이 캐시 조회와 DB fallback을 직접 제어하는 전략입니다. 읽기 성능을 높이지만 TTL, invalidation, stampede 대응을 함께 설계해야 합니다.",
+      "example": "상품 상세 조회 시 Redis에서 상품 정보를 먼저 찾고, 없으면 DB 조회 후 Redis에 TTL과 함께 저장합니다.",
+      "questions": [
+        "데이터 변경 시 캐시는 삭제할 것인가 갱신할 것인가?",
+        "캐시 miss가 몰리면 어떻게 하는가?",
+        "write-through와 어떻게 다른가?"
+      ],
+      "related": [
+        "cache-invalidation",
+        "cache-stampede",
+        "index",
+        "eventual-consistency"
+      ],
+      "flow": [
+        {
+          "text": "Request",
+          "sub": "상품 조회"
+        },
+        {
+          "text": "Cache",
+          "sub": "hit/miss"
+        },
+        {
+          "text": "DB",
+          "sub": "miss 시 조회"
+        },
+        {
+          "text": "Set Cache",
+          "sub": "TTL 적용"
+        }
+      ],
+      "deep": [
+        "Cache Aside는 애플리케이션 코드가 캐시 조회와 DB fallback을 직접 관리하는 가장 흔한 읽기 캐시 패턴입니다.",
+        "캐시 hit ratio, stale 허용 시간, key 설계가 성패를 좌우합니다.",
+        "쓰기 경로에서 캐시 삭제를 먼저 할지 DB commit 후 할지 같은 순서 문제도 면접에서 중요합니다."
+      ],
+      "implementation": [
+        "key naming과 TTL 정책을 정합니다.",
+        "DB 조회 실패와 cache set 실패를 어떻게 처리할지 정합니다.",
+        "쓰기 후 관련 캐시 삭제를 transaction commit 이후에 수행합니다."
+      ],
+      "compare": "Cache Aside는 읽을 때 채우는 lazy 전략이고, write-through는 쓰기 시 캐시와 저장소를 함께 갱신하는 전략입니다.",
+      "redflags": [
+        "캐시와 DB 불일치를 전혀 고려하지 않는다.",
+        "캐시 key에 tenant/user 구분이 빠진다.",
+        "cache miss 폭주에 대한 보호가 없다."
+      ]
+    },
+    {
+      "id": "cache-invalidation",
+      "title": "Cache Invalidation / TTL",
+      "tags": [
+        "캐시",
+        "정합성"
+      ],
+      "summary": "캐시에 저장된 값을 언제 삭제하거나 만료시킬지 정하는 전략입니다.",
+      "problem": "캐시는 빠르지만 원본이 바뀐 뒤 오래된 값을 보여줄 수 있습니다. 반대로 너무 자주 지우면 캐시 효과가 사라지고 DB 부하가 늘어납니다.",
+      "how": [
+        "TTL로 일정 시간이 지나면 자동 만료시킵니다.",
+        "쓰기 경로에서 관련 캐시를 명시적으로 삭제하거나 갱신합니다.",
+        "stale-while-revalidate로 오래된 값을 잠시 주면서 백그라운드 갱신할 수 있습니다."
+      ],
+      "tradeoffs": [
+        "TTL이 길면 stale 데이터가 오래 보입니다.",
+        "TTL이 짧으면 hit ratio가 낮고 stampede 위험이 커집니다.",
+        "관련 캐시 키가 많으면 invalidation 누락이 생기기 쉽습니다."
+      ],
+      "answer": "Cache Invalidation은 캐시 성능과 데이터 신선도 사이의 균형입니다. TTL, 명시적 삭제, write-through, stale-while-revalidate를 도메인 요구사항에 맞춰 조합해야 합니다.",
+      "example": "상품 가격이 변경되면 상품 상세 캐시를 삭제하고, 검색 색인이나 추천 캐시는 이벤트 기반으로 조금 늦게 갱신합니다.",
+      "questions": [
+        "TTL만으로 충분한가?",
+        "캐시 삭제와 갱신 중 무엇이 안전한가?",
+        "관련 키가 많을 때 어떻게 관리하는가?"
+      ],
+      "related": [
+        "cache-aside",
+        "cache-stampede",
+        "eventual-consistency",
+        "outbox"
+      ],
+      "flow": [
+        {
+          "text": "원본 변경",
+          "sub": "DB update"
+        },
+        {
+          "text": "캐시 정책",
+          "sub": "delete/update"
+        },
+        {
+          "text": "TTL",
+          "sub": "자동 만료"
+        },
+        {
+          "text": "신선도",
+          "sub": "요구사항 맞춤"
+        }
+      ],
+      "deep": [
+        "캐시 무효화는 캐시에서 가장 어려운 문제 중 하나입니다. 어떤 데이터가 어떤 키에 영향을 주는지 추적하기 어렵기 때문입니다.",
+        "TTL은 안전망이지 정교한 정합성 보장 수단은 아닙니다.",
+        "도메인별로 stale 허용 시간이 다릅니다. 가격, 재고, 추천, 통계는 요구사항이 다릅니다."
+      ],
+      "implementation": [
+        "데이터 변경 이벤트와 캐시 키 매핑을 관리합니다.",
+        "TTL에 jitter를 넣어 만료 집중을 피합니다.",
+        "중요 데이터는 explicit invalidation, 덜 중요한 데이터는 TTL 기반을 사용할 수 있습니다."
+      ],
+      "compare": "Invalidation은 기존 캐시를 지우는 것이고, refresh는 새 값으로 갱신하는 것입니다. 삭제는 단순하고 안전하지만 다음 요청이 DB를 치게 됩니다.",
+      "redflags": [
+        "TTL만 짧게 하면 모든 정합성 문제가 해결된다고 말한다.",
+        "캐시 삭제 실패를 무시한다.",
+        "관련 캐시 키가 많아질 때 관리 전략이 없다."
+      ]
+    },
+    {
+      "id": "cache-stampede",
+      "title": "Cache Stampede",
+      "tags": [
+        "캐시",
+        "장애대응"
+      ],
+      "summary": "인기 캐시 키가 만료되는 순간 많은 요청이 동시에 원본 저장소로 몰리는 현상입니다.",
+      "problem": "평소에는 캐시 hit로 DB가 안전해 보이다가, TTL 만료 순간 동일 키 miss가 동시에 발생하면 DB에 대량 조회가 몰려 장애가 날 수 있습니다.",
+      "how": [
+        "TTL에 jitter를 넣어 만료 시점을 분산합니다.",
+        "single flight 또는 분산 락으로 한 요청만 재계산하게 합니다.",
+        "stale 값을 잠시 반환하고 백그라운드에서 갱신합니다.",
+        "핫키는 사전 갱신하거나 별도 보호 정책을 둡니다."
+      ],
+      "tradeoffs": [
+        "분산 락은 락 서버 장애와 대기 비용이 있습니다.",
+        "stale 응답은 데이터 신선도를 희생합니다.",
+        "사전 갱신은 예측 실패 시 불필요한 작업이 될 수 있습니다."
+      ],
+      "answer": "Cache Stampede는 캐시 만료 순간 요청이 DB로 몰리는 문제입니다. TTL jitter, single flight, stale-while-revalidate, pre-warming으로 완화하며, 캐시를 쓴다는 답변에 이 부분까지 말하면 좋습니다.",
+      "example": "대형 이벤트 상품 상세 캐시가 동시에 만료되지 않게 TTL을 분산하고, 첫 miss 요청 하나만 DB를 조회하게 락을 둡니다.",
+      "questions": [
+        "분산 락 없이 완화할 수 있는가?",
+        "stale 데이터를 반환해도 되는 기준은?",
+        "핫키는 어떻게 탐지하는가?"
+      ],
+      "related": [
+        "cache-invalidation",
+        "backpressure",
+        "rate-limiting",
+        "cache-aside"
+      ],
+      "flow": [
+        {
+          "text": "TTL 만료",
+          "sub": "hot key"
+        },
+        {
+          "text": "동시 miss",
+          "sub": "많은 요청"
+        },
+        {
+          "text": "DB 집중",
+          "sub": "장애 위험"
+        },
+        {
+          "text": "완화",
+          "sub": "jitter/lock/stale"
+        }
+      ],
+      "deep": [
+        "Cache Stampede는 평소에는 숨어 있다가 인기 키 만료 시 한 번에 드러나는 장애 패턴입니다.",
+        "TTL jitter와 single flight는 같이 쓰면 효과적입니다. 하나는 만료 시점을 분산하고, 하나는 miss 후 재계산을 하나로 제한합니다.",
+        "stale-while-revalidate는 신선도보다 가용성이 중요한 화면에서 강력합니다."
+      ],
+      "implementation": [
+        "핫키를 메트릭으로 탐지합니다.",
+        "TTL을 고정값이 아니라 범위 안에서 분산합니다.",
+        "miss 시 DB 조회를 한 요청만 수행하게 lock 또는 request coalescing을 둡니다."
+      ],
+      "compare": "Cache penetration은 존재하지 않는 키가 계속 원본으로 가는 문제이고, stampede는 존재하는 인기 키가 동시에 만료되어 원본으로 몰리는 문제입니다.",
+      "redflags": [
+        "인기 키와 일반 키에 같은 TTL 정책을 쓴다.",
+        "분산 락 실패 시 fallback이 없다.",
+        "캐시 hit ratio만 보고 miss 순간 부하를 보지 않는다."
+      ]
+    },
+    {
+      "id": "rate-limiting",
+      "title": "Rate Limiting",
+      "tags": [
+        "성능",
+        "보호"
+      ],
+      "summary": "사용자, IP, 토큰, 서비스 단위로 일정 시간 동안 허용할 요청량을 제한하는 기법입니다.",
+      "problem": "악의적 요청, 버그가 있는 클라이언트, 갑작스러운 트래픽 증가가 하위 시스템 전체를 고갈시킬 수 있습니다.",
+      "how": [
+        "제한 기준을 user, IP, API key, tenant, route 등으로 정합니다.",
+        "token bucket, leaky bucket, sliding window 같은 알고리즘을 선택합니다.",
+        "초과 요청은 429와 retry-after를 반환하거나 낮은 우선순위로 처리합니다."
+      ],
+      "tradeoffs": [
+        "정상 사용자의 burst를 과도하게 막을 수 있습니다.",
+        "분산 서버에서는 Redis 같은 중앙 저장소나 로컬 근사치가 필요합니다.",
+        "rate limit은 과부하를 줄이지만 이미 느린 하위 시스템을 고치지는 않습니다."
+      ],
+      "answer": "Rate Limiting은 과도한 요청으로부터 시스템을 보호하는 장치입니다. token bucket이나 sliding window로 요청량을 제한하고, 분산 환경에서는 제한 상태 저장 방식과 429 응답 정책을 함께 설계합니다.",
+      "example": "로그인 API는 IP와 계정 기준으로 제한하고, 외부 공개 API는 API key별 quota를 둡니다.",
+      "questions": [
+        "token bucket과 leaky bucket의 차이는?",
+        "분산 환경에서 카운터는 어디에 저장하는가?",
+        "throttling과 rate limiting은 어떻게 다른가?"
+      ],
+      "related": [
+        "backpressure",
+        "load-balancing",
+        "cache-stampede",
+        "timeout-retry"
+      ],
+      "flow": [
+        {
+          "text": "Request",
+          "sub": "user/IP/key"
+        },
+        {
+          "text": "Counter",
+          "sub": "window/bucket"
+        },
+        {
+          "text": "Allow",
+          "sub": "처리"
+        },
+        {
+          "text": "Reject",
+          "sub": "429"
+        }
+      ],
+      "deep": [
+        "Rate Limiting은 보안 장치이면서 과부하 보호 장치입니다.",
+        "사용자 단위, IP 단위, API key 단위, tenant 단위 중 무엇을 제한할지에 따라 공정성과 우회 가능성이 달라집니다.",
+        "분산 환경에서는 정확한 전역 제한과 낮은 지연시간 사이의 trade-off가 있습니다."
+      ],
+      "implementation": [
+        "token bucket, sliding window 중 burst 허용 여부에 맞는 알고리즘을 고릅니다.",
+        "초과 응답은 429와 Retry-After를 명확히 줍니다.",
+        "Redis 같은 중앙 저장소나 gateway 레벨 적용 위치를 정합니다."
+      ],
+      "compare": "Rate limiting은 일정 비율을 넘는 요청을 제한하는 정책이고, throttling은 속도를 늦추는 방식까지 포함하는 더 넓은 표현으로 쓰입니다.",
+      "redflags": [
+        "서버별 로컬 카운터만 써서 전체 제한이 깨진다.",
+        "로그인 같은 민감 API에 계정 단위 제한이 없다.",
+        "429 응답 후 클라이언트 재시도 정책을 안내하지 않는다."
+      ]
+    },
+    {
+      "id": "load-balancing",
+      "title": "Load Balancing",
+      "tags": [
+        "성능",
+        "가용성"
+      ],
+      "summary": "여러 서버에 트래픽을 분산해 처리량과 가용성을 높이는 방식입니다.",
+      "problem": "한 서버가 모든 요청을 받으면 병목과 단일 장애 지점이 됩니다. 서버를 늘려도 트래픽을 적절히 분배하지 못하면 효과가 없습니다.",
+      "how": [
+        "L4 또는 L7 로드밸런서가 요청을 여러 인스턴스에 분산합니다.",
+        "health check로 비정상 인스턴스를 제외합니다.",
+        "round robin, least connection, weighted routing 같은 정책을 사용합니다."
+      ],
+      "tradeoffs": [
+        "세션 상태를 서버 메모리에 두면 sticky session이나 외부 세션 저장소가 필요합니다.",
+        "로드밸런서는 하위 DB 병목까지 해결하지 못합니다.",
+        "헬스체크가 부정확하면 정상 서버를 제외하거나 장애 서버에 트래픽을 보낼 수 있습니다."
+      ],
+      "answer": "Load Balancing은 여러 인스턴스에 요청을 나눠 수평 확장과 가용성을 얻는 방식입니다. 알고리즘, health check, session 처리, L4/L7 차이를 함께 설명하면 좋습니다.",
+      "example": "상품 API 인스턴스를 여러 대 띄우고 L7 로드밸런서가 URL 기반 라우팅과 헬스체크로 요청을 분산합니다.",
+      "questions": [
+        "L4와 L7 로드밸런싱의 차이는?",
+        "sticky session은 왜 필요한가?",
+        "로드밸런싱만으로 DB 병목이 해결되는가?"
+      ],
+      "related": [
+        "msa",
+        "circuit-breaker",
+        "rate-limiting",
+        "backpressure"
+      ],
+      "flow": [
+        {
+          "text": "Client",
+          "sub": "요청"
+        },
+        {
+          "text": "LB",
+          "sub": "분산/헬스체크"
+        },
+        {
+          "text": "App 1..N",
+          "sub": "수평 확장"
+        },
+        {
+          "text": "공유 자원",
+          "sub": "DB/Cache 주의"
+        }
+      ],
+      "deep": [
+        "Load Balancing은 서버를 여러 대 두는 것과 별개로 요청을 어떻게 나눌지 결정하는 계층입니다.",
+        "헬스체크는 단순 포트 오픈이 아니라 실제 처리 가능 상태를 반영해야 합니다.",
+        "세션 상태, 장기 연결, 파일 업로드 같은 요청 특성이 분산 전략에 영향을 줍니다."
+      ],
+      "implementation": [
+        "L4/L7 중 필요한 라우팅 정보를 기준으로 선택합니다.",
+        "readiness와 liveness를 분리해 배포 중 트래픽 유입을 제어합니다.",
+        "sticky session이 필요한지, 세션 외부화를 할지 정합니다."
+      ],
+      "compare": "Load Balancing은 들어오는 요청을 나누는 것이고, Auto Scaling은 서버 수를 늘리고 줄이는 것입니다. 보통 함께 쓰지만 해결하는 문제가 다릅니다.",
+      "redflags": [
+        "헬스체크가 실제 DB 의존성이나 critical dependency를 반영하지 않는다.",
+        "로드밸런서 뒤 서버는 늘렸지만 DB connection pool은 그대로다.",
+        "세션을 로컬 메모리에 두고 sticky 전략이 없다."
+      ]
+    }
+  ]
+}

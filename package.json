@@ -10,7 +10,8 @@
     "verify:mvp": "node scripts/verify-devwiki-mvp.mjs",
     "verify:mvp-data": "node scripts/verify-devwiki-mvp-data.mjs",
     "verify:mvp-ui": "node scripts/verify-devwiki-mvp-ui.mjs",
-    "verify:supabase": "node scripts/verify-supabase-readiness.mjs"
+    "verify:supabase": "node scripts/verify-supabase-readiness.mjs",
+    "seed:concepts": "node scripts/seed-backend-interview-concepts.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
