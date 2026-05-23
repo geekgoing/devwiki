@@ -6,20 +6,19 @@ import { z } from "zod";
 
 import { requireOwnerMember } from "@/lib/auth";
 import { findAuthUserByEmail } from "@/lib/admin-members";
+import { generateNickname } from "@/lib/nicknames";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const memberRoleSchema = z.enum(["owner", "editor", "viewer"]);
 
 const createMemberSchema = z.object({
   email: z.string().trim().toLowerCase().email("올바른 이메일을 입력하세요."),
-  displayName: z.string().trim().max(80, "이름은 80자 이하로 입력하세요."),
   role: memberRoleSchema,
   password: z.string().min(6, "임시 비밀번호는 6자 이상이어야 합니다."),
 });
 
 const updateMemberSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
-  displayName: z.string().trim().max(80, "이름은 80자 이하로 입력하세요."),
   role: memberRoleSchema,
   isActive: z.boolean(),
 });
@@ -109,7 +108,6 @@ export async function createMember(formData: FormData) {
   await requireOwnerMember();
   const parsed = createMemberSchema.safeParse({
     email: readString(formData, "email"),
-    displayName: readString(formData, "display_name"),
     role: readString(formData, "role") || "editor",
     password: readString(formData, "password"),
   });
@@ -122,7 +120,8 @@ export async function createMember(formData: FormData) {
     );
   }
 
-  const { email, displayName, role, password } = parsed.data;
+  const { email, role, password } = parsed.data;
+  const displayName = generateNickname();
   const admin = createAdminClient();
   const existingAuthUser = await findAuthUserByEmail(admin, email);
   let createdAuthUserId: string | null = null;
@@ -174,7 +173,6 @@ export async function updateMember(formData: FormData) {
   const { user } = await requireOwnerMember();
   const parsed = updateMemberSchema.safeParse({
     email: readString(formData, "email"),
-    displayName: readString(formData, "display_name"),
     role: readString(formData, "role") || "editor",
     isActive: formData.get("is_active") === "on",
   });
@@ -187,7 +185,7 @@ export async function updateMember(formData: FormData) {
     );
   }
 
-  const { email, displayName, role, isActive } = parsed.data;
+  const { email, role, isActive } = parsed.data;
   const admin = createAdminClient();
 
   await ensureOwnerCanChangeTarget({
@@ -201,7 +199,6 @@ export async function updateMember(formData: FormData) {
   const { error } = await admin
     .from("members")
     .update({
-      display_name: displayName || null,
       role,
       is_active: isActive,
     })

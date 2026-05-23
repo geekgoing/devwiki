@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { requireAuthenticatedMember } from "@/lib/auth";
+import { requireEditorMember } from "@/lib/auth";
 import {
   ALLOWED_IMAGE_TYPES,
   DEVWIKI_ASSETS_BUCKET,
@@ -12,7 +12,7 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase, user } = await requireAuthenticatedMember();
+    const { supabase, user } = await requireEditorMember();
     const formData = await request.formData();
     const file = formData.get("file");
 

@@ -3,9 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentMember } from "@/lib/auth";
 import {
   DEVWIKI_ASSETS_BUCKET,
-  encodeAssetPath,
 } from "@/lib/assets";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 type AssetRouteContext = {
@@ -13,25 +11,6 @@ type AssetRouteContext = {
     path?: string[];
   }>;
 };
-
-async function isReferencedByPublishedDocument(assetPath: string) {
-  const admin = createAdminClient();
-  const encodedAssetPath = encodeAssetPath(assetPath);
-  const expectedSrc = `/api/assets/${encodedAssetPath}`;
-  const { data, error } = await admin
-    .from("documents")
-    .select("id, body_markdown")
-    .eq("status", "published")
-    .limit(1000);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []).some((document) =>
-    String(document.body_markdown ?? "").includes(expectedSrc),
-  );
-}
 
 export async function GET(_request: NextRequest, context: AssetRouteContext) {
   try {
@@ -46,17 +25,15 @@ export async function GET(_request: NextRequest, context: AssetRouteContext) {
     }
 
     const member = await getCurrentMember();
-    const canReadAsset =
-      Boolean(member) || (await isReferencedByPublishedDocument(assetPath));
 
-    if (!canReadAsset) {
+    if (!member) {
       return NextResponse.json(
         { error: "이미지 접근 권한이 없습니다." },
         { status: 401 },
       );
     }
 
-    const supabase = member ? await createClient() : createAdminClient();
+    const supabase = await createClient();
     const { data, error } = await supabase.storage
       .from(DEVWIKI_ASSETS_BUCKET)
       .createSignedUrl(assetPath, 60);

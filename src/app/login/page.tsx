@@ -5,11 +5,13 @@ import { signInWithPassword } from "@/app/actions";
 import { AppHeader } from "@/components/app-header";
 import { SetupNotice } from "@/components/setup-notice";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
+import { canEditContent, canManageMembers } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 type LoginPageProps = {
   searchParams: Promise<{
     error?: string;
+    next?: string;
   }>;
 };
 
@@ -18,6 +20,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
+  const next =
+    params.next?.startsWith("/") && !params.next.startsWith("//")
+      ? params.next
+      : "/";
   const errorMessage =
     params.error === "email"
       ? "이메일을 입력해주세요."
@@ -35,8 +41,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <>
       <AppHeader
         configured={configured}
-        canCreate={Boolean(member)}
-        canManageMembers={member?.role === "owner"}
+        canCreate={canEditContent(member)}
+        canManageMembers={canManageMembers(member)}
+        member={member}
         user={user}
       />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6">
@@ -61,6 +68,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             ) : null}
 
             <form action={signInWithPassword} className="mt-5 space-y-4">
+              <input type="hidden" name="next" value={next} />
               <label className="block">
                 <span className="text-sm font-medium text-slate-700">
                   이메일

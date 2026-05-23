@@ -6,6 +6,7 @@ import { DocumentEditor } from "@/components/document-editor";
 import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
+import { canEditContent, canManageMembers } from "@/lib/permissions";
 import {
   getDocumentBySlug,
   getDocuments,
@@ -27,9 +28,10 @@ export default async function EditDocumentPage({
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
+  const canEdit = !configured || canEditContent(member);
 
   if (configured && !user) {
-    redirect("/login");
+    redirect(`/login?next=${encodeURIComponent(`/documents/${encodedSlug}/edit`)}`);
   }
 
   if (configured && user && !member) {
@@ -65,8 +67,9 @@ export default async function EditDocumentPage({
     <>
       <AppHeader
         configured={configured}
-        canCreate={Boolean(member)}
-        canManageMembers={member?.role === "owner"}
+        canCreate={canEdit}
+        canManageMembers={canManageMembers(member)}
+        member={member}
         user={user}
       />
       <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-8 sm:px-6 lg:px-8">
@@ -76,6 +79,15 @@ export default async function EditDocumentPage({
           <SetupNotice />
         ) : user && !member ? (
           <MemberGate user={user} />
+        ) : !canEdit ? (
+          <section className="rounded-md border border-amber-200 bg-amber-50 px-5 py-6">
+            <h1 className="text-xl font-semibold text-amber-950">
+              editor 권한이 필요합니다
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-amber-900">
+              viewer는 문서를 읽고 토론할 수 있지만 문서 수정은 할 수 없습니다.
+            </p>
+          </section>
         ) : (
           <DocumentEditor
             action={updateDocument}
@@ -88,6 +100,8 @@ export default async function EditDocumentPage({
               summary: document.summary,
               bodyMarkdown: document.bodyMarkdown,
               status: document.status,
+              contentType: document.contentType,
+              interviewCategory: document.interviewCategory ?? undefined,
               tags: document.tags.map((tag) => tag.name).join(", "),
               relatedDocumentIds,
             }}

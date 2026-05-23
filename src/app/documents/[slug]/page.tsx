@@ -9,7 +9,7 @@ import {
   Tags,
 } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { addComment } from "@/app/actions";
@@ -21,6 +21,7 @@ import { RevisionHistory } from "@/components/revision-history";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/format";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
+import { canEditContent, canManageMembers } from "@/lib/permissions";
 import {
   getBacklinkDocuments,
   getDocumentBySlug,
@@ -59,6 +60,10 @@ function LinkedDocumentCard({ document }: { document: RelatedDocument }) {
       </Link>
     </li>
   );
+}
+
+function loginHref(next: string) {
+  return `/login?next=${encodeURIComponent(next)}`;
 }
 
 function LinkSection({
@@ -118,9 +123,11 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   const member = await getCurrentMember();
   const canReadPrivate = !configured || Boolean(member);
 
-  const document = await getDocumentBySlug(slug, { canReadPrivate });
+  if (configured && !user) {
+    redirect(loginHref(`/documents/${encodedSlug}`));
+  }
 
-  if (!document && configured && user && !member) {
+  if (configured && user && !member) {
     return (
       <>
         <AppHeader configured={configured} canCreate={false} user={user} />
@@ -130,6 +137,8 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
       </>
     );
   }
+
+  const document = await getDocumentBySlug(slug, { canReadPrivate });
 
   if (!document) {
     notFound();
@@ -142,7 +151,8 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
       getRelatedDocuments(document.id, { canReadPrivate }),
       getBacklinkDocuments(document.id, { canReadPrivate }),
     ]);
-  const canContribute = Boolean(configured && member);
+  const canContribute = canEditContent(member);
+  const canDiscuss = Boolean(configured && member);
   const shouldShowRelatedDocuments =
     relatedDocuments.length > 0 || canContribute;
   const editHref = `/documents/${encodeURIComponent(document.slug)}/edit`;
@@ -151,8 +161,9 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
     <>
       <AppHeader
         configured={configured}
-        canCreate={Boolean(member)}
-        canManageMembers={member?.role === "owner"}
+        canCreate={canContribute}
+        canManageMembers={canManageMembers(member)}
+        member={member}
         user={user}
       />
       <main className="mx-auto grid w-full max-w-7xl flex-1 gap-7 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
@@ -310,7 +321,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
               </p>
             )}
 
-            {canContribute ? (
+            {canDiscuss ? (
               <form action={addComment} className="mt-4 space-y-2">
                 <input type="hidden" name="document_id" value={document.id} />
                 <input type="hidden" name="slug" value={document.slug} />

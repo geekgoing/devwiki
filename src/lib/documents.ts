@@ -4,7 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
   DocumentComment,
+  DocumentContentType,
   DocumentDetail,
+  InterviewCategory,
   DocumentRevision,
   DocumentStatus,
   DocumentStatusFilter,
@@ -24,6 +26,8 @@ type RawDocument = {
   summary: string | null;
   body_markdown?: string | null;
   status: DocumentSummary["status"];
+  content_type?: DocumentContentType | null;
+  interview_category?: InterviewCategory | null;
   created_at: string;
   updated_at: string;
   created_by?: string | null;
@@ -37,18 +41,19 @@ type RawDocumentLink = {
 };
 
 const DOCUMENT_LIST_SELECT =
-  "id, slug, title, summary, status, created_at, updated_at, document_tags(tags(id, name, slug))";
+  "id, slug, title, summary, status, content_type, interview_category, created_at, updated_at, document_tags(tags(id, name, slug))";
 const DOCUMENT_LIST_LIMIT = 100;
 const DOCUMENT_SEARCH_PAGE_SIZE = 500;
 const DOCUMENT_SEARCH_MAX_ROWS = 5000;
 const DEFAULT_MEMBER_STATUSES: DocumentStatus[] = ["published", "draft"];
-const DEFAULT_PUBLIC_STATUSES: DocumentStatus[] = ["published"];
 
 type DocumentReadOptions = {
   canReadPrivate?: boolean;
 };
 
 type DocumentListOptions = DocumentReadOptions & {
+  contentType?: DocumentContentType;
+  interviewCategory?: InterviewCategory;
   query?: string;
   status?: DocumentStatusFilter;
 };
@@ -74,6 +79,8 @@ function toDocumentSummary(row: RawDocument): DocumentSummary {
     title: row.title,
     summary: row.summary,
     status: row.status,
+    contentType: row.content_type ?? "term",
+    interviewCategory: row.interview_category ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     tags: flattenTags(row.document_tags),
@@ -111,18 +118,14 @@ function visibleStatuses(
   canReadPrivate = false,
 ): DocumentStatus[] {
   if (status === "active") {
-    return canReadPrivate ? DEFAULT_MEMBER_STATUSES : DEFAULT_PUBLIC_STATUSES;
+    return canReadPrivate ? DEFAULT_MEMBER_STATUSES : [];
   }
 
   if (status === "published") {
     return ["published"];
   }
 
-  if (!canReadPrivate) {
-    return [];
-  }
-
-  return [status];
+  return canReadPrivate ? [status] : [];
 }
 
 function hasVisibleStatus(
@@ -130,10 +133,6 @@ function hasVisibleStatus(
   statuses: DocumentStatus[],
 ) {
   return statuses.includes(document.status);
-}
-
-function createReadClient(canReadPrivate: boolean) {
-  return canReadPrivate ? createClient() : Promise.resolve(createAdminClient());
 }
 
 function isMissingDocumentLinksError(error?: { message?: string } | null) {
@@ -201,6 +200,8 @@ async function getCommentAuthorLabels(createdByIds: string[]) {
 }
 
 export async function getDocuments({
+  contentType,
+  interviewCategory,
   query = "",
   status = "active",
   canReadPrivate = false,
@@ -214,11 +215,15 @@ export async function getDocuments({
   if (!isSupabaseConfigured()) {
     return demoDocuments.filter(
       (document) =>
-        hasVisibleStatus(document, statuses) && matchesQuery(document, query),
+        hasVisibleStatus(document, statuses) &&
+        (!contentType || document.contentType === contentType) &&
+        (!interviewCategory ||
+          document.interviewCategory === interviewCategory) &&
+        matchesQuery(document, query),
     );
   }
 
-  const supabase = await createReadClient(canReadPrivate);
+  const supabase = await createClient();
   const normalizedQuery = query.trim();
 
   if (normalizedQuery) {
@@ -234,6 +239,12 @@ export async function getDocuments({
         .from("documents")
         .select(DOCUMENT_LIST_SELECT)
         .in("status", statuses)
+        .match({
+          ...(contentType ? { content_type: contentType } : {}),
+          ...(interviewCategory
+            ? { interview_category: interviewCategory }
+            : {}),
+        })
         .order("updated_at", { ascending: false })
         .range(from, to);
 
@@ -257,6 +268,10 @@ export async function getDocuments({
     .from("documents")
     .select(DOCUMENT_LIST_SELECT)
     .in("status", statuses)
+    .match({
+      ...(contentType ? { content_type: contentType } : {}),
+      ...(interviewCategory ? { interview_category: interviewCategory } : {}),
+    })
     .order("updated_at", { ascending: false })
     .limit(DOCUMENT_LIST_LIMIT);
 
@@ -288,17 +303,17 @@ export async function getDocumentBySlug(
       : null;
   }
 
-  const supabase = await createReadClient(canReadPrivate);
-  let query = supabase
+  if (!canReadPrivate) {
+    return null;
+  }
+
+  const supabase = await createClient();
+  const query = supabase
     .from("documents")
     .select(
-      "id, slug, title, summary, body_markdown, status, created_at, updated_at, created_by, updated_by, document_tags(tags(id, name, slug))",
+      "id, slug, title, summary, body_markdown, status, content_type, interview_category, created_at, updated_at, created_by, updated_by, document_tags(tags(id, name, slug))",
     )
     .eq("slug", slug);
-
-  if (!canReadPrivate) {
-    query = query.eq("status", "published");
-  }
 
   const { data, error } = await query.maybeSingle();
 
@@ -348,7 +363,11 @@ export async function getDocumentComments(
     return [];
   }
 
-  const supabase = await createReadClient(canReadPrivate);
+  if (!canReadPrivate) {
+    return [];
+  }
+
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("comments")
     .select("id, body, created_at, created_by")
@@ -383,7 +402,11 @@ export async function getRelatedDocuments(
     return [];
   }
 
-  const supabase = await createReadClient(canReadPrivate);
+  if (!canReadPrivate) {
+    return [];
+  }
+
+  const supabase = await createClient();
   const { data: linkRows, error: linkError } = await supabase
     .from("document_links")
     .select("target_document_id")
@@ -405,14 +428,10 @@ export async function getRelatedDocuments(
     return [];
   }
 
-  let query = supabase
+  const query = supabase
     .from("documents")
     .select(DOCUMENT_LIST_SELECT)
     .in("id", targetIds);
-
-  if (!canReadPrivate) {
-    query = query.eq("status", "published");
-  }
 
   const { data, error } = await query;
 
@@ -440,7 +459,11 @@ export async function getBacklinkDocuments(
     return [];
   }
 
-  const supabase = await createReadClient(canReadPrivate);
+  if (!canReadPrivate) {
+    return [];
+  }
+
+  const supabase = await createClient();
   const { data: linkRows, error: linkError } = await supabase
     .from("document_links")
     .select("source_document_id")
@@ -462,14 +485,10 @@ export async function getBacklinkDocuments(
     return [];
   }
 
-  let query = supabase
+  const query = supabase
     .from("documents")
     .select(DOCUMENT_LIST_SELECT)
     .in("id", sourceIds);
-
-  if (!canReadPrivate) {
-    query = query.eq("status", "published");
-  }
 
   const { data, error } = await query;
 
@@ -497,7 +516,11 @@ export async function getRelatedDocumentIds(
     return [];
   }
 
-  const supabase = await createReadClient(canReadPrivate);
+  if (!canReadPrivate) {
+    return [];
+  }
+
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("document_links")
     .select("target_document_id")

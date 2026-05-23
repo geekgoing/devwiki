@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
-import { requireAuthenticatedMember } from "@/lib/auth";
+import { requireAuthenticatedMember, requireEditorMember } from "@/lib/auth";
+import { generateNickname } from "@/lib/nicknames";
 import { slugify, toTagSlug } from "@/lib/slugify";
 import type { Tag } from "@/types/devwiki";
 
@@ -18,6 +19,8 @@ const documentSchema = z.object({
   summary: z.string().trim().max(300).optional(),
   bodyMarkdown: z.string().trim().min(1, "본문을 입력하세요."),
   status: z.enum(["draft", "published", "archived"]),
+  contentType: z.enum(["term", "interview_qa", "scenario"]),
+  interviewCategory: z.enum(["technical", "behavioral"]).optional(),
   tags: z.string().trim().optional(),
   editSummary: z.string().trim().max(160).optional(),
   relatedDocumentIds: z.string().trim().optional(),
@@ -28,6 +31,14 @@ const restoreRevisionSchema = z.object({
   revisionId: z.string().uuid(),
 });
 
+const profileSchema = z.object({
+  displayName: z
+    .string()
+    .trim()
+    .min(2, "닉네임은 2자 이상이어야 합니다.")
+    .max(40, "닉네임은 40자 이하로 입력하세요."),
+});
+
 function readString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value : "";
@@ -35,6 +46,40 @@ function readString(formData: FormData, key: string) {
 
 function documentPath(slug: string) {
   return `/documents/${encodeURIComponent(slug)}`;
+}
+
+function safeRedirectPath(value: string) {
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    return "/";
+  }
+
+  return value;
+}
+
+function loginPath(params: { error?: string; next?: string }) {
+  const searchParams = new URLSearchParams();
+
+  if (params.error) {
+    searchParams.set("error", params.error);
+  }
+
+  if (params.next && params.next !== "/") {
+    searchParams.set("next", safeRedirectPath(params.next));
+  }
+
+  const query = searchParams.toString();
+  return query ? `/login?${query}` : "/login";
+}
+
+function normalizeDocumentContent(
+  contentType: "term" | "interview_qa" | "scenario",
+  interviewCategory?: "technical" | "behavioral",
+) {
+  return {
+    contentType,
+    interviewCategory:
+      contentType === "interview_qa" ? (interviewCategory ?? "technical") : null,
+  };
 }
 
 async function uniqueSlug(baseSlug: string, exceptId?: string) {
@@ -191,13 +236,14 @@ async function syncRelatedDocuments(
 export async function signInWithPassword(formData: FormData) {
   const email = readString(formData, "email").trim().toLowerCase();
   const password = readString(formData, "password");
+  const next = safeRedirectPath(readString(formData, "next") || "/");
 
   if (!email) {
-    redirect("/login?error=email");
+    redirect(loginPath({ error: "email", next }));
   }
 
   if (!password) {
-    redirect("/login?error=password");
+    redirect(loginPath({ error: "password", next }));
   }
 
   const supabase = await createClient();
@@ -210,10 +256,10 @@ export async function signInWithPassword(formData: FormData) {
     const reason = /rate limit|too many requests/i.test(error.message)
       ? "rate-limit"
       : "credentials";
-    redirect(`/login?error=${reason}`);
+    redirect(loginPath({ error: reason, next }));
   }
 
-  redirect("/");
+  redirect(next);
 }
 
 export async function signOut() {
@@ -223,17 +269,23 @@ export async function signOut() {
 }
 
 export async function createDocument(formData: FormData) {
-  const { supabase, user } = await requireAuthenticatedMember();
+  const { supabase, user } = await requireEditorMember();
   const parsed = documentSchema.parse({
     title: readString(formData, "title"),
     slug: readString(formData, "slug"),
     summary: readString(formData, "summary"),
     bodyMarkdown: readString(formData, "body_markdown"),
     status: readString(formData, "status") || "draft",
+    contentType: readString(formData, "content_type") || "term",
+    interviewCategory: readString(formData, "interview_category") || undefined,
     tags: readString(formData, "tags"),
     editSummary: readString(formData, "edit_summary"),
     relatedDocumentIds: readString(formData, "related_document_ids"),
   });
+  const content = normalizeDocumentContent(
+    parsed.contentType,
+    parsed.interviewCategory,
+  );
   const parsedTags = parseTagNames(parsed.tags);
   const relatedDocumentIds = parseRelatedDocumentIds(
     parsed.relatedDocumentIds,
@@ -248,6 +300,8 @@ export async function createDocument(formData: FormData) {
       summary: parsed.summary || null,
       body_markdown: parsed.bodyMarkdown,
       status: parsed.status,
+      content_type: content.contentType,
+      interview_category: content.interviewCategory,
       created_by: user.id,
       updated_by: user.id,
       edit_summary: parsed.editSummary || "문서 생성",
@@ -266,7 +320,7 @@ export async function createDocument(formData: FormData) {
 }
 
 export async function updateDocument(formData: FormData) {
-  const { supabase, user } = await requireAuthenticatedMember();
+  const { supabase, user } = await requireEditorMember();
   const parsed = documentSchema.parse({
     id: readString(formData, "id"),
     title: readString(formData, "title"),
@@ -274,10 +328,16 @@ export async function updateDocument(formData: FormData) {
     summary: readString(formData, "summary"),
     bodyMarkdown: readString(formData, "body_markdown"),
     status: readString(formData, "status") || "draft",
+    contentType: readString(formData, "content_type") || "term",
+    interviewCategory: readString(formData, "interview_category") || undefined,
     tags: readString(formData, "tags"),
     editSummary: readString(formData, "edit_summary"),
     relatedDocumentIds: readString(formData, "related_document_ids"),
   });
+  const content = normalizeDocumentContent(
+    parsed.contentType,
+    parsed.interviewCategory,
+  );
   const parsedTags = parseTagNames(parsed.tags);
   const relatedDocumentIds = parseRelatedDocumentIds(
     parsed.relatedDocumentIds,
@@ -308,6 +368,8 @@ export async function updateDocument(formData: FormData) {
       summary: parsed.summary || null,
       body_markdown: parsed.bodyMarkdown,
       status: parsed.status,
+      content_type: content.contentType,
+      interview_category: content.interviewCategory,
       updated_by: user.id,
       edit_summary: parsed.editSummary || "문서 수정",
     })
@@ -330,7 +392,7 @@ export async function updateDocument(formData: FormData) {
 }
 
 export async function restoreDocumentRevision(formData: FormData) {
-  const { supabase, user } = await requireAuthenticatedMember();
+  const { supabase, user } = await requireEditorMember();
   const parsed = restoreRevisionSchema.parse({
     documentId: readString(formData, "document_id"),
     revisionId: readString(formData, "revision_id"),
@@ -402,4 +464,27 @@ export async function addComment(formData: FormData) {
   }
 
   revalidatePath(documentPath(slug));
+}
+
+export async function updateMyProfile(formData: FormData) {
+  const { supabase, user } = await requireAuthenticatedMember();
+  const randomize = readString(formData, "randomize") === "1";
+  const parsed = profileSchema.parse({
+    displayName: randomize
+      ? generateNickname()
+      : readString(formData, "display_name"),
+  });
+
+  const { error } = await supabase
+    .from("members")
+    .update({ display_name: parsed.displayName })
+    .eq("email", user.email.toLowerCase());
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/", "layout");
+  revalidatePath("/me");
+  redirect("/me?notice=profile");
 }

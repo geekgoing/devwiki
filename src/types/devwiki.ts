@@ -10,6 +10,7 @@ export type Member = {
   displayName: string | null;
   role: MemberRole;
   isActive: boolean;
+  createdAt: string;
 };
 
 export type AdminMember = Member & {
@@ -27,6 +28,8 @@ export type Tag = {
 
 export type DocumentStatus = "draft" | "published" | "archived";
 export type DocumentStatusFilter = "active" | DocumentStatus;
+export type DocumentContentType = "term" | "interview_qa" | "scenario";
+export type InterviewCategory = "technical" | "behavioral";
 
 export type DocumentSummary = {
   id: string;
@@ -34,6 +37,8 @@ export type DocumentSummary = {
   title: string;
   summary: string | null;
   status: DocumentStatus;
+  contentType: DocumentContentType;
+  interviewCategory: InterviewCategory | null;
   updatedAt: string;
   createdAt: string;
   tags: Tag[];

@@ -8,6 +8,7 @@ import { SetupNotice } from "@/components/setup-notice";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { getAdminMembers } from "@/lib/admin-members";
+import { canEditContent, canManageMembers } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { AdminMember, MemberRole } from "@/types/devwiki";
 
@@ -74,7 +75,7 @@ function MemberRow({ member }: { member: AdminMember }) {
   return (
     <form
       action={updateMember}
-      className="grid gap-3 border-b border-slate-200 px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(220px,1.2fr)_minmax(160px,0.8fr)_130px_100px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_90px]"
+      className="grid gap-3 border-b border-slate-200 px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(220px,1.2fr)_minmax(150px,0.8fr)_130px_100px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_90px]"
     >
       <input type="hidden" name="email" value={member.email} />
 
@@ -85,15 +86,12 @@ function MemberRow({ member }: { member: AdminMember }) {
         </p>
       </div>
 
-      <label>
-        <span className="sr-only">표시 이름</span>
-        <input
-          name="display_name"
-          defaultValue={member.displayName ?? ""}
-          placeholder="표시 이름"
-          className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-        />
-      </label>
+      <div className="text-sm text-slate-700">
+        <p className="font-medium text-slate-950">
+          {member.displayName ?? "닉네임 없음"}
+        </p>
+        <p className="mt-1 text-xs text-slate-500">마이페이지에서 수정</p>
+      </div>
 
       <RoleSelect name="role" defaultValue={member.role} />
 
@@ -154,22 +152,23 @@ export default async function MembersAdminPage({
     );
   }
 
-  const canManageMembers = member?.role === "owner";
-  const members = canManageMembers ? await getAdminMembers() : [];
+  const canManageMemberList = canManageMembers(member);
+  const members = canManageMemberList ? await getAdminMembers() : [];
 
   return (
     <>
       <AppHeader
         configured={configured}
-        canCreate={Boolean(member)}
-        canManageMembers={canManageMembers}
+        canCreate={canEditContent(member)}
+        canManageMembers={canManageMemberList}
+        member={member}
         user={user}
       />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-6">
           {!configured ? <SetupNotice /> : null}
 
-          {!canManageMembers ? (
+          {!canManageMemberList ? (
             <section className="rounded-md border border-amber-200 bg-amber-50 px-5 py-6">
               <div className="flex items-center gap-3">
                 <ShieldAlert size={22} className="text-amber-700" aria-hidden />
@@ -200,7 +199,7 @@ export default async function MembersAdminPage({
                 <h2 className="text-sm font-semibold text-slate-950">멤버 추가</h2>
                 <form
                   action={createMember}
-                  className="mt-4 grid gap-3 lg:grid-cols-[minmax(220px,1.2fr)_minmax(160px,0.8fr)_130px_minmax(160px,0.8fr)_90px]"
+                  className="mt-4 grid gap-3 lg:grid-cols-[minmax(220px,1.2fr)_130px_minmax(160px,0.8fr)_90px]"
                 >
                   <label>
                     <span className="sr-only">이메일</span>
@@ -209,14 +208,6 @@ export default async function MembersAdminPage({
                       name="email"
                       required
                       placeholder="member@example.com"
-                      className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                    />
-                  </label>
-                  <label>
-                    <span className="sr-only">표시 이름</span>
-                    <input
-                      name="display_name"
-                      placeholder="표시 이름"
                       className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                     />
                   </label>
@@ -243,9 +234,9 @@ export default async function MembersAdminPage({
               </section>
 
               <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
-                <div className="hidden border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium text-slate-500 lg:grid lg:grid-cols-[minmax(220px,1.2fr)_minmax(160px,0.8fr)_130px_100px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_90px]">
+                <div className="hidden border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium text-slate-500 lg:grid lg:grid-cols-[minmax(220px,1.2fr)_minmax(150px,0.8fr)_130px_100px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_90px]">
                   <span>이메일</span>
-                  <span>이름</span>
+                  <span>닉네임</span>
                   <span>role</span>
                   <span>상태</span>
                   <span>멤버</span>
