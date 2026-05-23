@@ -55,6 +55,7 @@ export default async function NewDocumentPage({
     <>
       <AppHeader
         configured={configured}
+        activeContentType={contentType}
         canCreate={canEdit}
         canManageMembers={canManageMembers(member)}
         member={member}

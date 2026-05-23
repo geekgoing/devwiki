@@ -1,24 +1,29 @@
 import {
-  Archive,
   ArrowRight,
   BookOpen,
-  Boxes,
+  CheckCircle2,
   Database,
   FileText,
-  FilePenLine,
   Gauge,
   GitBranch,
-  Globe2,
   Network,
+  Plus,
   Route,
   Search,
   ShieldCheck,
+  Star,
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
+import { DocumentFilterPopover } from "@/components/document-filter-popover";
+import {
+  interviewCategoryFilterOptions,
+  learningFilterOptions,
+  statusFilterOptions,
+} from "@/lib/document-filters";
 import { EmptyState } from "@/components/empty-state";
 import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
@@ -30,6 +35,7 @@ import { canEditContent, canManageMembers } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type {
   DocumentContentType,
+  DocumentLearningFilter,
   DocumentStatusFilter,
   DocumentSummary,
   InterviewCategory,
@@ -38,17 +44,11 @@ import type {
 type HomeProps = {
   searchParams: Promise<{
     category?: string;
+    learning?: string;
     q?: string;
     status?: string;
     type?: string;
   }>;
-};
-
-const statusLabels: Record<DocumentStatusFilter, string> = {
-  active: "공개+초안",
-  published: "공개",
-  draft: "초안",
-  archived: "보관",
 };
 
 const contentTypeLabels: Record<DocumentContentType, string> = {
@@ -62,24 +62,6 @@ const contentTypeSummaries: Record<DocumentContentType, string> = {
   interview_qa: "면접에서 받은 질문과 답변 Tip을 Q&A 형태로 정리합니다.",
   scenario: "서술형 상황 질문을 해결 흐름과 토론 중심으로 다룹니다.",
 };
-
-const interviewCategoryLabels: Record<InterviewCategory, string> = {
-  technical: "기술",
-  behavioral: "인성",
-};
-
-const contentTypes: DocumentContentType[] = [
-  "term",
-  "interview_qa",
-  "scenario",
-];
-
-const statusIcons = {
-  active: FileText,
-  published: Globe2,
-  draft: FilePenLine,
-  archived: Archive,
-} satisfies Record<DocumentStatusFilter, typeof FileText>;
 
 const discoverySections = [
   {
@@ -249,6 +231,12 @@ function parseInterviewCategory(value?: string): InterviewCategory | undefined {
   return value === "technical" || value === "behavioral" ? value : undefined;
 }
 
+function parseLearningFilter(value?: string): DocumentLearningFilter {
+  return value === "favorite" || value === "completed" || value === "todo"
+    ? value
+    : "all";
+}
+
 function loginHref(next: string) {
   return `/login?next=${encodeURIComponent(next)}`;
 }
@@ -257,25 +245,31 @@ function filterHref({
   category,
   contentType,
   query,
+  learning,
   status,
 }: {
   category?: InterviewCategory;
   contentType: DocumentContentType;
+  learning: DocumentLearningFilter;
   query: string;
   status: DocumentStatusFilter;
 }) {
   const params = new URLSearchParams();
 
-  if (contentType !== "term") {
+  if (!query && contentType !== "term") {
     params.set("type", contentType);
   }
 
-  if (category && contentType === "interview_qa") {
+  if (category && (!query || contentType === "interview_qa")) {
     params.set("category", category);
   }
 
   if (query) {
     params.set("q", query);
+  }
+
+  if (learning !== "all") {
+    params.set("learning", learning);
   }
 
   if (status !== "active") {
@@ -305,12 +299,6 @@ function pickDocuments(
     .slice(0, limit);
 }
 
-function getUniqueTagCount(documents: DocumentSummary[]) {
-  return new Set(
-    documents.flatMap((document) => document.tags.map((tag) => tag.slug)),
-  ).size;
-}
-
 function DocumentListCard({ document }: { document: DocumentSummary }) {
   return (
     <Link
@@ -325,6 +313,18 @@ function DocumentListCard({ document }: { document: DocumentSummary }) {
               {document.title}
             </h2>
             <StatusBadge status={document.status} />
+            {document.isFavorite ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+                <Star size={12} className="fill-current" aria-hidden />
+                즐겨찾기
+              </span>
+            ) : null}
+            {document.isCompleted ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+                <CheckCircle2 size={12} aria-hidden />
+                숙지함
+              </span>
+            ) : null}
           </div>
           {document.summary ? (
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -385,159 +385,89 @@ function CompactDocumentLink({
   );
 }
 
-function SearchAndFilters({
+function SearchAndFilterBar({
   category,
   contentType,
-  filters,
+  learning,
   query,
   status,
 }: {
   category?: InterviewCategory;
   contentType: DocumentContentType;
-  filters: DocumentStatusFilter[];
+  learning: DocumentLearningFilter;
   query: string;
   status: DocumentStatusFilter;
 }) {
+  const statusLinks = statusFilterOptions.map((option) => ({
+    href: filterHref({
+      category,
+      contentType,
+      learning,
+      query,
+      status: option.value,
+    }),
+    label: option.label,
+    selected: status === option.value,
+  }));
+  const learningLinks = learningFilterOptions.map((option) => ({
+    href: filterHref({
+      category,
+      contentType,
+      learning: option.value,
+      query,
+      status,
+    }),
+    label: option.label,
+    selected: learning === option.value,
+  }));
+  const interviewCategoryLinks =
+    contentType === "interview_qa"
+      ? interviewCategoryFilterOptions.map((option) => ({
+          href: filterHref({
+            category: option.value,
+            contentType,
+            learning,
+            query,
+            status,
+          }),
+          label: option.label,
+          selected: category === option.value,
+        }))
+      : [];
+  const activeFilterCount =
+    Number(status !== "active") +
+    Number(learning !== "all") +
+    Number(Boolean(category));
+
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/50 lg:flex-row lg:items-center lg:justify-between">
-      <form action="/" className="relative w-full max-w-xl">
+    <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/50 lg:flex-row lg:items-center">
+      <form action="/" className="relative flex-1">
         <Search
           size={18}
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           aria-hidden
         />
-        <input type="hidden" name="type" value={contentType} />
-        {category ? <input type="hidden" name="category" value={category} /> : null}
-        <input type="hidden" name="status" value={status} />
+        {learning !== "all" ? (
+          <input type="hidden" name="learning" value={learning} />
+        ) : null}
+        {status !== "active" ? (
+          <input type="hidden" name="status" value={status} />
+        ) : null}
         <input
           name="q"
           defaultValue={query}
-          placeholder="개념, 태그, 요약으로 검색"
+          placeholder="3개 영역 전체에서 개념, 질문, 태그 검색"
           className="h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         />
       </form>
 
-      <nav className="flex flex-wrap gap-2" aria-label="문서 상태 필터">
-        {filters.map((filter) => {
-          const Icon = statusIcons[filter];
-          const selected = status === filter;
-          const label = statusLabels[filter];
-
-          return (
-            <Link
-              key={filter}
-              href={filterHref({
-                category,
-                contentType,
-                query,
-                status: filter,
-              })}
-              className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition ${
-                selected
-                  ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700"
-              }`}
-            >
-              <Icon size={15} aria-hidden />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
+      <DocumentFilterPopover
+        activeCount={activeFilterCount}
+        interviewCategoryLinks={interviewCategoryLinks}
+        learningLinks={learningLinks}
+        statusLinks={statusLinks}
+      />
     </div>
-  );
-}
-
-function ContentTypeTabs({
-  category,
-  contentType,
-  query,
-  status,
-}: {
-  category?: InterviewCategory;
-  contentType: DocumentContentType;
-  query: string;
-  status: DocumentStatusFilter;
-}) {
-  return (
-    <nav className="grid gap-3 md:grid-cols-3" aria-label="콘텐츠 유형">
-      {contentTypes.map((type) => {
-        const selected = contentType === type;
-
-        return (
-          <Link
-            key={type}
-            href={filterHref({
-              category,
-              contentType: type,
-              query,
-              status,
-            })}
-            className={`rounded-md border p-4 transition ${
-              selected
-                ? "border-blue-600 bg-blue-50 text-blue-950"
-                : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50"
-            }`}
-          >
-            <span className="text-sm font-semibold">
-              {contentTypeLabels[type]}
-            </span>
-            <span className="mt-1 block text-xs leading-5 text-slate-500">
-              {contentTypeSummaries[type]}
-            </span>
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
-
-function InterviewCategoryFilter({
-  category,
-  contentType,
-  query,
-  status,
-}: {
-  category?: InterviewCategory;
-  contentType: DocumentContentType;
-  query: string;
-  status: DocumentStatusFilter;
-}) {
-  if (contentType !== "interview_qa") {
-    return null;
-  }
-
-  return (
-    <nav className="flex flex-wrap gap-2" aria-label="면접 Q&A 분류">
-      <Link
-        href={filterHref({ contentType, query, status })}
-        className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition ${
-          !category
-            ? "border-slate-950 bg-slate-950 text-white"
-            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-        }`}
-      >
-        전체
-      </Link>
-      {(["technical", "behavioral"] as InterviewCategory[]).map((item) => (
-        <Link
-          key={item}
-          href={filterHref({
-            category: item,
-            contentType,
-            query,
-            status,
-          })}
-          className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition ${
-            category === item
-              ? "border-slate-950 bg-slate-950 text-white"
-              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-          }`}
-        >
-          {interviewCategoryLabels[item]}
-        </Link>
-      ))}
-    </nav>
   );
 }
 
@@ -667,6 +597,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
   const contentType = parseContentType(params.type);
   const interviewCategory = parseInterviewCategory(params.category);
+  const learning = parseLearningFilter(params.learning);
   const query = params.q?.trim() ?? "";
   const status = parseStatusFilter(params.status);
   const configured = isSupabaseConfigured();
@@ -689,28 +620,37 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   const canReadPrivate = !configured || Boolean(member);
+  const isGlobalSearch = Boolean(query);
+  const queriedContentType = isGlobalSearch ? undefined : contentType;
   const documents = await getDocuments({
-    contentType,
+    contentType: queriedContentType,
     interviewCategory:
-      contentType === "interview_qa" ? interviewCategory : undefined,
+      contentType === "interview_qa" || isGlobalSearch
+        ? interviewCategory
+        : undefined,
+    learning,
     query,
     status,
     canReadPrivate,
+    viewerId: user?.id,
   });
-  const filters: DocumentStatusFilter[] = [
-    "active",
-    "published",
-    "draft",
-    "archived",
-  ];
-  const showDiscovery = !query && status === "active" && contentType === "term";
-  const uniqueTagCount = getUniqueTagCount(documents);
+  const showDiscovery =
+    !query &&
+    status === "active" &&
+    learning === "all" &&
+    !interviewCategory &&
+    contentType === "term";
   const canCreate = canEditContent(member);
+  const pageTitle = query ? "통합 검색" : contentTypeLabels[contentType];
+  const pageSummary = query
+    ? "기술 용어, 면접 Q&A, 상황 시뮬레이션을 한 번에 검색합니다."
+    : `${contentTypeSummaries[contentType]} 공개 문서는 전체 멤버에게 공개되는 문서입니다.`;
 
   return (
     <>
       <AppHeader
         configured={configured}
+        activeContentType={query ? undefined : contentType}
         canCreate={canCreate}
         canManageMembers={canManageMembers(member)}
         member={member}
@@ -721,68 +661,33 @@ export default async function Home({ searchParams }: HomeProps) {
           {!configured ? <SetupNotice /> : null}
 
           <>
-              <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
+              <section className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
-                    {contentTypeLabels[contentType]}
+                    {pageTitle}
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                    {contentTypeSummaries[contentType]} 공개 문서는 전체 멤버에게
-                    공개되는 문서입니다.
+                    {pageSummary}
                   </p>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
-                    <span className="flex size-9 items-center justify-center rounded-md bg-blue-50 text-blue-600">
-                      <FileText size={18} aria-hidden />
-                    </span>
-                    <p className="mt-3 text-2xl font-semibold text-slate-950">
-                      {documents.length}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {showDiscovery ? "전체 문서" : "검색 결과"}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
-                    <span className="flex size-9 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
-                      <Boxes size={18} aria-hidden />
-                    </span>
-                    <p className="mt-3 text-2xl font-semibold text-slate-950">
-                      {uniqueTagCount}
-                    </p>
-                    <p className="text-xs text-slate-500">태그</p>
-                  </div>
-                  <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50">
-                    <span className="flex size-9 items-center justify-center rounded-md bg-amber-50 text-amber-700">
-                      <Route size={18} aria-hidden />
-                    </span>
-                    <p className="mt-3 text-2xl font-semibold text-slate-950">
-                      {learningPaths.length}
-                    </p>
-                    <p className="text-xs text-slate-500">학습 경로</p>
-                  </div>
-                </div>
+                {canCreate ? (
+                  <Link
+                    href={`/documents/new?type=${contentType}${
+                      interviewCategory ? `&category=${interviewCategory}` : ""
+                    }`}
+                    className="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
+                  >
+                    <Plus size={16} aria-hidden />
+                    새 문서
+                  </Link>
+                ) : null}
               </section>
 
-              <ContentTypeTabs
+              <SearchAndFilterBar
                 category={interviewCategory}
                 contentType={contentType}
-                query={query}
-                status={status}
-              />
-
-              <SearchAndFilters
-                category={interviewCategory}
-                contentType={contentType}
-                filters={filters}
-                query={query}
-                status={status}
-              />
-
-              <InterviewCategoryFilter
-                category={interviewCategory}
-                contentType={contentType}
+                learning={learning}
                 query={query}
                 status={status}
               />

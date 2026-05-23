@@ -47,6 +47,7 @@ export default async function EditDocumentPage({
 
   const document = await getDocumentBySlug(slug, {
     canReadPrivate: !configured || Boolean(member),
+    viewerId: user?.id,
   });
 
   if (!document) {
@@ -67,6 +68,7 @@ export default async function EditDocumentPage({
     <>
       <AppHeader
         configured={configured}
+        activeContentType={document.contentType}
         canCreate={canEdit}
         canManageMembers={canManageMembers(member)}
         member={member}
