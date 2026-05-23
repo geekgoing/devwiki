@@ -16,6 +16,7 @@ import { SetupNotice } from "@/components/setup-notice";
 import {
   contentRoutes,
   contentTypeLabels,
+  documentDetailPath,
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
@@ -65,7 +66,10 @@ function getDocumentCounts(documents: DocumentSummary[]) {
 function SmallDocumentLink({ document }: { document: DocumentSummary }) {
   return (
     <Link
-      href={`/documents/${encodeURIComponent(document.slug)}`}
+      href={documentDetailPath({
+        contentType: document.contentType,
+        slug: document.slug,
+      })}
       className="group grid gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"
     >
       <span className="line-clamp-1 text-sm font-medium text-slate-950 transition group-hover:text-blue-700">

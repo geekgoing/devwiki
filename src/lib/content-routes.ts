@@ -42,6 +42,24 @@ export function contentTypePath(contentType: DocumentContentType) {
   return contentRoutes[contentType].href;
 }
 
+export function documentDetailPath({
+  contentType,
+  slug,
+}: {
+  contentType: DocumentContentType;
+  slug: string;
+}) {
+  return `${contentTypePath(contentType)}/${encodeURIComponent(slug)}`;
+}
+
+export function legacyDocumentPath(slug: string) {
+  return `/documents/${encodeURIComponent(slug)}`;
+}
+
+export function documentEditPath(slug: string) {
+  return `${legacyDocumentPath(slug)}/edit`;
+}
+
 export function parseStatusFilter(value?: string): DocumentStatusFilter {
   return value === "published" || value === "draft" || value === "archived"
     ? value

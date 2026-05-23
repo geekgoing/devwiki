@@ -2,12 +2,15 @@ import { CheckCircle2, Star } from "lucide-react";
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/status-badge";
-import { contentTypeLabels } from "@/lib/content-routes";
+import { contentTypeLabels, documentDetailPath } from "@/lib/content-routes";
 import { formatDate } from "@/lib/format";
 import type { DocumentSummary } from "@/types/devwiki";
 
 function documentHref(document: DocumentSummary) {
-  return `/documents/${encodeURIComponent(document.slug)}`;
+  return documentDetailPath({
+    contentType: document.contentType,
+    slug: document.slug,
+  });
 }
 
 export function DocumentListCard({

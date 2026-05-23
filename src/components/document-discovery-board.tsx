@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { documentDetailPath } from "@/lib/content-routes";
 import type { DocumentSummary } from "@/types/devwiki";
 
 const discoverySections = [
@@ -169,7 +170,10 @@ const learningPaths = [
 }[];
 
 function documentHref(document: DocumentSummary) {
-  return `/documents/${encodeURIComponent(document.slug)}`;
+  return documentDetailPath({
+    contentType: document.contentType,
+    slug: document.slug,
+  });
 }
 
 function getDocumentMap(documents: DocumentSummary[]) {

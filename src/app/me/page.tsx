@@ -13,6 +13,7 @@ import { updateMyProfile } from "@/app/actions";
 import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
+import { documentDetailPath, parseContentType } from "@/lib/content-routes";
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -24,6 +25,7 @@ type MePageProps = {
 };
 
 type RecentDocumentRow = {
+  content_type: string | null;
   id: string;
   slug: string;
   title: string;
@@ -36,6 +38,7 @@ type RecentCommentRow = {
   body: string;
   created_at: string;
   document: {
+    content_type: string | null;
     slug: string;
     title: string;
   } | null;
@@ -56,10 +59,12 @@ type LearningDocumentRow = {
 type RawRecentCommentRow = Omit<RecentCommentRow, "document"> & {
   documents?:
     | {
+        content_type: string | null;
         slug: string;
         title: string;
       }
     | {
+        content_type: string | null;
         slug: string;
         title: string;
       }[]
@@ -85,11 +90,18 @@ function loginHref(next: string) {
   return `/login?next=${encodeURIComponent(next)}`;
 }
 
+function documentHref(document: { content_type?: string | null; slug: string }) {
+  return documentDetailPath({
+    contentType: parseContentType(document.content_type ?? undefined),
+    slug: document.slug,
+  });
+}
+
 async function getRecentDocuments(userId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("documents")
-    .select("id, slug, title, status, updated_at")
+    .select("id, slug, title, status, content_type, updated_at")
     .or(`created_by.eq.${userId},updated_by.eq.${userId}`)
     .order("updated_at", { ascending: false })
     .limit(5);
@@ -105,7 +117,7 @@ async function getRecentComments(userId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("comments")
-    .select("id, body, created_at, documents(slug, title)")
+    .select("id, body, created_at, documents(slug, title, content_type)")
     .eq("created_by", userId)
     .order("created_at", { ascending: false })
     .limit(5);
@@ -298,9 +310,7 @@ export default async function MePage({ searchParams }: MePageProps) {
                       <Link
                         href={
                           item.document
-                            ? `/documents/${encodeURIComponent(
-                                item.document.slug,
-                              )}`
+                            ? documentHref(item.document)
                             : "/"
                         }
                         className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"
@@ -346,7 +356,7 @@ export default async function MePage({ searchParams }: MePageProps) {
                   {recentDocuments.map((document) => (
                     <li key={document.id}>
                       <Link
-                        href={`/documents/${encodeURIComponent(document.slug)}`}
+                        href={documentHref(document)}
                         className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"
                       >
                         <span className="block text-sm font-medium text-slate-950">
@@ -380,9 +390,7 @@ export default async function MePage({ searchParams }: MePageProps) {
                       <Link
                         href={
                           comment.document
-                            ? `/documents/${encodeURIComponent(
-                                comment.document.slug,
-                              )}`
+                            ? documentHref(comment.document)
                             : "/"
                         }
                         className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"

@@ -7,6 +7,13 @@ import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthenticatedMember, requireEditorMember } from "@/lib/auth";
+import {
+  contentTypePath,
+  documentDetailPath,
+  documentEditPath,
+  legacyDocumentPath,
+  parseContentType,
+} from "@/lib/content-routes";
 import { generateNickname } from "@/lib/nicknames";
 import { slugify, toTagSlug } from "@/lib/slugify";
 import type { Tag } from "@/types/devwiki";
@@ -42,6 +49,7 @@ const profileSchema = z.object({
 });
 
 const documentLearningStateSchema = z.object({
+  contentType: z.enum(["term", "interview_qa", "scenario"]),
   documentId: z.string().uuid(),
   enabled: z.boolean(),
   field: z.enum(["favorite", "completed"]),
@@ -53,8 +61,18 @@ function readString(formData: FormData, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function documentPath(slug: string) {
-  return `/documents/${encodeURIComponent(slug)}`;
+function documentPath(slug: string, contentType: "term" | "interview_qa" | "scenario") {
+  return documentDetailPath({ contentType, slug });
+}
+
+function revalidateDocumentPaths(
+  slug: string,
+  contentType: "term" | "interview_qa" | "scenario",
+) {
+  revalidatePath(legacyDocumentPath(slug));
+  revalidatePath(documentEditPath(slug));
+  revalidatePath(documentPath(slug, contentType));
+  revalidatePath(contentTypePath(contentType));
 }
 
 function safeRedirectPath(value: string) {
@@ -340,7 +358,8 @@ export async function createDocument(formData: FormData) {
   await syncTags(supabase, data.id, parsedTags);
   await syncRelatedDocuments(supabase, data.id, relatedDocumentIds, user.id);
   revalidatePath("/");
-  redirect(documentPath(data.slug));
+  revalidatePath(contentTypePath(content.contentType));
+  redirect(documentPath(data.slug, content.contentType));
 }
 
 export async function updateDocument(formData: FormData) {
@@ -373,7 +392,7 @@ export async function updateDocument(formData: FormData) {
 
   const { data: currentDocument, error: currentDocumentError } = await supabase
     .from("documents")
-    .select("slug")
+    .select("slug, content_type")
     .eq("id", parsed.id)
     .single();
 
@@ -398,7 +417,7 @@ export async function updateDocument(formData: FormData) {
       edit_summary: parsed.editSummary || "문서 수정",
     })
     .eq("id", parsed.id)
-    .select("slug")
+    .select("slug, content_type")
     .single();
 
   if (error || !updatedDocument) {
@@ -408,11 +427,15 @@ export async function updateDocument(formData: FormData) {
   await syncTags(supabase, parsed.id, parsedTags);
   await syncRelatedDocuments(supabase, parsed.id, relatedDocumentIds, user.id);
   revalidatePath("/");
-  revalidatePath(documentPath(currentDocument.slug));
-  revalidatePath(`${documentPath(currentDocument.slug)}/edit`);
-  revalidatePath(documentPath(slug));
-  revalidatePath(`${documentPath(slug)}/edit`);
-  redirect(documentPath(slug));
+  revalidateDocumentPaths(
+    currentDocument.slug,
+    parseContentType(currentDocument.content_type ?? undefined),
+  );
+  revalidateDocumentPaths(
+    slug,
+    parseContentType(updatedDocument.content_type ?? undefined),
+  );
+  redirect(documentPath(slug, parseContentType(updatedDocument.content_type ?? undefined)));
 }
 
 export async function restoreDocumentRevision(formData: FormData) {
@@ -435,7 +458,7 @@ export async function restoreDocumentRevision(formData: FormData) {
 
   const { data: document, error: documentError } = await supabase
     .from("documents")
-    .select("slug")
+    .select("slug, content_type")
     .eq("id", parsed.documentId)
     .single();
 
@@ -462,13 +485,14 @@ export async function restoreDocumentRevision(formData: FormData) {
   }
 
   revalidatePath("/");
-  revalidatePath(documentPath(document.slug));
-  revalidatePath(`${documentPath(document.slug)}/edit`);
-  redirect(documentPath(document.slug));
+  const contentType = parseContentType(document.content_type ?? undefined);
+  revalidateDocumentPaths(document.slug, contentType);
+  redirect(documentPath(document.slug, contentType));
 }
 
 export async function addComment(formData: FormData) {
   const { supabase, user } = await requireAuthenticatedMember();
+  const contentType = parseContentType(readString(formData, "content_type"));
   const documentId = readString(formData, "document_id");
   const slug = readString(formData, "slug");
   const body = readString(formData, "body").trim();
@@ -487,7 +511,7 @@ export async function addComment(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(documentPath(slug));
+  revalidateDocumentPaths(slug, contentType);
 }
 
 export async function updateMyProfile(formData: FormData) {
@@ -516,6 +540,7 @@ export async function updateMyProfile(formData: FormData) {
 export async function updateDocumentLearningState(formData: FormData) {
   const { supabase, user } = await requireAuthenticatedMember();
   const parsed = documentLearningStateSchema.parse({
+    contentType: readString(formData, "content_type") || "term",
     documentId: readString(formData, "document_id"),
     enabled: readString(formData, "enabled") === "1",
     field: readString(formData, "field"),
@@ -554,5 +579,5 @@ export async function updateDocumentLearningState(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/me");
-  revalidatePath(documentPath(parsed.slug));
+  revalidateDocumentPaths(parsed.slug, parsed.contentType);
 }
