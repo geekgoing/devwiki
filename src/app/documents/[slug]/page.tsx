@@ -2,18 +2,22 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  CheckCircle2,
   Clock3,
   Link2,
   MessageSquare,
   Pencil,
+  Star,
   Tags,
 } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { addComment } from "@/app/actions";
+import { addComment, updateDocumentLearningState } from "@/app/actions";
 import { AppHeader } from "@/components/app-header";
+import { CopyLinkButton } from "@/components/copy-link-button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { MarkdownToc } from "@/components/markdown-toc";
 import { MemberGate } from "@/components/member-gate";
@@ -22,6 +26,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/format";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { canEditContent, canManageMembers } from "@/lib/permissions";
+import { siteDescription, siteName } from "@/lib/site";
 import {
   getBacklinkDocuments,
   getDocumentBySlug,
@@ -30,7 +35,7 @@ import {
   getRelatedDocuments,
 } from "@/lib/documents";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import type { RelatedDocument } from "@/types/devwiki";
+import type { DocumentDetail, RelatedDocument } from "@/types/devwiki";
 
 type DocumentPageProps = {
   params: Promise<{
@@ -64,6 +69,47 @@ function LinkedDocumentCard({ document }: { document: RelatedDocument }) {
 
 function loginHref(next: string) {
   return `/login?next=${encodeURIComponent(next)}`;
+}
+
+function documentSharePath(slug: string) {
+  return `/documents/${encodeURIComponent(slug)}`;
+}
+
+export async function generateMetadata({
+  params,
+}: DocumentPageProps): Promise<Metadata> {
+  const { slug: encodedSlug } = await params;
+  const slug = decodeURIComponent(encodedSlug);
+  const configured = isSupabaseConfigured();
+  const user = await getCurrentUser();
+  const member = await getCurrentMember();
+  const canReadPrivate = !configured || Boolean(member);
+  const document = await getDocumentBySlug(slug, {
+    canReadPrivate,
+    viewerId: user?.id,
+  });
+  const fallbackTitle = "회원 전용 문서";
+  const title = document?.title ?? fallbackTitle;
+  const description =
+    document?.summary ?? "로그인한 DevWiki 멤버만 문서를 확인할 수 있습니다.";
+  const url = documentSharePath(slug);
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title: `${title} · ${siteName}`,
+      description,
+      siteName,
+      type: "article",
+      url,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} · ${siteName}`,
+      description: document ? description : siteDescription,
+    },
+  };
 }
 
 function LinkSection({
@@ -115,6 +161,50 @@ function LinkSection({
   );
 }
 
+function LearningStateButton({
+  document,
+  field,
+}: {
+  document: DocumentDetail;
+  field: "favorite" | "completed";
+}) {
+  const enabled =
+    field === "favorite" ? document.isFavorite : document.isCompleted;
+  const Icon = field === "favorite" ? Star : CheckCircle2;
+  const label =
+    field === "favorite"
+      ? enabled
+        ? "즐겨찾기 해제"
+        : "즐겨찾기"
+      : enabled
+        ? "숙지 취소"
+        : "숙지 완료";
+
+  return (
+    <form action={updateDocumentLearningState}>
+      <input type="hidden" name="document_id" value={document.id} />
+      <input type="hidden" name="slug" value={document.slug} />
+      <input type="hidden" name="field" value={field} />
+      <input type="hidden" name="enabled" value={enabled ? "0" : "1"} />
+      <button
+        type="submit"
+        className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition ${
+          enabled
+            ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+            : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:text-blue-700"
+        }`}
+      >
+        <Icon
+          size={16}
+          className={enabled && field === "favorite" ? "fill-current" : ""}
+          aria-hidden
+        />
+        {label}
+      </button>
+    </form>
+  );
+}
+
 export default async function DocumentPage({ params }: DocumentPageProps) {
   const { slug: encodedSlug } = await params;
   const slug = decodeURIComponent(encodedSlug);
@@ -138,7 +228,10 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
     );
   }
 
-  const document = await getDocumentBySlug(slug, { canReadPrivate });
+  const document = await getDocumentBySlug(slug, {
+    canReadPrivate,
+    viewerId: user?.id,
+  });
 
   if (!document) {
     notFound();
@@ -153,6 +246,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
     ]);
   const canContribute = canEditContent(member);
   const canDiscuss = Boolean(configured && member);
+  const canTrackLearning = Boolean(configured && member);
   const shouldShowRelatedDocuments =
     relatedDocuments.length > 0 || canContribute;
   const editHref = `/documents/${encodeURIComponent(document.slug)}/edit`;
@@ -161,6 +255,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
     <>
       <AppHeader
         configured={configured}
+        activeContentType={document.contentType}
         canCreate={canContribute}
         canManageMembers={canManageMembers(member)}
         member={member}
@@ -191,15 +286,24 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
                 </p>
               ) : null}
             </div>
-            {canContribute ? (
-              <Link
-                href={editHref}
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
-              >
-                <Pencil size={16} aria-hidden />
-                수정
-              </Link>
-            ) : null}
+            <div className="flex flex-wrap justify-end gap-2">
+              {canTrackLearning ? (
+                <>
+                  <LearningStateButton document={document} field="favorite" />
+                  <LearningStateButton document={document} field="completed" />
+                </>
+              ) : null}
+              <CopyLinkButton path={documentSharePath(document.slug)} />
+              {canContribute ? (
+                <Link
+                  href={editHref}
+                  className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
+                >
+                  <Pencil size={16} aria-hidden />
+                  수정
+                </Link>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-6 grid gap-3 border-t border-slate-100 pt-4 text-xs text-slate-500 sm:grid-cols-2 lg:grid-cols-4">

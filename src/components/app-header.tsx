@@ -1,21 +1,50 @@
-import { BookOpen, HelpCircle, LogIn, LogOut, Plus, User, Users } from "lucide-react";
+import {
+  BookOpen,
+  LogIn,
+  MessageSquareText,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 
-import { signOut } from "@/app/actions";
-import type { DevWikiUser, Member } from "@/types/devwiki";
+import { LinkPendingIndicator } from "@/components/link-pending-indicator";
+import { ProfileMenu } from "@/components/profile-menu";
+import type { DevWikiUser, DocumentContentType, Member } from "@/types/devwiki";
 
 type AppHeaderProps = {
-  configured: boolean;
+  activeContentType?: DocumentContentType;
   canCreate?: boolean;
   canManageMembers?: boolean;
+  configured: boolean;
   member?: Member | null;
   user: DevWikiUser | null;
 };
 
+const contentNavItems = [
+  {
+    href: "/",
+    label: "기술 용어",
+    type: "term",
+  },
+  {
+    href: "/?type=interview_qa",
+    label: "면접 Q&A",
+    type: "interview_qa",
+  },
+  {
+    href: "/?type=scenario",
+    label: "시뮬레이션",
+    type: "scenario",
+  },
+] satisfies Array<{
+  href: string;
+  label: string;
+  type: DocumentContentType;
+}>;
+
 export function AppHeader({
-  configured,
-  canCreate = false,
+  activeContentType,
   canManageMembers = false,
+  configured,
   member = null,
   user,
 }: AppHeaderProps) {
@@ -36,36 +65,40 @@ export function AppHeader({
           </span>
         </Link>
 
-        <nav className="flex flex-wrap items-center justify-end gap-2">
+        {configured && user && member ? (
+          <nav
+            className="order-3 flex w-full justify-center gap-1 rounded-md bg-slate-100 p-1 md:order-none md:w-auto"
+            aria-label="콘텐츠 영역"
+          >
+            {contentNavItems.map((item) => {
+              const selected = activeContentType === item.type;
+
+              return (
+                <Link
+                  key={item.type}
+                  href={item.href}
+                  className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium transition ${
+                    selected
+                      ? "bg-white text-slate-950 shadow-sm"
+                      : "text-slate-600 hover:bg-white/70 hover:text-slate-950"
+                  }`}
+                >
+                  {item.type === "term" ? (
+                    <BookOpen size={15} aria-hidden />
+                  ) : (
+                    <MessageSquareText size={15} aria-hidden />
+                  )}
+                  {item.label}
+                  <LinkPendingIndicator />
+                </Link>
+              );
+            })}
+          </nav>
+        ) : null}
+
+        <nav className="flex items-center justify-end gap-2">
           {configured && user ? (
             <>
-              {member ? (
-                <>
-                  <Link
-                    href="/help"
-                    className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  >
-                    <HelpCircle size={16} aria-hidden />
-                    도움말
-                  </Link>
-                  <Link
-                    href="/me"
-                    className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  >
-                    <User size={16} aria-hidden />
-                    {member.displayName ?? "마이페이지"}
-                  </Link>
-                </>
-              ) : null}
-              {canCreate ? (
-                <Link
-                  href="/documents/new"
-                  className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
-                >
-                  <Plus size={16} aria-hidden />
-                  새 문서
-                </Link>
-              ) : null}
               {canManageMembers ? (
                 <Link
                   href="/admin/members"
@@ -75,15 +108,8 @@ export function AppHeader({
                   멤버
                 </Link>
               ) : null}
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                >
-                  <LogOut size={16} aria-hidden />
-                  로그아웃
-                </button>
-              </form>
+
+              {member ? <ProfileMenu member={member} user={user} /> : null}
             </>
           ) : (
             <Link

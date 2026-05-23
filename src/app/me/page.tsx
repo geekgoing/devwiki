@@ -1,4 +1,11 @@
-import { MessageSquare, RefreshCw, Save, UserRound } from "lucide-react";
+import {
+  CheckCircle2,
+  MessageSquare,
+  RefreshCw,
+  Save,
+  Star,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -36,6 +43,18 @@ type RecentCommentRow = {
   } | null;
 };
 
+type LearningDocumentRow = {
+  document: {
+    content_type: string;
+    slug: string;
+    title: string;
+  } | null;
+  document_id: string;
+  is_completed: boolean;
+  is_favorite: boolean;
+  updated_at: string;
+};
+
 type RawRecentCommentRow = Omit<RecentCommentRow, "document"> & {
   documents?:
     | {
@@ -43,6 +62,21 @@ type RawRecentCommentRow = Omit<RecentCommentRow, "document"> & {
         title: string;
       }
     | {
+        slug: string;
+        title: string;
+      }[]
+    | null;
+};
+
+type RawLearningDocumentRow = Omit<LearningDocumentRow, "document"> & {
+  documents?:
+    | {
+        content_type: string;
+        slug: string;
+        title: string;
+      }
+    | {
+        content_type: string;
         slug: string;
         title: string;
       }[]
@@ -92,6 +126,33 @@ async function getRecentComments(userId: string) {
   }));
 }
 
+async function getLearningDocuments(userId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("document_member_states")
+    .select(
+      "document_id, is_favorite, is_completed, updated_at, documents(slug, title, content_type)",
+    )
+    .eq("user_id", userId)
+    .or("is_favorite.eq.true,is_completed.eq.true")
+    .order("updated_at", { ascending: false })
+    .limit(8);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as RawLearningDocumentRow[]).map((row) => ({
+    document: Array.isArray(row.documents)
+      ? (row.documents[0] ?? null)
+      : (row.documents ?? null),
+    document_id: row.document_id,
+    is_completed: row.is_completed,
+    is_favorite: row.is_favorite,
+    updated_at: row.updated_at,
+  }));
+}
+
 export default async function MePage({ searchParams }: MePageProps) {
   const params = await searchParams;
   const configured = isSupabaseConfigured();
@@ -113,13 +174,14 @@ export default async function MePage({ searchParams }: MePageProps) {
     );
   }
 
-  const [recentDocuments, recentComments] =
+  const [recentDocuments, recentComments, learningDocuments] =
     configured && user && member
       ? await Promise.all([
           getRecentDocuments(user.id),
           getRecentComments(user.id),
+          getLearningDocuments(user.id),
         ])
-      : [[], []];
+      : [[], [], []];
 
   return (
     <>
@@ -220,6 +282,74 @@ export default async function MePage({ searchParams }: MePageProps) {
           ) : null}
 
           <section className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 lg:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-950">
+                  내 학습 상태
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href="/?learning=favorite"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-medium text-slate-600 transition hover:border-amber-200 hover:text-amber-700"
+                  >
+                    <Star size={13} aria-hidden />
+                    즐겨찾기
+                  </Link>
+                  <Link
+                    href="/?learning=completed"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-medium text-slate-600 transition hover:border-emerald-200 hover:text-emerald-700"
+                  >
+                    <CheckCircle2 size={13} aria-hidden />
+                    숙지함
+                  </Link>
+                </div>
+              </div>
+              {learningDocuments.length ? (
+                <ol className="mt-4 grid gap-2 md:grid-cols-2">
+                  {learningDocuments.map((item) => (
+                    <li key={item.document_id}>
+                      <Link
+                        href={
+                          item.document
+                            ? `/documents/${encodeURIComponent(
+                                item.document.slug,
+                              )}`
+                            : "/"
+                        }
+                        className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"
+                      >
+                        <span className="block text-sm font-medium text-slate-950">
+                          {item.document?.title ?? "삭제된 문서"}
+                        </span>
+                        <span className="mt-2 flex flex-wrap gap-1.5">
+                          {item.is_favorite ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+                              <Star
+                                size={12}
+                                className="fill-current"
+                                aria-hidden
+                              />
+                              즐겨찾기
+                            </span>
+                          ) : null}
+                          {item.is_completed ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+                              <CheckCircle2 size={12} aria-hidden />
+                              숙지함
+                            </span>
+                          ) : null}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="mt-3 text-sm leading-6 text-slate-500">
+                  아직 즐겨찾기하거나 숙지 완료한 문서가 없습니다.
+                </p>
+              )}
+            </article>
+
             <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
               <h2 className="text-lg font-semibold text-slate-950">
                 최근 작성/수정 문서

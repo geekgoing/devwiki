@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -11,6 +12,7 @@ import { slugify, toTagSlug } from "@/lib/slugify";
 import type { Tag } from "@/types/devwiki";
 
 const MAX_TAG_NAME_LENGTH = 40;
+const REMEMBER_EMAIL_COOKIE = "devwiki_remember_email";
 
 const documentSchema = z.object({
   id: z.string().optional(),
@@ -37,6 +39,13 @@ const profileSchema = z.object({
     .trim()
     .min(2, "닉네임은 2자 이상이어야 합니다.")
     .max(40, "닉네임은 40자 이하로 입력하세요."),
+});
+
+const documentLearningStateSchema = z.object({
+  documentId: z.string().uuid(),
+  enabled: z.boolean(),
+  field: z.enum(["favorite", "completed"]),
+  slug: z.string().trim().min(1),
 });
 
 function readString(formData: FormData, key: string) {
@@ -236,6 +245,7 @@ async function syncRelatedDocuments(
 export async function signInWithPassword(formData: FormData) {
   const email = readString(formData, "email").trim().toLowerCase();
   const password = readString(formData, "password");
+  const rememberEmail = readString(formData, "remember_email") === "on";
   const next = safeRedirectPath(readString(formData, "next") || "/");
 
   if (!email) {
@@ -257,6 +267,20 @@ export async function signInWithPassword(formData: FormData) {
       ? "rate-limit"
       : "credentials";
     redirect(loginPath({ error: reason, next }));
+  }
+
+  const cookieStore = await cookies();
+
+  if (rememberEmail) {
+    cookieStore.set(REMEMBER_EMAIL_COOKIE, email, {
+      httpOnly: true,
+      maxAge: 60 * 60 * 24 * 180,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  } else {
+    cookieStore.delete(REMEMBER_EMAIL_COOKIE);
   }
 
   redirect(next);
@@ -487,4 +511,48 @@ export async function updateMyProfile(formData: FormData) {
   revalidatePath("/", "layout");
   revalidatePath("/me");
   redirect("/me?notice=profile");
+}
+
+export async function updateDocumentLearningState(formData: FormData) {
+  const { supabase, user } = await requireAuthenticatedMember();
+  const parsed = documentLearningStateSchema.parse({
+    documentId: readString(formData, "document_id"),
+    enabled: readString(formData, "enabled") === "1",
+    field: readString(formData, "field"),
+    slug: readString(formData, "slug"),
+  });
+  const nextState =
+    parsed.field === "favorite"
+      ? { is_favorite: parsed.enabled }
+      : { is_completed: parsed.enabled };
+
+  const { data: currentState, error: currentStateError } = await supabase
+    .from("document_member_states")
+    .select("is_favorite, is_completed")
+    .eq("document_id", parsed.documentId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (currentStateError) {
+    throw new Error(currentStateError.message);
+  }
+
+  const { error } = await supabase.from("document_member_states").upsert(
+    {
+      document_id: parsed.documentId,
+      user_id: user.id,
+      is_favorite: currentState?.is_favorite ?? false,
+      is_completed: currentState?.is_completed ?? false,
+      ...nextState,
+    },
+    { onConflict: "document_id,user_id" },
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/");
+  revalidatePath("/me");
+  revalidatePath(documentPath(parsed.slug));
 }

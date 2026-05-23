@@ -12,6 +12,8 @@
 - Mermaid diagrams
 - Supabase Storage image uploads
 - Member-only access, role-based editing, profile nicknames
+- Per-member favorites and completed-learning filters
+- Share metadata, generated app icons, and document link copying
 
 ## Local setup
 
@@ -30,6 +32,7 @@ Supabase 연결 전에는 데모 문서가 보입니다. 실제 저장을 사용
 - `상황 시뮬레이션`: 서술형 상황 질문과 토론
 
 Supabase가 연결된 환경에서는 로그인한 active member만 문서를 읽을 수 있습니다. `공개` 상태는 인터넷 공개가 아니라 전체 멤버 기본 목록에 노출된다는 뜻입니다.
+각 멤버는 문서를 즐겨찾기하거나 `숙지함`으로 표시할 수 있고, 홈에서 `즐겨찾기`, `숙지함`, `미숙지` 필터로 학습 상태를 나눠 볼 수 있습니다.
 
 ## Image uploads
 
@@ -63,3 +66,5 @@ would not match `members.email`, and too-short E2E passwords.
 `DEVWIKI_E2E_EMAIL`/`DEVWIKI_E2E_PASSWORD`. Run the app first for
 `verify:mvp-ui`, and install the Playwright browser once with
 `npx playwright install chromium` if Chromium is not available locally.
+일상 개발 중에는 `verify:mvp-ui` 대신 Browser Use로 핵심 화면만 smoke check하고,
+릴리즈 전 회귀 확인이 필요할 때만 `verify:mvp-ui`를 실행합니다.

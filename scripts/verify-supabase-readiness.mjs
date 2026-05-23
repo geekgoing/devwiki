@@ -14,6 +14,7 @@ const requiredRlsSnippets = [
   "alter table public.tags enable row level security;",
   "alter table public.document_tags enable row level security;",
   "alter table public.comments enable row level security;",
+  "alter table public.document_member_states enable row level security;",
 ];
 const requiredAuthenticatedGrantSnippets = [
   "grant usage on schema public to authenticated;",
@@ -27,6 +28,7 @@ const requiredAuthenticatedGrantSnippets = [
   "grant select, insert, update on public.tags to authenticated;",
   "grant select, insert, delete on public.document_tags to authenticated;",
   "grant select, insert, update, delete on public.comments to authenticated;",
+  "grant select, insert, update, delete on public.document_member_states to authenticated;",
 ];
 const requiredServiceRoleGrantSnippets = [
   "grant usage on schema public to service_role;",
@@ -37,6 +39,7 @@ const requiredServiceRoleGrantSnippets = [
   "grant all privileges on table public.tags to service_role;",
   "grant all privileges on table public.document_tags to service_role;",
   "grant all privileges on table public.comments to service_role;",
+  "grant all privileges on table public.document_member_states to service_role;",
 ];
 const requiredPolicySnippets = [
   'create policy "users can read their own membership"',
@@ -52,6 +55,10 @@ const requiredPolicySnippets = [
   'create policy "members can read document tags"',
   'create policy "editors can create document tags"',
   'create policy "editors can delete document tags"',
+  'create policy "members can read their own document states"',
+  'create policy "members can create their own document states"',
+  'create policy "members can update their own document states"',
+  'create policy "members can delete their own document states"',
 ];
 const requiredStorageSnippets = [
   "insert into storage.buckets",

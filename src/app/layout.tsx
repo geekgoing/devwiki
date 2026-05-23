@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+import { getSiteUrl, siteDescription, siteName } from "@/lib/site";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -13,8 +15,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DevWiki",
-  description: "개발자가 함께 정리하는 기술 면접 위키",
+  metadataBase: new URL(getSiteUrl()),
+  title: {
+    default: siteName,
+    template: `%s · ${siteName}`,
+  },
+  description: siteDescription,
+  applicationName: siteName,
+  openGraph: {
+    title: siteName,
+    description: siteDescription,
+    siteName,
+    type: "website",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteName,
+    description: siteDescription,
+  },
 };
 
 export default function RootLayout({

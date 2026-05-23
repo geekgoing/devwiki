@@ -11,6 +11,8 @@ export const demoDocuments: DocumentSummary[] = [
     status: "published",
     contentType: "term",
     interviewCategory: null,
+    isFavorite: false,
+    isCompleted: false,
     createdAt: now,
     updatedAt: now,
     tags: [
@@ -26,6 +28,8 @@ export const demoDocuments: DocumentSummary[] = [
     status: "draft",
     contentType: "term",
     interviewCategory: null,
+    isFavorite: false,
+    isCompleted: false,
     createdAt: now,
     updatedAt: now,
     tags: [

@@ -30,6 +30,16 @@ export type DocumentStatus = "draft" | "published" | "archived";
 export type DocumentStatusFilter = "active" | DocumentStatus;
 export type DocumentContentType = "term" | "interview_qa" | "scenario";
 export type InterviewCategory = "technical" | "behavioral";
+export type DocumentLearningFilter =
+  | "all"
+  | "favorite"
+  | "completed"
+  | "todo";
+
+export type DocumentLearningState = {
+  isFavorite: boolean;
+  isCompleted: boolean;
+};
 
 export type DocumentSummary = {
   id: string;
@@ -39,6 +49,8 @@ export type DocumentSummary = {
   status: DocumentStatus;
   contentType: DocumentContentType;
   interviewCategory: InterviewCategory | null;
+  isFavorite: boolean;
+  isCompleted: boolean;
   updatedAt: string;
   createdAt: string;
   tags: Tag[];

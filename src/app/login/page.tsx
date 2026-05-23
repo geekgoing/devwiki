@@ -1,5 +1,5 @@
 import { Mail } from "lucide-react";
-import Link from "next/link";
+import { cookies } from "next/headers";
 
 import { signInWithPassword } from "@/app/actions";
 import { AppHeader } from "@/components/app-header";
@@ -15,11 +15,15 @@ type LoginPageProps = {
   }>;
 };
 
+const REMEMBER_EMAIL_COOKIE = "devwiki_remember_email";
+
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
+  const cookieStore = await cookies();
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
+  const rememberedEmail = cookieStore.get(REMEMBER_EMAIL_COOKIE)?.value ?? "";
   const next =
     params.next?.startsWith("/") && !params.next.startsWith("//")
       ? params.next
@@ -76,7 +80,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 <input
                   type="email"
                   name="email"
+                  defaultValue={rememberedEmail}
                   required
+                  autoComplete="email"
                   placeholder="name@example.com"
                   className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 />
@@ -93,6 +99,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                   className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 />
               </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  name="remember_email"
+                  defaultChecked={Boolean(rememberedEmail)}
+                  className="size-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                이메일 기억
+              </label>
               <button
                 type="submit"
                 disabled={!configured}
@@ -101,13 +116,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 로그인
               </button>
             </form>
-
-            <Link
-              href="/"
-              className="mt-4 inline-flex text-sm font-medium text-slate-600 hover:text-slate-950"
-            >
-              문서 목록으로 돌아가기
-            </Link>
           </section>
         </div>
       </main>

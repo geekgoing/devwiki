@@ -6,6 +6,8 @@ import type {
   DocumentComment,
   DocumentContentType,
   DocumentDetail,
+  DocumentLearningFilter,
+  DocumentLearningState,
   InterviewCategory,
   DocumentRevision,
   DocumentStatus,
@@ -40,6 +42,12 @@ type RawDocumentLink = {
   target_document_id: string;
 };
 
+type RawDocumentMemberState = {
+  document_id: string;
+  is_completed: boolean;
+  is_favorite: boolean;
+};
+
 const DOCUMENT_LIST_SELECT =
   "id, slug, title, summary, status, content_type, interview_category, created_at, updated_at, document_tags(tags(id, name, slug))";
 const DOCUMENT_LIST_LIMIT = 100;
@@ -49,11 +57,13 @@ const DEFAULT_MEMBER_STATUSES: DocumentStatus[] = ["published", "draft"];
 
 type DocumentReadOptions = {
   canReadPrivate?: boolean;
+  viewerId?: string | null;
 };
 
 type DocumentListOptions = DocumentReadOptions & {
   contentType?: DocumentContentType;
   interviewCategory?: InterviewCategory;
+  learning?: DocumentLearningFilter;
   query?: string;
   status?: DocumentStatusFilter;
 };
@@ -72,7 +82,13 @@ function flattenTags(relations?: RawTagRelation[] | null): Tag[] {
   });
 }
 
-function toDocumentSummary(row: RawDocument): DocumentSummary {
+function toDocumentSummary(
+  row: RawDocument,
+  state: DocumentLearningState = {
+    isCompleted: false,
+    isFavorite: false,
+  },
+): DocumentSummary {
   return {
     id: row.id,
     slug: row.slug,
@@ -81,6 +97,8 @@ function toDocumentSummary(row: RawDocument): DocumentSummary {
     status: row.status,
     contentType: row.content_type ?? "term",
     interviewCategory: row.interview_category ?? null,
+    isCompleted: state.isCompleted,
+    isFavorite: state.isFavorite,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     tags: flattenTags(row.document_tags),
@@ -133,6 +151,65 @@ function hasVisibleStatus(
   statuses: DocumentStatus[],
 ) {
   return statuses.includes(document.status);
+}
+
+function matchesLearningFilter(
+  document: DocumentSummary,
+  learning: DocumentLearningFilter = "all",
+) {
+  if (learning === "favorite") {
+    return document.isFavorite;
+  }
+
+  if (learning === "completed") {
+    return document.isCompleted;
+  }
+
+  if (learning === "todo") {
+    return !document.isCompleted;
+  }
+
+  return true;
+}
+
+async function getDocumentStateMap(documentIds: string[], viewerId?: string | null) {
+  const stateMap = new Map<string, DocumentLearningState>();
+
+  if (!viewerId || !documentIds.length || !isSupabaseConfigured()) {
+    return stateMap;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("document_member_states")
+    .select("document_id, is_favorite, is_completed")
+    .eq("user_id", viewerId)
+    .in("document_id", documentIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  ((data ?? []) as RawDocumentMemberState[]).forEach((row) => {
+    stateMap.set(row.document_id, {
+      isCompleted: row.is_completed,
+      isFavorite: row.is_favorite,
+    });
+  });
+
+  return stateMap;
+}
+
+async function attachDocumentStates(
+  rows: RawDocument[],
+  viewerId?: string | null,
+) {
+  const stateMap = await getDocumentStateMap(
+    rows.map((row) => row.id),
+    viewerId,
+  );
+
+  return rows.map((row) => toDocumentSummary(row, stateMap.get(row.id)));
 }
 
 function isMissingDocumentLinksError(error?: { message?: string } | null) {
@@ -202,9 +279,11 @@ async function getCommentAuthorLabels(createdByIds: string[]) {
 export async function getDocuments({
   contentType,
   interviewCategory,
+  learning = "all",
   query = "",
   status = "active",
   canReadPrivate = false,
+  viewerId = null,
 }: DocumentListOptions = {}): Promise<DocumentSummary[]> {
   const statuses = visibleStatuses(status, canReadPrivate);
 
@@ -219,6 +298,7 @@ export async function getDocuments({
         (!contentType || document.contentType === contentType) &&
         (!interviewCategory ||
           document.interviewCategory === interviewCategory) &&
+        matchesLearningFilter(document, learning) &&
         matchesQuery(document, query),
     );
   }
@@ -259,8 +339,11 @@ export async function getDocuments({
       }
     }
 
-    return rows.map(toDocumentSummary).filter((document) =>
-      matchesQuery(document, normalizedQuery),
+    const documents = await attachDocumentStates(rows, viewerId);
+    return documents.filter(
+      (document) =>
+        matchesLearningFilter(document, learning) &&
+        matchesQuery(document, normalizedQuery),
     );
   }
 
@@ -279,14 +362,16 @@ export async function getDocuments({
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as RawDocument[])
-    .map(toDocumentSummary)
-    .filter((document) => matchesQuery(document, query));
+  const documents = await attachDocumentStates((data ?? []) as RawDocument[], viewerId);
+  return documents.filter(
+    (document) =>
+      matchesLearningFilter(document, learning) && matchesQuery(document, query),
+  );
 }
 
 export async function getDocumentBySlug(
   slug: string,
-  { canReadPrivate = false }: DocumentReadOptions = {},
+  { canReadPrivate = false, viewerId = null }: DocumentReadOptions = {},
 ): Promise<DocumentDetail | null> {
   if (!isSupabaseConfigured()) {
     const document = demoDocumentDetails[slug] ?? null;
@@ -321,7 +406,18 @@ export async function getDocumentBySlug(
     throw new Error(error.message);
   }
 
-  return data ? toDocumentDetail(data as RawDocument) : null;
+  if (!data) {
+    return null;
+  }
+
+  const stateMap = await getDocumentStateMap([data.id], viewerId);
+  return {
+    ...toDocumentDetail(data as RawDocument),
+    ...(stateMap.get(data.id) ?? {
+      isCompleted: false,
+      isFavorite: false,
+    }),
+  };
 }
 
 export async function getDocumentRevisions(

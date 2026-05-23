@@ -472,6 +472,50 @@ ${imageMarkdown}
     documentId = document.id;
     report("pass", "Member document insert succeeded", slug);
 
+    await expectBlocked("Non-member document state insert blocked", () =>
+      nonMemberSession.client.from("document_member_states").insert({
+        document_id: documentId,
+        user_id: nonMemberSession.user.id,
+        is_favorite: true,
+      }),
+    );
+
+    const { error: stateError } = await memberSession.client
+      .from("document_member_states")
+      .upsert(
+        {
+          document_id: documentId,
+          user_id: memberSession.user.id,
+          is_completed: true,
+          is_favorite: true,
+        },
+        { onConflict: "document_id,user_id" },
+      );
+
+    if (stateError) {
+      throw new Error(`Member document state upsert failed: ${stateError.message}`);
+    }
+
+    const { data: stateRows, error: stateLookupError } = await memberSession.client
+      .from("document_member_states")
+      .select("is_favorite, is_completed")
+      .eq("document_id", documentId)
+      .eq("user_id", memberSession.user.id);
+
+    if (stateLookupError || stateRows?.length !== 1) {
+      throw new Error(
+        `Member document state lookup failed: ${
+          stateLookupError?.message ?? "state row was not returned"
+        }`,
+      );
+    }
+
+    if (!stateRows[0].is_favorite || !stateRows[0].is_completed) {
+      throw new Error("Member document state values were not persisted.");
+    }
+
+    report("pass", "Member document state persisted");
+
     await replaceDocumentTags(
       memberSession.client,
       documentId,
