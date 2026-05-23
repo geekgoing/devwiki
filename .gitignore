@@ -16,6 +16,9 @@
 # supabase
 /supabase/.temp
 
+# local deployment notes
+/docs/k3s-gitops-deployment.md
+
 # next.js
 /.next/
 /out/
