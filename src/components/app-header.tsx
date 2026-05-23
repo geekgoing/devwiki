@@ -1,13 +1,14 @@
-import { BookOpen, LogIn, LogOut, Plus, Users } from "lucide-react";
+import { BookOpen, HelpCircle, LogIn, LogOut, Plus, User, Users } from "lucide-react";
 import Link from "next/link";
 
 import { signOut } from "@/app/actions";
-import type { DevWikiUser } from "@/types/devwiki";
+import type { DevWikiUser, Member } from "@/types/devwiki";
 
 type AppHeaderProps = {
   configured: boolean;
   canCreate?: boolean;
   canManageMembers?: boolean;
+  member?: Member | null;
   user: DevWikiUser | null;
 };
 
@@ -15,6 +16,7 @@ export function AppHeader({
   configured,
   canCreate = false,
   canManageMembers = false,
+  member = null,
   user,
 }: AppHeaderProps) {
   return (
@@ -37,6 +39,24 @@ export function AppHeader({
         <nav className="flex flex-wrap items-center justify-end gap-2">
           {configured && user ? (
             <>
+              {member ? (
+                <>
+                  <Link
+                    href="/help"
+                    className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    <HelpCircle size={16} aria-hidden />
+                    도움말
+                  </Link>
+                  <Link
+                    href="/me"
+                    className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    <User size={16} aria-hidden />
+                    {member.displayName ?? "마이페이지"}
+                  </Link>
+                </>
+              ) : null}
               {canCreate ? (
                 <Link
                   href="/documents/new"
