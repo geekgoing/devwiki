@@ -8,6 +8,7 @@ import Link from "next/link";
 
 import { LinkPendingIndicator } from "@/components/link-pending-indicator";
 import { ProfileMenu } from "@/components/profile-menu";
+import { contentRoutes } from "@/lib/content-routes";
 import type { DevWikiUser, DocumentContentType, Member } from "@/types/devwiki";
 
 type AppHeaderProps = {
@@ -21,17 +22,17 @@ type AppHeaderProps = {
 
 const contentNavItems = [
   {
-    href: "/",
-    label: "기술 용어",
+    href: contentRoutes.term.href,
+    label: contentRoutes.term.label,
     type: "term",
   },
   {
-    href: "/?type=interview_qa",
-    label: "면접 Q&A",
+    href: contentRoutes.interview_qa.href,
+    label: contentRoutes.interview_qa.label,
     type: "interview_qa",
   },
   {
-    href: "/?type=scenario",
+    href: contentRoutes.scenario.href,
     label: "시뮬레이션",
     type: "scenario",
   },

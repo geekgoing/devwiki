@@ -289,14 +289,14 @@ export default async function MePage({ searchParams }: MePageProps) {
                 </h2>
                 <div className="flex flex-wrap gap-2">
                   <Link
-                    href="/?learning=favorite"
+                    href="/search?learning=favorite"
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-medium text-slate-600 transition hover:border-amber-200 hover:text-amber-700"
                   >
                     <Star size={13} aria-hidden />
                     즐겨찾기
                   </Link>
                   <Link
-                    href="/?learning=completed"
+                    href="/search?learning=completed"
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-medium text-slate-600 transition hover:border-emerald-200 hover:text-emerald-700"
                   >
                     <CheckCircle2 size={13} aria-hidden />
