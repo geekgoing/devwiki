@@ -1,12 +1,10 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { DocumentDiscoveryBoard } from "@/components/document-discovery-board";
 import { DocumentFilterToolbar } from "@/components/document-filter-toolbar";
 import { DocumentListCard } from "@/components/document-list-card";
 import { EmptyState } from "@/components/empty-state";
-import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import {
   contentTypeLabels,
@@ -25,10 +23,6 @@ type SectionSearchParams = Promise<{
   learning?: string;
   status?: string;
 }>;
-
-function loginHref(next: string) {
-  return `/login?next=${encodeURIComponent(next)}`;
-}
 
 function newDocumentHref(contentType: DocumentContentType, category?: string) {
   const params = new URLSearchParams({ type: contentType });
@@ -56,18 +50,6 @@ export async function ContentSectionPage({
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
-
-  if (configured && !user) {
-    redirect(loginHref(routePath));
-  }
-
-  if (configured && user && !member) {
-    return (
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <MemberGate user={user} />
-      </main>
-    );
-  }
 
   const canReadPrivate = !configured || Boolean(member);
   const canCreate = canEditContent(member);

@@ -1,10 +1,8 @@
 import { ShieldAlert, Users } from "lucide-react";
-import { redirect } from "next/navigation";
 
 import { createMember, updateMember } from "@/app/admin/members/actions";
-import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
-import { getCurrentMember, getCurrentUser } from "@/lib/auth";
+import { getCurrentMember } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { getAdminMembers } from "@/lib/admin-members";
 import { canManageMembers } from "@/lib/permissions";
@@ -133,20 +131,7 @@ export default async function MembersAdminPage({
 }: MembersAdminPageProps) {
   const params = await searchParams;
   const configured = isSupabaseConfigured();
-  const user = await getCurrentUser();
   const member = await getCurrentMember();
-
-  if (configured && !user) {
-    redirect("/login");
-  }
-
-  if (configured && user && !member) {
-    return (
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <MemberGate user={user} />
-      </main>
-    );
-  }
 
   const canManageMemberList = canManageMembers(member);
   const members = canManageMemberList ? await getAdminMembers() : [];

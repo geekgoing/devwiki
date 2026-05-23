@@ -5,11 +5,8 @@ import {
   MessageSquare,
   ShieldCheck,
 } from "lucide-react";
-import { redirect } from "next/navigation";
 
-import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
-import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 const contentSections = [
@@ -33,26 +30,8 @@ const roleRows = [
   ["viewer", "문서 읽기와 토론 댓글 작성"],
 ];
 
-function loginHref(next: string) {
-  return `/login?next=${encodeURIComponent(next)}`;
-}
-
 export default async function HelpPage() {
   const configured = isSupabaseConfigured();
-  const user = await getCurrentUser();
-  const member = await getCurrentMember();
-
-  if (configured && !user) {
-    redirect(loginHref("/help"));
-  }
-
-  if (configured && user && !member) {
-    return (
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <MemberGate user={user} />
-      </main>
-    );
-  }
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 lg:px-8">

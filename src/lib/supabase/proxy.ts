@@ -5,7 +5,18 @@ import { getSupabaseConfig } from "@/lib/supabase/env";
 
 export async function updateSession(request: NextRequest) {
   const config = getSupabaseConfig();
-  const response = NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+
+  requestHeaders.set(
+    "x-devwiki-pathname",
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+  );
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 
   if (!config) {
     return response;

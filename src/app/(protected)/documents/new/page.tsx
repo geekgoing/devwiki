@@ -1,10 +1,7 @@
-import { redirect } from "next/navigation";
-
 import { createDocument } from "@/app/actions";
 import { DocumentEditor } from "@/components/document-editor";
-import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
-import { getCurrentMember, getCurrentUser } from "@/lib/auth";
+import { getCurrentMember } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
 import { canEditContent } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -25,10 +22,6 @@ function parseInterviewCategory(value?: string): InterviewCategory | undefined {
   return value === "technical" || value === "behavioral" ? value : undefined;
 }
 
-function loginHref(next: string) {
-  return `/login?next=${encodeURIComponent(next)}`;
-}
-
 export default async function NewDocumentPage({
   searchParams,
 }: NewDocumentPageProps) {
@@ -36,7 +29,6 @@ export default async function NewDocumentPage({
   const contentType = parseContentType(params.type);
   const interviewCategory = parseInterviewCategory(params.category);
   const configured = isSupabaseConfigured();
-  const user = await getCurrentUser();
   const member = await getCurrentMember();
   const canEdit = !configured || canEditContent(member);
   const linkableDocuments = canEdit
@@ -46,18 +38,12 @@ export default async function NewDocumentPage({
       })
     : [];
 
-  if (configured && !user) {
-    redirect(loginHref("/documents/new"));
-  }
-
   return (
     <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="sr-only">새 문서 작성</h1>
 
         {!configured ? (
           <SetupNotice />
-        ) : user && !member ? (
-          <MemberGate user={user} />
         ) : !canEdit ? (
           <section className="rounded-md border border-amber-200 bg-amber-50 px-5 py-6">
             <h1 className="text-xl font-semibold text-amber-950">

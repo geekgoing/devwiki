@@ -7,10 +7,8 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { updateMyProfile } from "@/app/actions";
-import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { documentDetailPath, parseContentType } from "@/lib/content-routes";
@@ -85,10 +83,6 @@ type RawLearningDocumentRow = Omit<LearningDocumentRow, "document"> & {
       }[]
     | null;
 };
-
-function loginHref(next: string) {
-  return `/login?next=${encodeURIComponent(next)}`;
-}
 
 function documentHref(document: { content_type?: string | null; slug: string }) {
   return documentDetailPath({
@@ -168,18 +162,6 @@ export default async function MePage({ searchParams }: MePageProps) {
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
-
-  if (configured && !user) {
-    redirect(loginHref("/me"));
-  }
-
-  if (configured && user && !member) {
-    return (
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <MemberGate user={user} />
-      </main>
-    );
-  }
 
   const [recentDocuments, recentComments, learningDocuments] =
     configured && user && member

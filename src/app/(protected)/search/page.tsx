@@ -1,16 +1,13 @@
 import { Search } from "lucide-react";
-import { redirect } from "next/navigation";
 
 import { DocumentFilterToolbar } from "@/components/document-filter-toolbar";
 import { DocumentListCard } from "@/components/document-list-card";
 import { EmptyState } from "@/components/empty-state";
-import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import {
   parseInterviewCategory,
   parseLearningFilter,
   parseStatusFilter,
-  withSearchParams,
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
@@ -25,10 +22,6 @@ type SearchPageProps = {
   }>;
 };
 
-function loginHref(next: string) {
-  return `/login?next=${encodeURIComponent(next)}`;
-}
-
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
@@ -38,25 +31,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
-  const next = withSearchParams("/search", {
-    category: params.category,
-    learning: params.learning,
-    q: query || undefined,
-    status: params.status,
-  });
-
-  if (configured && !user) {
-    redirect(loginHref(next));
-  }
-
-  if (configured && user && !member) {
-    return (
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <MemberGate user={user} />
-      </main>
-    );
-  }
-
   const canReadPrivate = !configured || Boolean(member);
   const hasAnyFilter =
     Boolean(query) ||

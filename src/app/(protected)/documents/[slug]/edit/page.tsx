@@ -1,8 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { updateDocument } from "@/app/actions";
 import { DocumentEditor } from "@/components/document-editor";
-import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { canEditContent } from "@/lib/permissions";
@@ -29,18 +28,6 @@ export default async function EditDocumentPage({
   const member = await getCurrentMember();
   const canEdit = !configured || canEditContent(member);
 
-  if (configured && !user) {
-    redirect(`/login?next=${encodeURIComponent(`/documents/${encodedSlug}/edit`)}`);
-  }
-
-  if (configured && user && !member) {
-    return (
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <MemberGate user={user} />
-      </main>
-    );
-  }
-
   const document = await getDocumentBySlug(slug, {
     canReadPrivate: !configured || Boolean(member),
     viewerId: user?.id,
@@ -66,8 +53,6 @@ export default async function EditDocumentPage({
 
         {!configured ? (
           <SetupNotice />
-        ) : user && !member ? (
-          <MemberGate user={user} />
         ) : !canEdit ? (
           <section className="rounded-md border border-amber-200 bg-amber-50 px-5 py-6">
             <h1 className="text-xl font-semibold text-amber-950">

@@ -8,10 +8,8 @@ import {
   Star,
 } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { DocumentListCard } from "@/components/document-list-card";
-import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import {
   contentRoutes,
@@ -44,10 +42,6 @@ const sectionCards = [
   icon: typeof BookOpen;
   accentClassName: string;
 }>;
-
-function loginHref(next: string) {
-  return `/login?next=${encodeURIComponent(next)}`;
-}
 
 function getDocumentCounts(documents: DocumentSummary[]) {
   return documents.reduce(
@@ -98,18 +92,6 @@ export default async function Home() {
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
-
-  if (configured && !user) {
-    redirect(loginHref("/"));
-  }
-
-  if (configured && user && !member) {
-    return (
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
-        <MemberGate user={user} />
-      </main>
-    );
-  }
 
   const canReadPrivate = !configured || Boolean(member);
   const allDocuments = await getDocuments({
