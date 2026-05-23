@@ -567,6 +567,17 @@ async function assertPasswordLogin(page, baseUrl, email, password) {
   report("pass", "Registered member can login with password", email);
 }
 
+async function waitForLoginNext(page, baseUrl, expectedNext) {
+  const expectedOrigin = new URL(baseUrl).origin;
+
+  await page.waitForURL(
+    (nextUrl) =>
+      nextUrl.origin === expectedOrigin &&
+      nextUrl.pathname === "/login" &&
+      nextUrl.searchParams.get("next") === expectedNext,
+  );
+}
+
 async function assertMermaidErrorPreview(page, markdown) {
   const invalidMarkdown = `${markdown}
 
@@ -604,7 +615,7 @@ async function createDocumentWithAutoSlug({
   await expect(page.locator('input[name="slug"]')).toHaveValue(
     expectedInputSlug,
   );
-  await page.locator('input[name="summary"]').fill(summary);
+  await page.locator('textarea[name="summary"]').fill(summary);
   await page.locator('input[name="edit_summary"]').fill("mvp ui auto slug");
   await fillMarkdownEditor(
     page,
@@ -831,7 +842,7 @@ sequenceDiagram
     await page.goto(`${baseUrl}/documents/new`);
     await expect(page.locator('[data-testid="document-editor"]')).toBeVisible();
     await page.locator('input[name="title"]').fill(title);
-    await page.locator('input[name="summary"]').fill(createSummary);
+    await page.locator('textarea[name="summary"]').fill(createSummary);
     await setTagChips(page, createTags);
     await page.locator('input[name="edit_summary"]').fill("mvp ui create");
     await page.locator('select[name="status"]').selectOption("draft");
@@ -959,7 +970,7 @@ sequenceDiagram
 
 문서 수정 시 본문, 상태, 태그, 변경 이력이 함께 갱신되어야 합니다.
 `;
-    await page.locator('input[name="summary"]').fill(updateSummary);
+    await page.locator('textarea[name="summary"]').fill(updateSummary);
     await page.locator('input[name="title"]').fill(updatedTitle);
     await setTagChips(page, updateTags);
     await page.locator('input[name="edit_summary"]').fill("mvp ui update");
@@ -1050,18 +1061,15 @@ sequenceDiagram
     await page.getByRole("button", { name: "로그아웃" }).click();
     await page.waitForURL(`${baseUrl}/login`);
     await page.goto(baseUrl);
-    await expect(page.getByText(updatedTitle)).toBeVisible();
-    await expect(page.getByText(archivedTitle)).toHaveCount(0);
+    await waitForLoginNext(page, baseUrl, "/");
+    await expect(page.getByRole("heading", { name: "이메일과 비밀번호로 로그인" })).toBeVisible();
+    await expect(page.getByText(updatedTitle)).toHaveCount(0);
     await page.goto(`${baseUrl}/documents/${encodedSlug}`);
-    await expect(page.getByTestId("document-title")).toHaveText(updatedTitle);
-    await expect(page.getByText(commentBody)).toBeVisible();
-    await expect(
-      page.getByText("의견 작성은 로그인한 멤버만 할 수 있습니다."),
-    ).toBeVisible();
+    await waitForLoginNext(page, baseUrl, `/documents/${encodedSlug}`);
     await page.goto(`${baseUrl}/documents/new`);
-    await page.waitForURL(`${baseUrl}/login`);
+    await waitForLoginNext(page, baseUrl, "/documents/new");
     await page.goto(`${baseUrl}/documents/${encodedSlug}/edit`);
-    await page.waitForURL(`${baseUrl}/login`);
+    await waitForLoginNext(page, baseUrl, `/documents/${encodedSlug}/edit`);
 
     const firstAssetPath = [...assetPaths][0];
 
@@ -1073,9 +1081,9 @@ sequenceDiagram
       `${baseUrl}/api/assets/${encodeAssetPath(firstAssetPath)}`,
     );
 
-    if (assetResponse.status() >= 400) {
+    if (assetResponse.status() !== 401) {
       throw new Error(
-        `Anonymous public asset read should succeed, got ${assetResponse.status()}`,
+        `Anonymous asset read should return 401, got ${assetResponse.status()}`,
       );
     }
 
@@ -1095,7 +1103,7 @@ sequenceDiagram
       );
     }
 
-    report("pass", "Anonymous users can read published documents only");
+    report("pass", "Anonymous users are blocked from member content");
     report("pass", "Logout gates write routes and upload APIs");
   } finally {
     await context.close();

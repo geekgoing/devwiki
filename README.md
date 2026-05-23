@@ -1,6 +1,6 @@
 # DevWiki
 
-개발자들이 기술 개념, 면접 질문, 실무 예시, Mermaid 시각 자료를 함께 작성하고 수정하는 개발자 지식 베이스입니다. Next.js와 Supabase를 사용합니다.
+등록된 멤버가 기술 용어, 면접 Q&A, 상황 시뮬레이션을 함께 작성하고 토론하는 회원 전용 개발자 지식 베이스입니다. Next.js와 Supabase를 사용합니다.
 
 ## Stack
 
@@ -11,6 +11,7 @@
 - Markdown editor with preview
 - Mermaid diagrams
 - Supabase Storage image uploads
+- Member-only access, role-based editing, profile nicknames
 
 ## Local setup
 
@@ -20,15 +21,23 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Supabase 연결 전에는 데모 문서가 보입니다. 실제 저장을 사용하려면 `supabase/README.md`를 따라 마이그레이션과 멤버 이메일을 설정하세요.
+Supabase 연결 전에는 데모 문서가 보입니다. 실제 저장을 사용하려면 `supabase/README.md`를 따라 마이그레이션과 첫 owner 계정을 설정하세요.
+
+## Content areas
+
+- `기술 용어`: 기술 개념, 실무 예시, 꼬리 질문
+- `면접 Q&A`: 기술/인성 질문과 답변 Tip
+- `상황 시뮬레이션`: 서술형 상황 질문과 토론
+
+Supabase가 연결된 환경에서는 로그인한 active member만 문서를 읽을 수 있습니다. `공개` 상태는 인터넷 공개가 아니라 전체 멤버 기본 목록에 노출된다는 뜻입니다.
 
 ## Image uploads
 
-Logged-in members can upload `png`, `jpeg`, `webp`, and `gif` images from the document editor. Uploaded files are stored in the private `devwiki-assets` Supabase Storage bucket and inserted into the document as Markdown image syntax.
+Owner/editor members can upload `png`, `jpeg`, `webp`, and `gif` images from the document editor. Uploaded files are stored in the private `devwiki-assets` Supabase Storage bucket and inserted into the document as Markdown image syntax.
 
 ## Member management
 
-Owner members can open `/admin/members` to create a Supabase Auth user and `members` row together, then edit member roles and active status. The first owner account still has to be created in Supabase once before the in-app admin screen can be used.
+Owner members can open `/admin/members` to create a Supabase Auth user and `members` row together, then edit member roles and active status. New members receive an automatically generated nickname and can edit it on `/me`. The first owner account still has to be created in Supabase once before the in-app admin screen can be used.
 
 ## Scripts
 

@@ -19,7 +19,9 @@ const requiredAuthenticatedGrantSnippets = [
   "grant usage on schema public to authenticated;",
   "grant usage on schema private to authenticated;",
   "grant execute on function private.is_devwiki_member() to authenticated;",
+  "grant execute on function private.is_devwiki_editor() to authenticated;",
   "grant select on public.members to authenticated;",
+  "grant update (display_name) on public.members to authenticated;",
   "grant select, insert, update on public.documents to authenticated;",
   "grant select, insert on public.document_revisions to authenticated;",
   "grant select, insert, update on public.tags to authenticated;",
@@ -38,26 +40,27 @@ const requiredServiceRoleGrantSnippets = [
 ];
 const requiredPolicySnippets = [
   'create policy "users can read their own membership"',
+  'create policy "members can update their own display name"',
   'create policy "members can read documents"',
-  'create policy "members can create documents"',
-  'create policy "members can update documents"',
+  'create policy "editors can create documents"',
+  'create policy "editors can update documents"',
   'create policy "members can read revisions"',
-  'create policy "members can insert revisions"',
+  'create policy "editors can insert revisions"',
   'create policy "members can read tags"',
-  'create policy "members can create tags"',
-  'create policy "members can update tags"',
+  'create policy "editors can create tags"',
+  'create policy "editors can update tags"',
   'create policy "members can read document tags"',
-  'create policy "members can create document tags"',
-  'create policy "members can delete document tags"',
+  'create policy "editors can create document tags"',
+  'create policy "editors can delete document tags"',
 ];
 const requiredStorageSnippets = [
   "insert into storage.buckets",
   "'devwiki-assets'",
   "array['image/png', 'image/jpeg', 'image/webp', 'image/gif']",
   'create policy "members can read devwiki assets"',
-  'create policy "members can upload devwiki assets"',
-  'create policy "members can update their devwiki assets"',
-  'create policy "members can delete their devwiki assets"',
+  'create policy "editors can upload devwiki assets"',
+  'create policy "editors can update their devwiki assets"',
+  'create policy "editors can delete their devwiki assets"',
 ];
 
 function loadEnvFile(path) {

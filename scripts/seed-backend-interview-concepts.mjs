@@ -9,6 +9,9 @@ const defaultSourcePaths = [
   "content/backend-interview-concepts.json",
   "content/backend-interview-concepts-extra.json",
 ].map((path) => resolve(projectRoot, path));
+const defaultDocumentSourcePaths = [
+  "content/devwiki-initial-documents.json",
+].map((path) => resolve(projectRoot, path));
 const importEditSummary = "백엔드 면접 개념 데이터 동기화";
 
 function loadEnvFile(path) {
@@ -205,9 +208,54 @@ function makeDocuments(concepts) {
     summary: concept.summary,
     body_markdown: makeBodyMarkdown(concept, conceptById),
     status: "published",
+    content_type: "term",
+    interview_category: null,
     tags: concept.tags,
     related: concept.related ?? [],
   }));
+}
+
+function loadDocumentFile(path) {
+  const raw = JSON.parse(readFileSync(path, "utf8"));
+
+  if (!Array.isArray(raw.documents)) {
+    throw new Error(`${path}에서 documents 배열을 찾을 수 없습니다.`);
+  }
+
+  return raw.documents.map((document) => {
+    const slug = slugify(document.slug || document.id || document.title);
+
+    if (!slug) {
+      throw new Error(`유효하지 않은 document slug입니다: ${document.title}`);
+    }
+
+    return {
+      slug,
+      title: document.title,
+      summary: document.summary,
+      body_markdown: `${document.bodyMarkdown.trim()}\n`,
+      status: document.status ?? "published",
+      content_type: document.contentType,
+      interview_category:
+        document.contentType === "interview_qa"
+          ? (document.interviewCategory ?? "technical")
+          : null,
+      tags: unique(document.tags ?? []),
+      related: document.related ?? [],
+    };
+  });
+}
+
+function loadDocumentData(paths) {
+  const documentsBySlug = new Map();
+
+  for (const path of paths) {
+    for (const document of loadDocumentFile(path)) {
+      documentsBySlug.set(document.slug, document);
+    }
+  }
+
+  return [...documentsBySlug.values()];
 }
 
 function createAdminClient() {
@@ -235,14 +283,16 @@ function hasDocumentChanged(existing, document) {
     existing.title !== document.title ||
     (existing.summary ?? "") !== (document.summary ?? "") ||
     existing.body_markdown !== document.body_markdown ||
-    existing.status !== document.status
+    existing.status !== document.status ||
+    (existing.content_type ?? "term") !== document.content_type ||
+    (existing.interview_category ?? null) !== document.interview_category
   );
 }
 
 async function upsertDocument(admin, document) {
   const { data: existing, error: selectError } = await admin
     .from("documents")
-    .select("id, title, summary, body_markdown, status")
+    .select("id, title, summary, body_markdown, status, content_type, interview_category")
     .eq("slug", document.slug)
     .maybeSingle();
 
@@ -262,6 +312,8 @@ async function upsertDocument(admin, document) {
         summary: document.summary,
         body_markdown: document.body_markdown,
         status: document.status,
+        content_type: document.content_type,
+        interview_category: document.interview_category,
         edit_summary: importEditSummary,
       })
       .eq("id", existing.id)
@@ -283,6 +335,8 @@ async function upsertDocument(admin, document) {
       summary: document.summary,
       body_markdown: document.body_markdown,
       status: document.status,
+      content_type: document.content_type,
+      interview_category: document.interview_category,
       edit_summary: importEditSummary,
     })
     .select("id")
@@ -449,12 +503,18 @@ async function main() {
   const sourcePaths = explicitSources.length
     ? explicitSources
     : defaultSourcePaths.filter((path) => existsSync(path));
+  const documentSourcePaths = defaultDocumentSourcePaths.filter((path) =>
+    existsSync(path),
+  );
   const dryRun = process.argv.includes("--dry-run");
   const data = loadConceptData(sourcePaths);
-  const documents = makeDocuments(data.concepts);
+  const documents = [
+    ...makeDocuments(data.concepts),
+    ...loadDocumentData(documentSourcePaths),
+  ];
 
   console.log(
-    `INFO ${documents.length}개 백엔드 면접 개념 문서를 준비했습니다. source=${sourcePaths.length}개`,
+    `INFO ${documents.length}개 DevWiki 문서를 준비했습니다. conceptSources=${sourcePaths.length}개 documentSources=${documentSourcePaths.length}개`,
   );
 
   if (dryRun) {

@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "description": "DevWiki 면접 Q&A와 상황 시뮬레이션 초기 데이터",
+  "documents": [
+    {
+      "id": "qa-tech-transaction-isolation",
+      "slug": "qa-transaction-isolation",
+      "title": "트랜잭션 격리 수준을 설명해주세요",
+      "summary": "격리 수준별 이상 현상과 실무 선택 기준을 묻는 기술 면접 질문입니다.",
+      "contentType": "interview_qa",
+      "interviewCategory": "technical",
+      "status": "published",
+      "tags": ["면접 Q&A", "기술", "Database", "Transaction"],
+      "related": ["isolation", "locking"],
+      "bodyMarkdown": "# 트랜잭션 격리 수준을 설명해주세요\n\n## 질문 의도\n동시성 환경에서 데이터 정합성과 성능의 균형을 이해하는지 확인합니다.\n\n## 답변 Tip\n- Read Uncommitted, Read Committed, Repeatable Read, Serializable 순서로 강도가 올라간다고 설명합니다.\n- Dirty Read, Non-repeatable Read, Phantom Read를 연결합니다.\n- 실무에서는 DB 기본값과 서비스 요구사항을 같이 본다고 말합니다.\n\n## 좋은 답변 흐름\n1. 격리 수준은 동시에 실행되는 트랜잭션이 서로의 변경을 어느 정도 볼지 정하는 정책입니다.\n2. 강한 격리는 정합성에 유리하지만 락 경합과 처리량 저하가 생길 수 있습니다.\n3. 결제/재고처럼 정합성이 중요한 부분은 더 강한 제어, 조회성 업무는 성능을 고려합니다.\n\n## 주의할 점\n무조건 Serializable이 좋다고 말하면 성능과 락 경합에 대한 고려가 부족해 보일 수 있습니다.\n\n## 꼬리 질문\n- MySQL InnoDB의 기본 격리 수준은 무엇인가요?\n- 낙관적 락과 격리 수준은 어떤 관계인가요?"
+    },
+    {
+      "id": "qa-tech-cache-invalidation",
+      "slug": "qa-cache-invalidation",
+      "title": "캐시 무효화는 어떻게 설계하나요?",
+      "summary": "TTL, 명시적 invalidation, cache aside의 장단점을 설명하는 질문입니다.",
+      "contentType": "interview_qa",
+      "interviewCategory": "technical",
+      "status": "published",
+      "tags": ["면접 Q&A", "기술", "Cache", "Performance"],
+      "related": ["cache-aside", "cache-invalidation"],
+      "bodyMarkdown": "# 캐시 무효화는 어떻게 설계하나요?\n\n## 질문 의도\n성능 개선을 위해 캐시를 쓰면서 오래된 데이터 문제를 어떻게 다루는지 확인합니다.\n\n## 답변 Tip\n- 캐시 전략은 조회 패턴과 정합성 요구사항에 따라 달라진다고 시작합니다.\n- TTL만으로 충분한 데이터와 이벤트 기반 무효화가 필요한 데이터를 구분합니다.\n- cache stampede와 동시 갱신 문제도 언급합니다.\n\n## 좋은 답변 흐름\n1. 먼저 데이터의 신선도 요구사항을 분류합니다.\n2. 일반 조회는 cache aside와 TTL로 단순하게 시작합니다.\n3. 변경 즉시 반영이 필요한 데이터는 쓰기 성공 후 cache delete 또는 이벤트 기반 invalidation을 둡니다.\n4. 인기 키는 soft TTL, lock, background refresh로 stampede를 줄입니다.\n\n## 주의할 점\n캐시를 DB처럼 믿고 정합성 보장을 전부 맡기면 위험합니다.\n\n## 꼬리 질문\n- TTL이 너무 길거나 짧으면 어떤 문제가 생기나요?\n- 캐시 삭제 실패는 어떻게 보완하나요?"
+    },
+    {
+      "id": "qa-tech-message-queue",
+      "slug": "qa-message-queue-retry",
+      "title": "메시지 큐 처리 실패는 어떻게 다루나요?",
+      "summary": "재시도, DLQ, 멱등성, 모니터링을 함께 설명하는 질문입니다.",
+      "contentType": "interview_qa",
+      "interviewCategory": "technical",
+      "status": "published",
+      "tags": ["면접 Q&A", "기술", "Messaging", "Retry"],
+      "related": ["message-queue", "dlq", "idempotency"],
+      "bodyMarkdown": "# 메시지 큐 처리 실패는 어떻게 다루나요?\n\n## 질문 의도\n비동기 처리에서 실패를 숨기지 않고 복구 가능한 흐름으로 설계하는지 봅니다.\n\n## 답변 Tip\n- 일시 실패와 영구 실패를 구분합니다.\n- 제한된 재시도, backoff, DLQ, 알림을 연결합니다.\n- 중복 처리 가능성을 멱등성으로 막는다고 설명합니다.\n\n## 좋은 답변 흐름\n1. consumer 실패 시 메시지를 즉시 버리지 않고 재시도 정책을 적용합니다.\n2. 재시도 간격은 exponential backoff처럼 점진적으로 늘립니다.\n3. 최대 횟수를 넘으면 DLQ로 분리하고 운영자가 원인을 확인합니다.\n4. at least once 환경에서는 같은 메시지가 여러 번 처리될 수 있어 idempotency key나 처리 이력 테이블을 둡니다.\n\n## 주의할 점\n무한 재시도는 큐 적체와 장애 확산을 만들 수 있습니다.\n\n## 꼬리 질문\n- DLQ 메시지는 어떻게 다시 처리하나요?\n- Exactly once는 항상 가능한가요?"
+    },
+    {
+      "id": "qa-tech-api-gateway",
+      "slug": "qa-api-gateway",
+      "title": "API Gateway의 역할은 무엇인가요?",
+      "summary": "인증, 라우팅, rate limiting, 관측성을 묻는 기술 질문입니다.",
+      "contentType": "interview_qa",
+      "interviewCategory": "technical",
+      "status": "published",
+      "tags": ["면접 Q&A", "기술", "API Gateway", "MSA"],
+      "related": ["api-gateway", "rate-limiting", "msa"],
+      "bodyMarkdown": "# API Gateway의 역할은 무엇인가요?\n\n## 질문 의도\nMSA 환경에서 공통 진입 계층이 왜 필요한지 이해하는지 확인합니다.\n\n## 답변 Tip\n- 단순 프록시가 아니라 cross-cutting concern을 담당한다고 설명합니다.\n- 인증/인가, 라우팅, rate limiting, logging, protocol translation을 언급합니다.\n- 비즈니스 로직이 과도하게 들어가면 병목이 된다고 말합니다.\n\n## 좋은 답변 흐름\n1. API Gateway는 클라이언트 요청의 단일 진입점입니다.\n2. 공통 인증, 요청 제한, 라우팅, 관측성 처리를 서비스 앞단에서 수행합니다.\n3. 각 서비스는 도메인 로직에 집중하고, gateway는 공통 정책을 일관되게 적용합니다.\n\n## 주의할 점\nGateway가 모든 비즈니스 판단을 가지면 서비스 독립성이 약해집니다.\n\n## 꼬리 질문\n- BFF와 API Gateway는 어떻게 다른가요?\n- Gateway 장애는 어떻게 대비하나요?"
+    },
+    {
+      "id": "qa-tech-n-plus-one",
+      "slug": "qa-n-plus-one",
+      "title": "N+1 문제를 어떻게 찾고 해결하나요?",
+      "summary": "ORM 사용 시 쿼리 폭증을 탐지하고 개선하는 방법을 묻습니다.",
+      "contentType": "interview_qa",
+      "interviewCategory": "technical",
+      "status": "published",
+      "tags": ["면접 Q&A", "기술", "ORM", "Database"],
+      "related": ["n-plus-one", "index"],
+      "bodyMarkdown": "# N+1 문제를 어떻게 찾고 해결하나요?\n\n## 질문 의도\n성능 문제를 코드, ORM, SQL 실행 계획 관점에서 볼 수 있는지 확인합니다.\n\n## 답변 Tip\n- 목록 1번 조회 뒤 각 row마다 추가 조회가 발생하는 문제라고 정의합니다.\n- SQL 로그, APM, slow query, query count 테스트로 찾는다고 설명합니다.\n- fetch join, eager loading, batch loading, projection을 상황에 맞게 언급합니다.\n\n## 좋은 답변 흐름\n1. 먼저 요청 하나에서 실행되는 쿼리 수와 패턴을 확인합니다.\n2. 관계 데이터가 필요한 화면이면 join 또는 eager loading으로 한 번에 가져옵니다.\n3. 필요 없는 컬럼과 관계는 projection으로 줄입니다.\n4. 데이터가 큰 경우 pagination과 인덱스까지 같이 봅니다.\n\n## 주의할 점\n모든 관계를 eager loading하면 반대로 과도한 join과 메모리 사용이 생길 수 있습니다.\n\n## 꼬리 질문\n- fetch join과 pagination을 같이 쓸 때 주의할 점은?\n- batch size는 어떻게 정하나요?"
+    },
+    {
+      "id": "qa-behavioral-conflict",
+      "slug": "qa-conflict-with-teammate",
+      "title": "동료와 기술 의견이 다를 때 어떻게 하나요?",
+      "summary": "협업 방식과 의사결정 태도를 보는 인성 질문입니다.",
+      "contentType": "interview_qa",
+      "interviewCategory": "behavioral",
+      "status": "published",
+      "tags": ["면접 Q&A", "인성", "협업"],
+      "bodyMarkdown": "# 동료와 기술 의견이 다를 때 어떻게 하나요?\n\n## 질문 의도\n갈등 상황에서 감정이 아니라 기준과 데이터로 협업하는지 봅니다.\n\n## 답변 Tip\n- 먼저 상대 의견의 배경을 확인한다고 말합니다.\n- 목표, 제약, 리스크, 검증 방법을 기준으로 비교합니다.\n- 결정 후에는 선택된 방향에 맞춰 실행한다고 마무리합니다.\n\n## 좋은 답변 흐름\n1. 서로 해결하려는 문제가 같은지 맞춥니다.\n2. 성능, 일정, 운영 난이도, 장애 위험 같은 기준을 정합니다.\n3. 가능하면 작은 PoC나 로그/지표로 확인합니다.\n4. 팀 결정이 내려지면 내 의견과 달라도 실행에 집중합니다.\n\n## 주의할 점\n'제가 맞다고 설득합니다'처럼 들리면 협업 리스크가 커 보입니다.\n\n## 꼬리 질문\n- 실제로 의견을 바꾼 경험이 있나요?\n- 결정이 틀렸을 때 어떻게 대응했나요?"
+    },
+    {
+      "id": "qa-behavioral-failure",
+      "slug": "qa-failure-experience",
+      "title": "실패했던 경험과 배운 점을 말해주세요",
+      "summary": "책임감, 회고, 개선 능력을 보는 인성 질문입니다.",
+      "contentType": "interview_qa",
+      "interviewCategory": "behavioral",
+      "status": "published",
+      "tags": ["면접 Q&A", "인성", "회고"],
+      "bodyMarkdown": "# 실패했던 경험과 배운 점을 말해주세요\n\n## 질문 의도\n문제를 남 탓으로 돌리지 않고 구조적으로 개선하는지 확인합니다.\n\n## 답변 Tip\n- STAR 구조로 상황, 행동, 결과, 학습을 분리합니다.\n- 실패의 원인을 하나로 단정하지 말고 확인 부족, 커뮤니케이션, 검증 부재처럼 구체화합니다.\n- 이후 바꾼 행동을 반드시 말합니다.\n\n## 좋은 답변 흐름\n1. 어떤 목표가 있었고 무엇이 실패했는지 짧게 설명합니다.\n2. 본인이 맡았던 판단과 행동을 말합니다.\n3. 결과와 영향을 숨기지 않습니다.\n4. 이후 체크리스트, 리뷰, 모니터링 등 재발 방지 행동을 설명합니다.\n\n## 주의할 점\n실패가 없었다고 답하면 성장 경험을 보여주기 어렵습니다.\n\n## 꼬리 질문\n- 같은 상황이 오면 무엇을 다르게 하겠나요?\n- 팀에는 어떻게 공유했나요?"
+    },
+    {
+      "id": "qa-behavioral-priority",
+      "slug": "qa-priority-under-pressure",
+      "title": "일정이 촉박할 때 우선순위를 어떻게 정하나요?",
+      "summary": "압박 상황에서 범위 조정과 소통을 할 수 있는지 보는 질문입니다.",
+      "contentType": "interview_qa",
+      "interviewCategory": "behavioral",
+      "status": "published",
+      "tags": ["면접 Q&A", "인성", "우선순위"],
+      "bodyMarkdown": "# 일정이 촉박할 때 우선순위를 어떻게 정하나요?\n\n## 질문 의도\n무리하게 다 하겠다고 하기보다 목표와 리스크를 기준으로 조정하는지 봅니다.\n\n## 답변 Tip\n- 사용자 영향, 장애 위험, 의존성, 마감 이유를 기준으로 분류합니다.\n- 범위 축소와 단계적 배포를 제안합니다.\n- 이해관계자에게 빨리 공유한다고 말합니다.\n\n## 좋은 답변 흐름\n1. 마감이 고정인지 조정 가능한지 먼저 확인합니다.\n2. 필수 기능과 나중에 가능한 기능을 나눕니다.\n3. 위험한 변경은 feature flag나 단계적 배포로 줄입니다.\n4. 결정 내용을 팀과 이해관계자에게 공유합니다.\n\n## 주의할 점\n혼자 야근해서 해결한다는 답변은 반복 가능성과 협업 측면에서 약합니다.\n\n## 꼬리 질문\n- 품질과 일정이 충돌하면 어떻게 하나요?\n- 일정 리스크를 언제 공유하나요?"
+    },
+    {
+      "id": "qa-behavioral-feedback",
+      "slug": "qa-feedback",
+      "title": "피드백을 받았을 때 어떻게 반영하나요?",
+      "summary": "성장 태도와 커뮤니케이션 방식을 확인하는 질문입니다.",
+      "contentType": "interview_qa",
+      "interviewCategory": "behavioral",
+      "status": "published",
+      "tags": ["면접 Q&A", "인성", "피드백"],
+      "bodyMarkdown": "# 피드백을 받았을 때 어떻게 반영하나요?\n\n## 질문 의도\n방어적으로 반응하지 않고 개선 가능한 행동으로 바꾸는지 봅니다.\n\n## 답변 Tip\n- 피드백 의도를 확인하고 구체 사례를 요청한다고 말합니다.\n- 바로 동의하기 어렵더라도 검증 가능한 행동으로 옮긴다고 설명합니다.\n- 바뀐 결과를 다시 확인한다고 마무리합니다.\n\n## 좋은 답변 흐름\n1. 피드백을 받은 맥락과 내용을 설명합니다.\n2. 어떤 부분을 인정했고 어떤 부분은 추가 확인했는지 말합니다.\n3. 이후 행동을 어떻게 바꿨는지 구체적으로 말합니다.\n4. 결과가 좋아졌는지 확인한 방법을 붙입니다.\n\n## 주의할 점\n피드백 제공자를 평가하는 식으로 답하면 협업 태도가 약해 보일 수 있습니다.\n\n## 꼬리 질문\n- 받아들이기 어려웠던 피드백은 무엇인가요?\n- 다른 사람에게 피드백할 때는 어떻게 하나요?"
+    },
+    {
+      "id": "qa-behavioral-ownership",
+      "slug": "qa-ownership",
+      "title": "오너십을 발휘한 경험을 말해주세요",
+      "summary": "주어진 일 이상으로 문제를 끝까지 해결한 경험을 묻습니다.",
+      "contentType": "interview_qa",
+      "interviewCategory": "behavioral",
+      "status": "published",
+      "tags": ["면접 Q&A", "인성", "오너십"],
+      "bodyMarkdown": "# 오너십을 발휘한 경험을 말해주세요\n\n## 질문 의도\n담당 범위만 처리하는지, 제품과 운영 결과까지 책임 있게 보는지 확인합니다.\n\n## 답변 Tip\n- 누가 시키지 않았지만 필요하다고 판단한 행동을 고릅니다.\n- 문제 정의, 주도한 행동, 결과 지표를 연결합니다.\n- 혼자 다 했다는 표현보다 협업을 조직한 경험이 좋습니다.\n\n## 좋은 답변 흐름\n1. 사용자가 겪는 문제나 운영 리스크를 발견했습니다.\n2. 우선순위와 영향도를 정리해 팀에 공유했습니다.\n3. 필요한 사람을 모아 해결안을 만들고 실행했습니다.\n4. 장애 감소, 처리 시간 단축, 문의 감소 같은 결과를 확인했습니다.\n\n## 주의할 점\n오너십을 과도한 개인 희생으로만 설명하지 않는 것이 좋습니다.\n\n## 꼬리 질문\n- 어디까지가 본인 책임이라고 생각하나요?\n- 오너십과 독단은 어떻게 구분하나요?"
+    },
+    {
+      "id": "scenario-msa-payment-cancel",
+      "slug": "scenario-msa-order-payment-cancel",
+      "title": "MSA에서 주문 완료 후 결제 취소가 발생했습니다",
+      "summary": "주문, 결제, 배송 서비스가 분리된 구조에서 정합성을 맞추는 상황 질문입니다.",
+      "contentType": "scenario",
+      "status": "published",
+      "tags": ["상황 시뮬레이션", "MSA", "Saga", "정합성"],
+      "related": ["msa", "saga", "compensation", "outbox"],
+      "bodyMarkdown": "# MSA에서 주문 완료 후 결제 취소가 발생했습니다\n\n## 상황\n주문, 결제, 배송 서비스가 분리되어 있습니다. 주문 서비스에서 주문이 생성되었고 이후 결제 서비스에서 결제 취소가 발생했습니다.\n\n## 문제 이해\n단일 DB 트랜잭션으로 롤백할 수 없으므로 서비스 간 상태 전이를 명확히 해야 합니다. 사용자가 보는 주문 상태, 재고, 배송 요청, 알림이 서로 어긋날 수 있습니다.\n\n## 해결 전략\n1. 주문 상태를 `결제대기`, `결제완료`, `결제취소`, `주문취소`처럼 명확히 둡니다.\n2. 결제 취소 이벤트를 발행하고 주문 서비스가 이를 소비해 주문 상태를 보상 처리합니다.\n3. 배송이 이미 시작되었다면 배송 취소 요청 같은 보상 트랜잭션을 실행합니다.\n4. 이벤트 발행 유실을 막기 위해 Outbox Pattern을 사용합니다.\n5. 중복 이벤트 처리를 대비해 이벤트 id 기반 멱등성을 둡니다.\n\n## 트레이드오프\n강한 일관성을 위해 동기 호출을 늘리면 장애 전파가 커집니다. 이벤트 기반은 최종 일관성을 받아들이는 대신 복구와 추적 체계가 중요합니다.\n\n## 답변 예시\n분산 트랜잭션으로 묶기보다 Saga로 각 서비스의 로컬 트랜잭션과 보상 트랜잭션을 설계하겠습니다. 결제 취소 이벤트를 기준으로 주문 상태를 취소로 전이하고, 배송이 진행되었다면 배송 취소 보상 작업을 실행합니다. 이벤트 중복과 유실을 막기 위해 Outbox와 idempotency key를 함께 둡니다.\n\n## 토론 포인트\n- 결제 취소가 주문 취소인지 재결제 유도인지 정책을 먼저 정해야 합니다.\n- 사용자가 보는 상태 문구와 내부 상태는 분리할 수 있습니다."
+    },
+    {
+      "id": "scenario-browser-naver",
+      "slug": "scenario-browser-naver-flow",
+      "title": "브라우저에 www.naver.com을 입력하면 뒤에서 무슨 일이 일어나나요?",
+      "summary": "DNS, TCP/TLS, HTTP, 렌더링까지 단계적으로 설명하는 서술형 질문입니다.",
+      "contentType": "scenario",
+      "status": "published",
+      "tags": ["상황 시뮬레이션", "Network", "Browser"],
+      "related": ["tcp-handshake", "http-keep-alive"],
+      "bodyMarkdown": "# 브라우저에 www.naver.com을 입력하면 뒤에서 무슨 일이 일어나나요?\n\n## 상황\n사용자는 주소창에 `www.naver.com`을 입력하고 곧바로 화면을 봅니다. 면접에서는 그 뒤 과정을 아는 만큼 상세히 설명하라고 요청합니다.\n\n## 문제 이해\n네트워크 연결, 보안 연결, HTTP 요청, 서버 응답, 브라우저 렌더링을 순서대로 말해야 합니다.\n\n## 해결 전략\n1. 브라우저가 URL을 파싱하고 HSTS, 캐시, 서비스 워커 여부를 확인합니다.\n2. DNS 캐시를 확인하고 없으면 DNS 질의로 IP를 찾습니다.\n3. TCP 3-way handshake로 연결을 맺습니다.\n4. HTTPS라면 TLS handshake로 인증서 검증과 세션 키 협상을 합니다.\n5. HTTP 요청을 보내고 서버/CDN/로드밸런서를 거쳐 응답을 받습니다.\n6. HTML 파싱, CSSOM 생성, JS 실행, layout, paint, composite 과정을 거쳐 화면을 그립니다.\n7. 이미지, CSS, JS 같은 하위 리소스를 추가 요청합니다.\n\n## 트레이드오프\n너무 낮은 레벨만 길게 말하면 핵심 흐름이 흐려집니다. 먼저 큰 단계를 말하고, 면접관 반응에 따라 DNS/TLS/렌더링을 깊게 들어가는 것이 좋습니다.\n\n## 답변 예시\nURL 파싱 후 DNS로 IP를 찾고, TCP와 TLS 연결을 맺은 뒤 HTTP 요청을 보냅니다. 응답 HTML을 받으면 브라우저가 DOM과 CSSOM을 만들고 JavaScript를 실행하면서 layout과 paint를 거쳐 화면에 표시합니다. 이 과정에서 캐시, CDN, 로드밸런서, keep-alive 같은 최적화가 개입할 수 있습니다.\n\n## 토론 포인트\n- HTTP/2나 HTTP/3에서는 연결 방식이 어떻게 달라지나요?\n- 브라우저 캐시가 있으면 어느 단계가 생략될 수 있나요?"
+    },
+    {
+      "id": "scenario-retry-timeout",
+      "slug": "scenario-retry-timeout-incident",
+      "title": "외부 API 지연으로 주문 API가 느려졌습니다",
+      "summary": "타임아웃, 재시도, 서킷 브레이커, fallback을 설계하는 상황 질문입니다.",
+      "contentType": "scenario",
+      "status": "published",
+      "tags": ["상황 시뮬레이션", "장애대응", "Timeout"],
+      "related": ["timeout-retry", "circuit-breaker", "backpressure"],
+      "bodyMarkdown": "# 외부 API 지연으로 주문 API가 느려졌습니다\n\n## 상황\n주문 생성 중 외부 쿠폰 API를 호출합니다. 쿠폰 API 응답이 느려져 주문 API 전체 latency가 급격히 증가했습니다.\n\n## 문제 이해\n외부 의존성 지연이 내부 핵심 API로 전파되고 있습니다. 무제한 대기와 무제한 재시도는 thread/connection 고갈로 이어질 수 있습니다.\n\n## 해결 전략\n1. 외부 API 호출에 짧고 명확한 timeout을 둡니다.\n2. 재시도는 일시 실패에만 제한적으로 적용하고 backoff를 둡니다.\n3. 실패율이 높으면 circuit breaker를 열어 빠르게 실패시킵니다.\n4. 쿠폰 적용 실패가 주문 실패인지, 쿠폰 없이 주문을 진행할 수 있는지 정책을 정합니다.\n5. metrics, trace, log로 외부 의존성 latency를 관측합니다.\n\n## 트레이드오프\nfallback은 사용자 경험을 지킬 수 있지만 금액/정산 정책과 충돌할 수 있습니다. 비즈니스 정책과 기술 대응을 같이 정해야 합니다.\n\n## 답변 예시\n먼저 외부 API에 timeout과 제한된 retry를 두고, 장애가 지속되면 circuit breaker로 빠르게 차단하겠습니다. 쿠폰이 필수인지 정책을 확인해 쿠폰 없이 주문 진행 또는 주문 실패를 결정하고, 실패 이벤트를 남겨 후처리할 수 있게 하겠습니다.\n\n## 토론 포인트\n- 재시도는 어느 계층에서 해야 하나요?\n- fallback이 정산 문제를 만들면 어떻게 보완하나요?"
+    },
+    {
+      "id": "scenario-cache-stampede",
+      "slug": "scenario-cache-stampede-hot-key",
+      "title": "인기 상품 캐시가 만료되자 DB 부하가 급증했습니다",
+      "summary": "cache stampede 상황에서 부하를 줄이는 전략을 묻습니다.",
+      "contentType": "scenario",
+      "status": "published",
+      "tags": ["상황 시뮬레이션", "Cache", "성능"],
+      "related": ["cache-stampede", "cache-aside", "rate-limiting"],
+      "bodyMarkdown": "# 인기 상품 캐시가 만료되자 DB 부하가 급증했습니다\n\n## 상황\n인기 상품 상세 페이지의 캐시 TTL이 동시에 만료되어 많은 요청이 한꺼번에 DB로 몰렸습니다.\n\n## 문제 이해\n캐시가 성능을 보호하다가 만료 순간 원본 저장소에 부하를 집중시키는 cache stampede입니다.\n\n## 해결 전략\n1. 캐시 TTL에 jitter를 넣어 만료 시점을 분산합니다.\n2. hot key는 single flight 또는 distributed lock으로 한 요청만 갱신하게 합니다.\n3. soft TTL을 두고 오래된 값을 잠시 반환하면서 백그라운드에서 갱신합니다.\n4. 원본 DB 보호를 위해 rate limiting과 backpressure를 둡니다.\n5. 인기 키를 사전에 warming할 수 있는지 검토합니다.\n\n## 트레이드오프\n오래된 값을 반환하면 신선도는 낮아지지만 장애 전파를 줄일 수 있습니다. 상품 가격처럼 민감한 값은 별도 정책이 필요합니다.\n\n## 답변 예시\nTTL jitter로 동시 만료를 줄이고, hot key는 lock이나 single flight로 한 요청만 DB를 조회하게 만들겠습니다. 사용자가 볼 수 있는 데이터라면 soft TTL로 stale 값을 잠시 제공하면서 백그라운드 갱신을 적용할 수 있습니다.\n\n## 토론 포인트\n- stale 값을 허용할 수 없는 데이터는 어떻게 처리하나요?\n- lock 자체가 병목이 되면 어떻게 하나요?"
+    },
+    {
+      "id": "scenario-dlq",
+      "slug": "scenario-dlq-poison-message",
+      "title": "특정 메시지가 계속 실패하며 큐를 막고 있습니다",
+      "summary": "poison message, DLQ, 재처리 절차를 설명하는 상황 질문입니다.",
+      "contentType": "scenario",
+      "status": "published",
+      "tags": ["상황 시뮬레이션", "Messaging", "DLQ"],
+      "related": ["dlq", "consumer-group", "idempotency"],
+      "bodyMarkdown": "# 특정 메시지가 계속 실패하며 큐를 막고 있습니다\n\n## 상황\nconsumer가 특정 메시지를 처리할 때마다 예외가 발생합니다. 같은 메시지가 계속 재전달되면서 뒤 메시지 처리도 늦어지고 있습니다.\n\n## 문제 이해\npoison message가 정상 흐름을 막고 있습니다. 무한 재시도는 처리량 저하와 장애 확산으로 이어집니다.\n\n## 해결 전략\n1. 재시도 횟수와 간격을 제한합니다.\n2. 최대 재시도 후 DLQ로 분리합니다.\n3. DLQ에는 실패 원인, stack trace, message id, payload 일부를 함께 남깁니다.\n4. 원인을 수정한 뒤 운영자가 재처리하거나 폐기할 수 있는 절차를 둡니다.\n5. 중복 재처리에 대비해 consumer는 멱등하게 만듭니다.\n\n## 트레이드오프\nDLQ로 보내면 정상 흐름은 보호되지만, 실패 메시지를 방치하면 데이터 누락이 됩니다. 알림과 대시보드가 필요합니다.\n\n## 답변 예시\n무한 재시도를 막기 위해 retry limit과 backoff를 설정하고, 계속 실패하는 메시지는 DLQ로 분리하겠습니다. DLQ는 원인 분석과 재처리를 위한 운영 큐로 보고, 수정 후 idempotent consumer로 안전하게 재처리합니다.\n\n## 토론 포인트\n- DLQ 재처리는 자동화해야 하나요?\n- payload에 개인정보가 있으면 로그를 어떻게 남기나요?"
+    }
+  ]
+}
