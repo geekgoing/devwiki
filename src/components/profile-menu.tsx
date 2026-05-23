@@ -55,7 +55,7 @@ export function ProfileMenu({ member, user }: ProfileMenuProps) {
         aria-haspopup="menu"
         aria-label="사용자 메뉴"
         onClick={() => setOpen((current) => !current)}
-        className="flex size-10 items-center justify-center rounded-full border border-slate-200 bg-slate-950 text-sm font-semibold text-white transition hover:bg-slate-800"
+        className="flex size-10 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-slate-950 text-sm font-semibold text-white transition hover:bg-slate-800"
       >
         {avatarLabel(member, user)}
       </button>
