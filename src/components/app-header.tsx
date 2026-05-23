@@ -1,49 +1,18 @@
-import {
-  BookOpen,
-  LogIn,
-  MessageSquareText,
-  Users,
-} from "lucide-react";
+import { BookOpen, LogIn, Users } from "lucide-react";
 import Link from "next/link";
 
-import { LinkPendingIndicator } from "@/components/link-pending-indicator";
+import { HeaderContentNav } from "@/components/header-content-nav";
 import { ProfileMenu } from "@/components/profile-menu";
-import { contentRoutes } from "@/lib/content-routes";
-import type { DevWikiUser, DocumentContentType, Member } from "@/types/devwiki";
+import type { DevWikiUser, Member } from "@/types/devwiki";
 
 type AppHeaderProps = {
-  activeContentType?: DocumentContentType;
-  canCreate?: boolean;
   canManageMembers?: boolean;
   configured: boolean;
   member?: Member | null;
   user: DevWikiUser | null;
 };
 
-const contentNavItems = [
-  {
-    href: contentRoutes.term.href,
-    label: contentRoutes.term.label,
-    type: "term",
-  },
-  {
-    href: contentRoutes.interview_qa.href,
-    label: contentRoutes.interview_qa.label,
-    type: "interview_qa",
-  },
-  {
-    href: contentRoutes.scenario.href,
-    label: "시뮬레이션",
-    type: "scenario",
-  },
-] satisfies Array<{
-  href: string;
-  label: string;
-  type: DocumentContentType;
-}>;
-
 export function AppHeader({
-  activeContentType,
   canManageMembers = false,
   configured,
   member = null,
@@ -66,36 +35,7 @@ export function AppHeader({
           </span>
         </Link>
 
-        {configured && user && member ? (
-          <nav
-            className="order-3 flex w-full justify-center gap-1 rounded-md bg-slate-100 p-1 md:order-none md:w-auto"
-            aria-label="콘텐츠 영역"
-          >
-            {contentNavItems.map((item) => {
-              const selected = activeContentType === item.type;
-
-              return (
-                <Link
-                  key={item.type}
-                  href={item.href}
-                  className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium transition ${
-                    selected
-                      ? "bg-white text-slate-950 shadow-sm"
-                      : "text-slate-600 hover:bg-white/70 hover:text-slate-950"
-                  }`}
-                >
-                  {item.type === "term" ? (
-                    <BookOpen size={15} aria-hidden />
-                  ) : (
-                    <MessageSquareText size={15} aria-hidden />
-                  )}
-                  {item.label}
-                  <LinkPendingIndicator />
-                </Link>
-              );
-            })}
-          </nav>
-        ) : null}
+        {configured && user && member ? <HeaderContentNav /> : null}
 
         <nav className="flex items-center justify-end gap-2">
           {configured && user ? (

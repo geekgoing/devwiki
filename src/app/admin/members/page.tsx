@@ -2,13 +2,12 @@ import { ShieldAlert, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { createMember, updateMember } from "@/app/admin/members/actions";
-import { AppHeader } from "@/components/app-header";
 import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { getAdminMembers } from "@/lib/admin-members";
-import { canEditContent, canManageMembers } from "@/lib/permissions";
+import { canManageMembers } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { AdminMember, MemberRole } from "@/types/devwiki";
 
@@ -143,12 +142,9 @@ export default async function MembersAdminPage({
 
   if (configured && user && !member) {
     return (
-      <>
-        <AppHeader configured={configured} canCreate={false} user={user} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-          <MemberGate user={user} />
-        </main>
-      </>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <MemberGate user={user} />
+      </main>
     );
   }
 
@@ -156,15 +152,7 @@ export default async function MembersAdminPage({
   const members = canManageMemberList ? await getAdminMembers() : [];
 
   return (
-    <>
-      <AppHeader
-        configured={configured}
-        canCreate={canEditContent(member)}
-        canManageMembers={canManageMemberList}
-        member={member}
-        user={user}
-      />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-6">
           {!configured ? <SetupNotice /> : null}
 
@@ -250,7 +238,6 @@ export default async function MembersAdminPage({
             </>
           )}
         </div>
-      </main>
-    </>
+    </main>
   );
 }

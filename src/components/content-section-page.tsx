@@ -2,7 +2,6 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { AppHeader } from "@/components/app-header";
 import { DocumentDiscoveryBoard } from "@/components/document-discovery-board";
 import { DocumentFilterToolbar } from "@/components/document-filter-toolbar";
 import { DocumentListCard } from "@/components/document-list-card";
@@ -17,7 +16,7 @@ import {
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
-import { canEditContent, canManageMembers } from "@/lib/permissions";
+import { canEditContent } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { DocumentContentType } from "@/types/devwiki";
 
@@ -64,12 +63,9 @@ export async function ContentSectionPage({
 
   if (configured && user && !member) {
     return (
-      <>
-        <AppHeader configured={configured} canCreate={false} user={user} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-          <MemberGate user={user} />
-        </main>
-      </>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <MemberGate user={user} />
+      </main>
     );
   }
 
@@ -91,16 +87,7 @@ export async function ContentSectionPage({
     !interviewCategory;
 
   return (
-    <>
-      <AppHeader
-        configured={configured}
-        activeContentType={contentType}
-        canCreate={canCreate}
-        canManageMembers={canManageMembers(member)}
-        member={member}
-        user={user}
-      />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-5">
           {!configured ? <SetupNotice /> : null}
 
@@ -153,7 +140,6 @@ export async function ContentSectionPage({
             />
           )}
         </div>
-      </main>
-    </>
+    </main>
   );
 }

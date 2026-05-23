@@ -1,13 +1,12 @@
 import { redirect } from "next/navigation";
 
 import { createDocument } from "@/app/actions";
-import { AppHeader } from "@/components/app-header";
 import { DocumentEditor } from "@/components/document-editor";
 import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
-import { canEditContent, canManageMembers } from "@/lib/permissions";
+import { canEditContent } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { DocumentContentType, InterviewCategory } from "@/types/devwiki";
 
@@ -52,16 +51,7 @@ export default async function NewDocumentPage({
   }
 
   return (
-    <>
-      <AppHeader
-        configured={configured}
-        activeContentType={contentType}
-        canCreate={canEdit}
-        canManageMembers={canManageMembers(member)}
-        member={member}
-        user={user}
-      />
-      <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="sr-only">새 문서 작성</h1>
 
         {!configured ? (
@@ -89,7 +79,6 @@ export default async function NewDocumentPage({
             }}
           />
         )}
-      </main>
-    </>
+    </main>
   );
 }

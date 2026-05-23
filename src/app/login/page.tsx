@@ -2,10 +2,7 @@ import { Mail } from "lucide-react";
 import { cookies } from "next/headers";
 
 import { signInWithPassword } from "@/app/actions";
-import { AppHeader } from "@/components/app-header";
 import { SetupNotice } from "@/components/setup-notice";
-import { getCurrentMember, getCurrentUser } from "@/lib/auth";
-import { canEditContent, canManageMembers } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 type LoginPageProps = {
@@ -21,8 +18,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const cookieStore = await cookies();
   const configured = isSupabaseConfigured();
-  const user = await getCurrentUser();
-  const member = await getCurrentMember();
   const rememberedEmail = cookieStore.get(REMEMBER_EMAIL_COOKIE)?.value ?? "";
   const next =
     params.next?.startsWith("/") && !params.next.startsWith("//")
@@ -42,15 +37,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               : null;
 
   return (
-    <>
-      <AppHeader
-        configured={configured}
-        canCreate={canEditContent(member)}
-        canManageMembers={canManageMembers(member)}
-        member={member}
-        user={user}
-      />
-      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6">
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6">
         <div className="space-y-5">
           {!configured ? <SetupNotice /> : null}
 
@@ -118,7 +105,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </form>
           </section>
         </div>
-      </main>
-    </>
+    </main>
   );
 }

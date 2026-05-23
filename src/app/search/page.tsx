@@ -1,7 +1,6 @@
 import { Search } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { AppHeader } from "@/components/app-header";
 import { DocumentFilterToolbar } from "@/components/document-filter-toolbar";
 import { DocumentListCard } from "@/components/document-list-card";
 import { EmptyState } from "@/components/empty-state";
@@ -15,7 +14,6 @@ import {
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
-import { canEditContent, canManageMembers } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 type SearchPageProps = {
@@ -53,12 +51,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   if (configured && user && !member) {
     return (
-      <>
-        <AppHeader configured={configured} canCreate={false} user={user} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-          <MemberGate user={user} />
-        </main>
-      </>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <MemberGate user={user} />
+      </main>
     );
   }
 
@@ -81,15 +76,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const title = query ? `"${query}" 검색 결과` : "문서 검색";
 
   return (
-    <>
-      <AppHeader
-        configured={configured}
-        canCreate={canEditContent(member)}
-        canManageMembers={canManageMembers(member)}
-        member={member}
-        user={user}
-      />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-5">
           {!configured ? <SetupNotice /> : null}
 
@@ -168,7 +155,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             </section>
           )}
         </div>
-      </main>
-    </>
+    </main>
   );
 }

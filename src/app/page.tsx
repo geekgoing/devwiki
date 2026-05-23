@@ -10,7 +10,6 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { AppHeader } from "@/components/app-header";
 import { DocumentListCard } from "@/components/document-list-card";
 import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
@@ -20,7 +19,6 @@ import {
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
-import { canEditContent, canManageMembers } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { DocumentContentType, DocumentSummary } from "@/types/devwiki";
 
@@ -103,12 +101,9 @@ export default async function Home() {
 
   if (configured && user && !member) {
     return (
-      <>
-        <AppHeader configured={configured} canCreate={false} user={user} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
-          <MemberGate user={user} />
-        </main>
-      </>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
+        <MemberGate user={user} />
+      </main>
     );
   }
 
@@ -128,15 +123,7 @@ export default async function Home() {
   const counts = getDocumentCounts(allDocuments);
 
   return (
-    <>
-      <AppHeader
-        configured={configured}
-        canCreate={canEditContent(member)}
-        canManageMembers={canManageMembers(member)}
-        member={member}
-        user={user}
-      />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-6">
           {!configured ? <SetupNotice /> : null}
 
@@ -315,7 +302,6 @@ export default async function Home() {
             </aside>
           </section>
         </div>
-      </main>
-    </>
+    </main>
   );
 }

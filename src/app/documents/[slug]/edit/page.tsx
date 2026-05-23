@@ -1,12 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 
 import { updateDocument } from "@/app/actions";
-import { AppHeader } from "@/components/app-header";
 import { DocumentEditor } from "@/components/document-editor";
 import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
-import { canEditContent, canManageMembers } from "@/lib/permissions";
+import { canEditContent } from "@/lib/permissions";
 import {
   getDocumentBySlug,
   getDocuments,
@@ -36,12 +35,9 @@ export default async function EditDocumentPage({
 
   if (configured && user && !member) {
     return (
-      <>
-        <AppHeader configured={configured} canCreate={false} user={user} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-          <MemberGate user={user} />
-        </main>
-      </>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <MemberGate user={user} />
+      </main>
     );
   }
 
@@ -65,16 +61,7 @@ export default async function EditDocumentPage({
   ]);
 
   return (
-    <>
-      <AppHeader
-        configured={configured}
-        activeContentType={document.contentType}
-        canCreate={canEdit}
-        canManageMembers={canManageMembers(member)}
-        member={member}
-        user={user}
-      />
-      <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="sr-only">문서 수정</h1>
 
         {!configured ? (
@@ -109,7 +96,6 @@ export default async function EditDocumentPage({
             }}
           />
         )}
-      </main>
-    </>
+    </main>
   );
 }

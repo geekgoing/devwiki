@@ -10,12 +10,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { updateMyProfile } from "@/app/actions";
-import { AppHeader } from "@/components/app-header";
 import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
-import { canEditContent, canManageMembers } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -165,12 +163,9 @@ export default async function MePage({ searchParams }: MePageProps) {
 
   if (configured && user && !member) {
     return (
-      <>
-        <AppHeader configured={configured} canCreate={false} user={user} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-          <MemberGate user={user} />
-        </main>
-      </>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <MemberGate user={user} />
+      </main>
     );
   }
 
@@ -184,15 +179,7 @@ export default async function MePage({ searchParams }: MePageProps) {
       : [[], [], []];
 
   return (
-    <>
-      <AppHeader
-        configured={configured}
-        canCreate={canEditContent(member)}
-        canManageMembers={canManageMembers(member)}
-        member={member}
-        user={user}
-      />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-6">
           {!configured ? <SetupNotice /> : null}
 
@@ -419,7 +406,6 @@ export default async function MePage({ searchParams }: MePageProps) {
             </article>
           </section>
         </div>
-      </main>
-    </>
+    </main>
   );
 }

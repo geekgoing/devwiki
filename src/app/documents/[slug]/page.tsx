@@ -16,7 +16,6 @@ import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { addComment, updateDocumentLearningState } from "@/app/actions";
-import { AppHeader } from "@/components/app-header";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { MarkdownToc } from "@/components/markdown-toc";
@@ -25,7 +24,7 @@ import { RevisionHistory } from "@/components/revision-history";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/format";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
-import { canEditContent, canManageMembers } from "@/lib/permissions";
+import { canEditContent } from "@/lib/permissions";
 import { siteDescription, siteName } from "@/lib/site";
 import {
   getBacklinkDocuments,
@@ -219,12 +218,9 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
 
   if (configured && user && !member) {
     return (
-      <>
-        <AppHeader configured={configured} canCreate={false} user={user} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
-          <MemberGate user={user} />
-        </main>
-      </>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
+        <MemberGate user={user} />
+      </main>
     );
   }
 
@@ -252,16 +248,7 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
   const editHref = `/documents/${encodeURIComponent(document.slug)}/edit`;
 
   return (
-    <>
-      <AppHeader
-        configured={configured}
-        activeContentType={document.contentType}
-        canCreate={canContribute}
-        canManageMembers={canManageMembers(member)}
-        member={member}
-        user={user}
-      />
-      <main className="mx-auto grid w-full max-w-7xl flex-1 gap-7 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
+    <main className="mx-auto grid w-full max-w-7xl flex-1 gap-7 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
         <section className="rounded-md border border-slate-200 bg-white px-5 py-6 shadow-sm shadow-slate-200/60 sm:px-7 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
@@ -450,7 +437,6 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
             ) : null}
           </section>
         </aside>
-      </main>
-    </>
+    </main>
   );
 }
