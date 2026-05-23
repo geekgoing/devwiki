@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { AppHeader } from "@/components/app-header";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { canManageMembers } from "@/lib/permissions";
 import { getSiteUrl, siteDescription, siteName } from "@/lib/site";
@@ -54,14 +55,16 @@ export default async function RootLayout({
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <AppHeader
-          configured={configured}
-          canManageMembers={canManageMembers(member)}
-          member={member}
-          user={user}
-        />
-        {children}
+      <body className="flex min-h-full flex-col bg-background text-foreground">
+        <TooltipProvider delayDuration={250}>
+          <AppHeader
+            configured={configured}
+            canManageMembers={canManageMembers(member)}
+            member={member}
+            user={user}
+          />
+          {children}
+        </TooltipProvider>
       </body>
     </html>
   );

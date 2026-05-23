@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { updateDocument } from "@/app/actions";
 import { DocumentEditor } from "@/components/document-editor";
 import { SetupNotice } from "@/components/setup-notice";
+import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { canEditContent } from "@/lib/permissions";
 import {
@@ -54,14 +55,14 @@ export default async function EditDocumentPage({
       {!configured ? (
         <SetupNotice />
       ) : !canEdit ? (
-        <section className="rounded-md border border-amber-200 bg-amber-50 px-5 py-6">
-          <h1 className="text-xl font-semibold text-amber-950">
-            editor 권한이 필요합니다
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-amber-900">
-            viewer는 문서를 읽고 토론할 수 있지만 문서 수정은 할 수 없습니다.
-          </p>
-        </section>
+        <Card className="border-amber-200 bg-amber-50 text-amber-950">
+          <CardContent className="px-5 py-6">
+            <h1 className="text-xl font-semibold">editor 권한이 필요합니다</h1>
+            <p className="mt-2 text-sm leading-6">
+              viewer는 문서를 읽고 토론할 수 있지만 문서 수정은 할 수 없습니다.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <DocumentEditor
           action={updateDocument}

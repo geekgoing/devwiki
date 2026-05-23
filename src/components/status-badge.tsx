@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import type { DocumentStatus } from "@/types/devwiki";
 
 const labelByStatus: Record<DocumentStatus, string> = {
@@ -8,16 +9,14 @@ const labelByStatus: Record<DocumentStatus, string> = {
 
 const classByStatus: Record<DocumentStatus, string> = {
   draft: "border-amber-200 bg-amber-50 text-amber-800",
-  published: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  archived: "border-slate-200 bg-slate-100 text-slate-600",
+  published: "border-teal-200 bg-teal-50 text-teal-800",
+  archived: "border-border bg-muted text-muted-foreground",
 };
 
 export function StatusBadge({ status }: { status: DocumentStatus }) {
   return (
-    <span
-      className={`inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium ${classByStatus[status]}`}
-    >
+    <Badge variant="outline" className={classByStatus[status]}>
       {labelByStatus[status]}
-    </span>
+    </Badge>
   );
 }

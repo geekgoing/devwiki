@@ -3,6 +3,9 @@
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 type CopyLinkButtonProps = {
   className?: string;
   path?: string;
@@ -21,7 +24,9 @@ export function CopyLinkButton({ className = "", path }: CopyLinkButtonProps) {
   }, [copied]);
 
   async function copyLink() {
-    const url = path ? new URL(path, window.location.origin).toString() : window.location.href;
+    const url = path
+      ? new URL(path, window.location.origin).toString()
+      : window.location.href;
 
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(url);
@@ -43,17 +48,15 @@ export function CopyLinkButton({ className = "", path }: CopyLinkButtonProps) {
   const Icon = copied ? Check : Copy;
 
   return (
-    <button
+    <Button
       type="button"
       onClick={copyLink}
-      className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition ${
-        copied
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:text-blue-700"
-      } ${className}`}
+      variant={copied ? "secondary" : "outline"}
+      size="lg"
+      className={cn(copied && "text-teal-700", className)}
     >
-      <Icon size={16} aria-hidden />
+      <Icon aria-hidden />
       {copied ? "복사됨" : "링크 복사"}
-    </button>
+    </Button>
   );
 }

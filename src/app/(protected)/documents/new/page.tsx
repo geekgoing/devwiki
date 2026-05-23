@@ -1,6 +1,7 @@
 import { createDocument } from "@/app/actions";
 import { DocumentEditor } from "@/components/document-editor";
 import { SetupNotice } from "@/components/setup-notice";
+import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentMember } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
 import { canEditContent } from "@/lib/permissions";
@@ -45,14 +46,15 @@ export default async function NewDocumentPage({
       {!configured ? (
         <SetupNotice />
       ) : !canEdit ? (
-        <section className="rounded-md border border-amber-200 bg-amber-50 px-5 py-6">
-          <h1 className="text-xl font-semibold text-amber-950">
-            editor 권한이 필요합니다
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-amber-900">
-            viewer는 문서를 읽고 토론할 수 있지만 새 문서 작성은 할 수 없습니다.
-          </p>
-        </section>
+        <Card className="border-amber-200 bg-amber-50 text-amber-950">
+          <CardContent className="px-5 py-6">
+            <h1 className="text-xl font-semibold">editor 권한이 필요합니다</h1>
+            <p className="mt-2 text-sm leading-6">
+              viewer는 문서를 읽고 토론할 수 있지만 새 문서 작성은 할 수
+              없습니다.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <DocumentEditor
           action={createDocument}

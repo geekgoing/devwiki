@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { Card, CardContent } from "@/components/ui/card";
 import { documentDetailPath } from "@/lib/content-routes";
 import type { DocumentSummary } from "@/types/devwiki";
 
@@ -32,8 +33,8 @@ const discoverySections = [
       "connection-pool",
     ],
     icon: Database,
-    iconClassName: "bg-emerald-50 text-emerald-700",
-    linkClassName: "hover:border-emerald-200 hover:bg-emerald-50",
+    iconClassName: "bg-teal-50 text-teal-700",
+    linkClassName: "hover:border-teal-200 hover:bg-teal-50",
   },
   {
     title: "분산 시스템",
@@ -201,21 +202,21 @@ function CompactDocumentLink({
   return (
     <Link
       href={documentHref(document)}
-      className={`group block min-h-[86px] rounded-md border border-slate-200 bg-white px-3 py-3 transition ${linkClassName}`}
+      className={`group block min-h-[86px] rounded-lg border bg-muted/35 px-3 py-3 transition ${linkClassName}`}
       data-testid="document-card"
     >
       <span className="flex items-start justify-between gap-2">
-        <span className="min-w-0 text-sm font-semibold text-slate-950 transition group-hover:text-slate-900">
+        <span className="min-w-0 text-sm font-semibold transition group-hover:text-primary">
           {document.title}
         </span>
         <ArrowRight
           size={14}
-          className="mt-0.5 shrink-0 text-slate-300 transition group-hover:text-slate-500"
+          className="mt-0.5 shrink-0 text-muted-foreground/55 transition group-hover:text-primary"
           aria-hidden
         />
       </span>
       {document.summary ? (
-        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-500">
+        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground">
           {document.summary}
         </span>
       ) : null}
@@ -235,59 +236,62 @@ export function DocumentDiscoveryBoard({
       <section className="grid gap-4 lg:grid-cols-3">
         {discoverySections.map((section) => {
           const Icon = section.icon;
-          const sectionDocuments = pickDocuments(documentBySlug, section.slugs, 5);
+          const sectionDocuments = pickDocuments(
+            documentBySlug,
+            section.slugs,
+            5,
+          );
 
           if (!sectionDocuments.length) {
             return null;
           }
 
           return (
-            <article
-              key={section.title}
-              className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50"
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={`flex size-10 shrink-0 items-center justify-center rounded-md ${section.iconClassName}`}
-                >
-                  <Icon size={20} aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <h2 className="text-base font-semibold text-slate-950">
-                    {section.title}
-                  </h2>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    {section.summary}
-                  </p>
+            <Card key={section.title} className="p-0">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <span
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${section.iconClassName}`}
+                  >
+                    <Icon size={20} aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="text-base font-semibold">{section.title}</h2>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {section.summary}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-4 grid gap-2">
-                {sectionDocuments.map((document) => (
-                  <CompactDocumentLink
-                    key={document.id}
-                    document={document}
-                    linkClassName={section.linkClassName}
-                  />
-                ))}
-              </div>
-            </article>
+                <div className="mt-4 grid gap-2">
+                  {sectionDocuments.map((document) => (
+                    <CompactDocumentLink
+                      key={document.id}
+                      document={document}
+                      linkClassName={section.linkClassName}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           );
         })}
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
-          <span className="flex size-10 items-center justify-center rounded-md bg-slate-950 text-white">
-            <Route size={20} aria-hidden />
-          </span>
-          <h2 className="mt-4 text-lg font-semibold text-slate-950">
-            자주 이어지는 학습 경로
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            면접 답변에서 꼬리 질문으로 이어지기 쉬운 개념 묶음입니다.
-          </p>
-        </div>
+        <Card>
+          <CardContent className="p-5">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Route size={20} aria-hidden />
+            </span>
+            <h2 className="mt-4 text-lg font-semibold">
+              자주 이어지는 학습 경로
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              면접 답변에서 꼬리 질문으로 이어지기 쉬운 개념 묶음입니다.
+            </p>
+          </CardContent>
+        </Card>
 
         <div className="grid gap-3 md:grid-cols-2">
           {learningPaths.map((path) => {
@@ -298,49 +302,46 @@ export function DocumentDiscoveryBoard({
             }
 
             return (
-              <article
-                key={path.title}
-                className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-950">
-                      {path.title}
-                    </h3>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {path.summary}
-                    </p>
+              <Card key={path.title} className="p-0">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold">{path.title}</h3>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {path.summary}
+                      </p>
+                    </div>
+                    <BookOpen
+                      size={18}
+                      className="shrink-0 text-primary"
+                      aria-hidden
+                    />
                   </div>
-                  <BookOpen
-                    size={18}
-                    className="shrink-0 text-blue-500"
-                    aria-hidden
-                  />
-                </div>
 
-                <ol className="mt-4 grid gap-2">
-                  {pathDocuments.map((document, index) => (
-                    <li key={document.id}>
-                      <Link
-                        href={documentHref(document)}
-                        className="group grid min-h-10 grid-cols-[1.75rem_minmax(0,1fr)_1rem] items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-2 transition hover:border-blue-200 hover:bg-blue-50"
-                      >
-                        <span className="flex size-7 items-center justify-center rounded-md bg-white text-xs font-semibold text-slate-500">
-                          {index + 1}
-                        </span>
-                        <span className="truncate text-sm font-medium text-slate-700 transition group-hover:text-blue-700">
-                          {document.title}
-                        </span>
-                        <ArrowRight
-                          size={14}
-                          className="text-slate-300 transition group-hover:text-blue-500"
-                          aria-hidden
-                        />
-                      </Link>
-                    </li>
-                  ))}
-                </ol>
-              </article>
+                  <ol className="mt-4 grid gap-2">
+                    {pathDocuments.map((document, index) => (
+                      <li key={document.id}>
+                        <Link
+                          href={documentHref(document)}
+                          className="group grid min-h-10 grid-cols-[1.75rem_minmax(0,1fr)_1rem] items-center gap-2 rounded-lg border bg-muted/35 px-2 py-2 transition hover:border-primary/25 hover:bg-accent/60"
+                        >
+                          <span className="flex size-7 items-center justify-center rounded-md bg-background text-xs font-semibold text-muted-foreground">
+                            {index + 1}
+                          </span>
+                          <span className="truncate text-sm font-medium transition group-hover:text-primary">
+                            {document.title}
+                          </span>
+                          <ArrowRight
+                            size={14}
+                            className="text-muted-foreground/55 transition group-hover:text-primary"
+                            aria-hidden
+                          />
+                        </Link>
+                      </li>
+                    ))}
+                  </ol>
+                </CardContent>
+              </Card>
             );
           })}
         </div>

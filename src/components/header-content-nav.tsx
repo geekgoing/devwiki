@@ -4,7 +4,9 @@ import { BookOpen, MessageSquareText } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { buttonVariants } from "@/components/ui/button";
 import { contentRoutes } from "@/lib/content-routes";
+import { cn } from "@/lib/utils";
 import type { DocumentContentType } from "@/types/devwiki";
 
 const contentNavItems = [
@@ -38,7 +40,7 @@ export function HeaderContentNav() {
 
   return (
     <nav
-      className="order-3 flex w-full justify-center gap-2 rounded-md bg-slate-100 p-1.5 sm:gap-3 md:order-none md:w-auto md:gap-4"
+      className="order-3 flex w-full justify-center gap-1 rounded-lg bg-muted p-1 md:order-none md:w-auto"
       aria-label="콘텐츠 영역"
     >
       {contentNavItems.map((item) => {
@@ -49,11 +51,16 @@ export function HeaderContentNav() {
             key={item.type}
             href={item.href}
             aria-current={selected ? "page" : undefined}
-            className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium transition sm:px-4 ${
+            className={cn(
+              buttonVariants({
+                variant: selected ? "secondary" : "ghost",
+                size: "lg",
+              }),
+              "px-3 sm:px-4",
               selected
-                ? "bg-white text-slate-950 shadow-sm"
-                : "text-slate-600 hover:bg-white/70 hover:text-slate-950"
-            }`}
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground",
+            )}
           >
             {item.type === "term" ? (
               <BookOpen size={15} aria-hidden />

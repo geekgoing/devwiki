@@ -6,6 +6,7 @@ import { DocumentFilterToolbar } from "@/components/document-filter-toolbar";
 import { DocumentListCard } from "@/components/document-list-card";
 import { EmptyState } from "@/components/empty-state";
 import { SetupNotice } from "@/components/setup-notice";
+import { Button } from "@/components/ui/button";
 import {
   contentTypeLabels,
   parseInterviewCategory,
@@ -73,12 +74,12 @@ export async function ContentSectionPage({
       <div className="grid gap-5">
         {!configured ? <SetupNotice /> : null}
 
-        <section className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+        <section className="flex flex-wrap items-center justify-between gap-3 border-b pb-5">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
+            <h1 className="text-2xl font-semibold tracking-tight">
               {contentTypeLabels[contentType]}
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               {documents.length}개 문서
             </p>
           </div>
@@ -94,12 +95,11 @@ export async function ContentSectionPage({
               status={status}
             />
             {canCreate ? (
-              <Link
-                href={newDocumentHref(contentType, interviewCategory)}
-                className="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
-              >
-                <Plus size={16} aria-hidden />새 문서
-              </Link>
+              <Button asChild size="lg">
+                <Link href={newDocumentHref(contentType, interviewCategory)}>
+                  <Plus aria-hidden />새 문서
+                </Link>
+              </Button>
             ) : null}
           </div>
         </section>

@@ -30,6 +30,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type ReactCodeMirror from "@uiw/react-codemirror";
 
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { slugify, toTagSlug } from "@/lib/slugify";
 import type {
   DocumentContentType,
@@ -47,7 +58,7 @@ const CodeMirror = dynamic<CodeMirrorProps>(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[760px] items-center justify-center bg-slate-50 text-sm text-slate-500">
+      <div className="flex h-[760px] items-center justify-center bg-muted text-sm text-muted-foreground">
         에디터 로딩 중
       </div>
     ),
@@ -155,9 +166,11 @@ const statusDescriptions: Record<DocumentStatus, string> = {
 };
 
 const toolGroupClass =
-  "inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1";
-const toolButtonClass =
-  "inline-flex size-8 items-center justify-center rounded text-slate-600 transition hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent disabled:hover:text-slate-300";
+  "inline-flex items-center gap-1 rounded-lg border bg-muted/45 p-1";
+const toolButtonClass = buttonVariants({
+  variant: "ghost",
+  size: "icon-sm",
+});
 
 function FieldLabel({
   children,
@@ -167,10 +180,10 @@ function FieldLabel({
   optional?: boolean;
 }) {
   return (
-    <span className="flex items-center justify-between gap-2 text-sm font-medium text-slate-700">
+    <span className="flex items-center justify-between gap-2 text-sm font-medium">
       <span>{children}</span>
       {optional ? (
-        <span className="text-xs font-normal text-slate-400">선택</span>
+        <span className="text-xs font-normal text-muted-foreground">선택</span>
       ) : null}
     </span>
   );
@@ -237,10 +250,7 @@ export function DocumentEditor({
       `devwiki:draft:${mode}:${initialDocument?.id ?? initialDocument?.slug ?? "new"}`,
     [initialDocument?.id, initialDocument?.slug, mode],
   );
-  const extensions = useMemo(
-    () => [markdown({ base: markdownLanguage })],
-    [],
-  );
+  const extensions = useMemo(() => [markdown({ base: markdownLanguage })], []);
   const tagNames = useMemo(() => parseTagNames(tags), [tags]);
   const submittedTagNames = useMemo(
     () => parseTagNames([...tagNames, tagInput].join(",")),
@@ -750,33 +760,36 @@ export function DocumentEditor({
       />
 
       {storedDraft ? (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm text-amber-950">
             저장되지 않은 로컬 초안이 있습니다.
           </p>
           <div className="flex flex-wrap gap-2">
-            <button
+            <Button
               type="button"
               onClick={() => restoreDraft(storedDraft)}
-              className="inline-flex h-8 items-center gap-2 rounded-md bg-amber-950 px-3 text-sm font-medium text-white transition hover:bg-amber-900"
+              size="sm"
+              className="bg-amber-950 text-white hover:bg-amber-900"
             >
               <RotateCcw size={15} aria-hidden />
               복원
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={discardDraft}
-              className="inline-flex h-8 items-center gap-2 rounded-md border border-amber-300 px-3 text-sm font-medium text-amber-950 transition hover:bg-amber-100"
+              variant="outline"
+              size="sm"
+              className="border-amber-300 text-amber-950 hover:bg-amber-100"
             >
               <Trash2 size={15} aria-hidden />
               삭제
-            </button>
+            </Button>
           </div>
         </section>
       ) : null}
 
-      <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm shadow-slate-200/40">
-        <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-5">
+      <section className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        <div className="sticky top-0 z-20 border-b bg-card/95 px-4 py-3 backdrop-blur sm:px-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <label className="sr-only" htmlFor="document-title-input">
@@ -796,29 +809,37 @@ export function DocumentEditor({
                   }
                 }}
                 required
-                className="h-10 w-full border-0 bg-transparent px-0 text-2xl font-semibold tracking-tight text-slate-950 outline-none placeholder:text-slate-300 focus:ring-0"
+                className="h-10 w-full border-0 bg-transparent px-0 text-2xl font-semibold tracking-tight outline-none placeholder:text-muted-foreground focus:ring-0"
                 placeholder="문서 제목"
               />
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-slate-500">
-                <select
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+                <Select
                   name="status"
                   value={status}
-                  onChange={(event) => {
-                    setStatus(event.target.value as DocumentStatus);
+                  onValueChange={(value) => {
+                    setStatus(value as DocumentStatus);
                     markDirty();
                   }}
-                  className="h-8 rounded-md border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                 >
-                  <option value="draft">초안</option>
-                  <option value="published">공개</option>
-                  <option value="archived">보관</option>
-                </select>
-                <span className="font-mono text-slate-400">
+                  <SelectTrigger className="h-8 w-[92px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">초안</SelectItem>
+                    <SelectItem value="published">공개</SelectItem>
+                    <SelectItem value="archived">보관</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="font-mono text-muted-foreground">
                   /{slug || slugify(title) || "document"}
                 </span>
                 <span>{body.trim().length.toLocaleString("ko-KR")}자</span>
                 <span>{submittedTagNames.length}개 태그</span>
-                <span className={isDirty ? "text-amber-600" : "text-slate-400"}>
+                <span
+                  className={
+                    isDirty ? "text-amber-600" : "text-muted-foreground"
+                  }
+                >
                   {isDirty ? "로컬 초안 있음" : "변경 없음"}
                 </span>
                 {uploading ? <span>이미지 업로드 중</span> : null}
@@ -828,56 +849,44 @@ export function DocumentEditor({
             </div>
 
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 p-1">
-                <button
+              <div className="inline-flex items-center gap-1 rounded-lg border bg-muted/45 p-1">
+                <Button
                   type="button"
                   onClick={() => setView("edit")}
-                  className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
-                    view === "edit"
-                      ? "bg-white text-slate-950 shadow-sm"
-                      : "text-slate-500 hover:text-slate-950"
-                  }`}
+                  variant={view === "edit" ? "secondary" : "ghost"}
+                  size="sm"
                 >
                   <Edit3 size={15} aria-hidden />
                   편집
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => setView("split")}
-                  className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
-                    view === "split"
-                      ? "bg-white text-slate-950 shadow-sm"
-                      : "text-slate-500 hover:text-slate-950"
-                  }`}
+                  variant={view === "split" ? "secondary" : "ghost"}
+                  size="sm"
                 >
                   <SplitSquareHorizontal size={15} aria-hidden />
                   분할
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => setView("preview")}
-                  className={`inline-flex h-8 items-center gap-2 rounded px-2 text-sm ${
-                    view === "preview"
-                      ? "bg-white text-slate-950 shadow-sm"
-                      : "text-slate-500 hover:text-slate-950"
-                  }`}
+                  variant={view === "preview" ? "secondary" : "ghost"}
+                  size="sm"
                 >
                   <Eye size={15} aria-hidden />
                   미리보기
-                </button>
+                </Button>
               </div>
 
-              <button
-                type="submit"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700"
-              >
+              <Button type="submit" size="lg">
                 <Save size={16} aria-hidden />
                 저장
-              </button>
+              </Button>
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
             <div className={toolGroupClass} aria-label="편집 기록">
               <button
                 type="button"
@@ -950,7 +959,9 @@ export function DocumentEditor({
             <div className={toolGroupClass} aria-label="삽입">
               <button
                 type="button"
-                onClick={() => wrapSelection("[", "](https://example.com)", "링크")}
+                onClick={() =>
+                  wrapSelection("[", "](https://example.com)", "링크")
+                }
                 aria-label="링크"
                 title="링크"
                 className={toolButtonClass}
@@ -960,7 +971,9 @@ export function DocumentEditor({
               <button
                 type="button"
                 onClick={() =>
-                  insertMarkdown("| 항목 | 설명 |\n| --- | --- |\n| 예시 | 내용 |")
+                  insertMarkdown(
+                    "| 항목 | 설명 |\n| --- | --- |\n| 예시 | 내용 |",
+                  )
                 }
                 aria-label="표"
                 title="표"
@@ -1025,7 +1038,7 @@ export function DocumentEditor({
                   view === "preview"
                     ? "hidden"
                     : view === "split"
-                      ? "min-w-0 border-b border-slate-200 2xl:border-b-0 2xl:border-r"
+                      ? "min-w-0 border-b 2xl:border-b-0 2xl:border-r"
                       : "min-w-0"
                 }
               >
@@ -1051,7 +1064,7 @@ export function DocumentEditor({
                 className={
                   view === "edit"
                     ? "hidden"
-                    : "min-h-[760px] overflow-auto bg-white p-5 sm:p-7 2xl:max-h-[860px]"
+                    : "min-h-[760px] overflow-auto bg-background p-5 sm:p-7 2xl:max-h-[860px]"
                 }
               >
                 <MarkdownRenderer content={body} />
@@ -1059,55 +1072,61 @@ export function DocumentEditor({
             </div>
           </div>
 
-          <aside className="border-t border-slate-200 bg-slate-50/70 p-4 xl:border-l xl:border-t-0">
+          <aside className="border-t bg-muted/35 p-4 xl:border-l xl:border-t-0">
             <div className="space-y-5 xl:sticky xl:top-20">
               <section>
                 <div className="flex items-center gap-2">
-                  <Settings2 size={16} className="text-slate-500" aria-hidden />
-                  <h2 className="text-sm font-semibold text-slate-950">
-                    문서 설정
-                  </h2>
+                  <Settings2
+                    size={16}
+                    className="text-muted-foreground"
+                    aria-hidden
+                  />
+                  <h2 className="text-sm font-semibold">문서 설정</h2>
                 </div>
 
                 <label className="mt-4 block">
                   <FieldLabel>콘텐츠 유형</FieldLabel>
-                  <select
+                  <Select
                     value={contentType}
-                    onChange={(event) =>
-                      handleContentTypeChange(
-                        event.target.value as DocumentContentType,
-                      )
+                    onValueChange={(value) =>
+                      handleContentTypeChange(value as DocumentContentType)
                     }
-                    className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   >
-                    <option value="term">기술 용어</option>
-                    <option value="interview_qa">면접 Q&A</option>
-                    <option value="scenario">상황 시뮬레이션</option>
-                  </select>
+                    <SelectTrigger className="mt-2 h-10 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="term">기술 용어</SelectItem>
+                      <SelectItem value="interview_qa">면접 Q&A</SelectItem>
+                      <SelectItem value="scenario">상황 시뮬레이션</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </label>
 
                 {contentType === "interview_qa" ? (
                   <label className="mt-4 block">
                     <FieldLabel>면접 분류</FieldLabel>
-                    <select
+                    <Select
                       value={interviewCategory || "technical"}
-                      onChange={(event) => {
-                        setInterviewCategory(
-                          event.target.value as InterviewCategory,
-                        );
+                      onValueChange={(value) => {
+                        setInterviewCategory(value as InterviewCategory);
                         markDirty();
                       }}
-                      className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                     >
-                      <option value="technical">기술</option>
-                      <option value="behavioral">인성</option>
-                    </select>
+                      <SelectTrigger className="mt-2 h-10 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="technical">기술</SelectItem>
+                        <SelectItem value="behavioral">인성</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </label>
                 ) : null}
 
                 <label className="mt-4 block">
                   <FieldLabel optional>요약</FieldLabel>
-                  <textarea
+                  <Textarea
                     name="summary"
                     value={summary}
                     onChange={(event) => {
@@ -1115,19 +1134,20 @@ export function DocumentEditor({
                       markDirty();
                     }}
                     rows={3}
-                    className="mt-2 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    className="mt-2 resize-y"
                     placeholder="문서 목록에서 보일 짧은 설명"
                   />
                 </label>
 
                 <div className="mt-4">
                   <FieldLabel optional>태그</FieldLabel>
-                  <div className="mt-2 flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 transition focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-200">
+                  <div className="mt-2 flex min-h-10 flex-wrap items-center gap-2 rounded-lg border border-input bg-background px-2 py-1.5 transition focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
                     {tagNames.map((tag) => (
-                      <span
+                      <Badge
                         key={tag}
                         data-testid="tag-chip"
-                        className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-100 px-2 text-xs font-medium text-slate-700"
+                        variant="secondary"
+                        className="h-7 gap-1"
                       >
                         {tag}
                         <button
@@ -1135,11 +1155,11 @@ export function DocumentEditor({
                           aria-label={`${tag} 태그 삭제`}
                           data-testid="tag-chip-remove"
                           onClick={() => removeTag(tag)}
-                          className="inline-flex size-4 items-center justify-center rounded text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
+                          className="inline-flex size-4 items-center justify-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground"
                         >
                           <X size={12} aria-hidden />
                         </button>
-                      </span>
+                      </Badge>
                     ))}
                     <input
                       value={tagInput}
@@ -1147,7 +1167,7 @@ export function DocumentEditor({
                       onKeyDown={handleTagInputKeyDown}
                       onBlur={() => commitTagInput()}
                       data-testid="tag-input"
-                      className="h-7 min-w-28 flex-1 border-0 bg-transparent px-1 text-sm text-slate-950 outline-none placeholder:text-slate-300"
+                      className="h-7 min-w-28 flex-1 border-0 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
                       placeholder={tagNames.length ? "" : "HTTP, API 설계"}
                     />
                   </div>
@@ -1155,56 +1175,61 @@ export function DocumentEditor({
 
                 <label className="mt-4 block">
                   <FieldLabel optional>수정 요약</FieldLabel>
-                  <input
+                  <Input
                     name="edit_summary"
                     value={editSummary}
                     onChange={(event) => {
                       setEditSummary(event.target.value);
                       markDirty();
                     }}
-                    className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                    placeholder={mode === "create" ? "문서 생성" : "예: 예시 보강"}
+                    className="mt-2 h-10"
+                    placeholder={
+                      mode === "create" ? "문서 생성" : "예: 예시 보강"
+                    }
                   />
                 </label>
 
-                <p className="mt-3 rounded-md bg-white px-3 py-2 text-xs leading-5 text-slate-500">
+                <p className="mt-3 rounded-lg bg-background px-3 py-2 text-xs leading-5 text-muted-foreground">
                   {statusDescriptions[status]}
                 </p>
               </section>
 
-              <section className="border-t border-slate-200 pt-5">
+              <section className="border-t pt-5">
                 <div className="flex items-center gap-2">
-                  <Link2 size={16} className="text-slate-500" aria-hidden />
-                  <h2 className="text-sm font-semibold text-slate-950">
-                    연관 문서
-                  </h2>
+                  <Link2
+                    size={16}
+                    className="text-muted-foreground"
+                    aria-hidden
+                  />
+                  <h2 className="text-sm font-semibold">연관 문서</h2>
                 </div>
 
                 {selectedRelatedDocuments.length ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {selectedRelatedDocuments.map((document) => (
-                      <span
+                      <Badge
                         key={document.id}
-                        className="inline-flex max-w-full items-center gap-2 rounded-md bg-blue-50 px-2.5 py-1.5 text-sm font-medium text-blue-800"
+                        variant="secondary"
+                        className="h-auto max-w-full gap-2 py-1.5 text-sm"
                       >
                         <span className="truncate">{document.title}</span>
                         <button
                           type="button"
                           onClick={() => removeRelatedDocument(document.id)}
-                          className="inline-flex size-5 shrink-0 items-center justify-center rounded text-blue-500 transition hover:bg-blue-100 hover:text-blue-900"
+                          className="inline-flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground"
                           aria-label={`${document.title} 연관 문서 제거`}
                         >
                           <X size={13} aria-hidden />
                         </button>
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 ) : null}
 
-                <input
+                <Input
                   value={documentLinkQuery}
                   onChange={(event) => setDocumentLinkQuery(event.target.value)}
-                  className="mt-3 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="mt-3 h-9"
                   placeholder="연관 문서 검색"
                 />
                 {filteredLinkableDocuments.length ? (
@@ -1214,17 +1239,17 @@ export function DocumentEditor({
                         key={document.id}
                         type="button"
                         onClick={() => addRelatedDocument(document.id)}
-                        className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-blue-200 hover:bg-blue-50"
+                        className="block w-full rounded-lg border bg-background px-3 py-2 text-left transition hover:border-primary/25 hover:bg-accent/60"
                       >
-                        <span className="block truncate text-sm font-medium text-slate-800">
+                        <span className="block truncate text-sm font-medium">
                           {document.title}
                         </span>
                         {document.summary ? (
-                          <span className="mt-0.5 line-clamp-1 block text-xs text-slate-500">
+                          <span className="mt-0.5 line-clamp-1 block text-xs text-muted-foreground">
                             {document.summary}
                           </span>
                         ) : (
-                          <span className="mt-0.5 block font-mono text-xs text-slate-400">
+                          <span className="mt-0.5 block font-mono text-xs text-muted-foreground">
                             /{document.slug}
                           </span>
                         )}
@@ -1232,7 +1257,7 @@ export function DocumentEditor({
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-3 rounded-md bg-white px-3 py-2 text-xs leading-5 text-slate-500">
+                  <p className="mt-3 rounded-lg bg-background px-3 py-2 text-xs leading-5 text-muted-foreground">
                     추가할 문서가 없습니다.
                   </p>
                 )}

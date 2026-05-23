@@ -2,7 +2,19 @@
 
 import { Check, Filter, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 type FilterLink = {
   href: string;
@@ -29,18 +41,23 @@ function FilterSection({
 }) {
   return (
     <section className="grid gap-2">
-      <h2 className="text-xs font-semibold text-slate-500">{title}</h2>
+      <h2 className="text-xs font-medium text-muted-foreground">{title}</h2>
       <div className="grid grid-cols-2 gap-1.5">
         {links.map((link) => (
           <Link
             key={`${title}-${link.label}`}
             href={link.href}
             onClick={onSelect}
-            className={`flex h-8 items-center justify-between rounded-md px-2 text-xs font-medium transition ${
+            className={cn(
+              buttonVariants({
+                variant: link.selected ? "secondary" : "ghost",
+                size: "sm",
+              }),
+              "justify-between px-2",
               link.selected
-                ? "bg-slate-950 text-white"
-                : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-            }`}
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground",
+            )}
           >
             {link.label}
             {link.selected ? <Check size={13} aria-hidden /> : null}
@@ -59,96 +76,60 @@ export function DocumentFilterPopover({
   resetHref,
 }: DocumentFilterPopoverProps) {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
 
   return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="필터"
-        onClick={() => setOpen((current) => !current)}
-        className={`relative inline-flex size-10 items-center justify-center rounded-md border transition ${
-          activeCount
-            ? "border-slate-950 bg-slate-950 text-white"
-            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
-        }`}
-      >
-        <Filter size={17} aria-hidden />
-        {activeCount ? (
-          <span className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-[11px] font-semibold text-white">
-            {activeCount}
-          </span>
-        ) : null}
-      </button>
-
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 z-30 mt-2 grid w-72 gap-4 rounded-md border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/80"
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          aria-label="필터"
+          variant={activeCount ? "default" : "outline"}
+          size="icon-lg"
+          className="relative"
         >
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-slate-950">필터</h2>
-            <Link
-              href={resetHref}
-              onClick={() => setOpen(false)}
-              className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition ${
-                activeCount
-                  ? "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
-                  : "pointer-events-none text-slate-300"
-              }`}
-              aria-disabled={!activeCount}
-            >
-              <RotateCcw size={13} aria-hidden />
+          <Filter aria-hidden />
+          {activeCount ? (
+            <Badge className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full p-0 text-[11px]">
+              {activeCount}
+            </Badge>
+          ) : null}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 gap-4 p-4">
+        <PopoverHeader className="flex-row items-center justify-between gap-3">
+          <PopoverTitle>필터</PopoverTitle>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className={cn(!activeCount && "pointer-events-none opacity-40")}
+            aria-disabled={!activeCount}
+          >
+            <Link href={resetHref} onClick={() => setOpen(false)}>
+              <RotateCcw aria-hidden />
               초기화
             </Link>
-          </div>
+          </Button>
+        </PopoverHeader>
+        <Separator />
+        <FilterSection
+          links={statusLinks}
+          onSelect={() => setOpen(false)}
+          title="문서 상태"
+        />
+        {interviewCategoryLinks.length ? (
           <FilterSection
-            links={statusLinks}
+            links={interviewCategoryLinks}
             onSelect={() => setOpen(false)}
-            title="문서 상태"
+            title="면접 분류"
           />
-          {interviewCategoryLinks.length ? (
-            <FilterSection
-              links={interviewCategoryLinks}
-              onSelect={() => setOpen(false)}
-              title="면접 분류"
-            />
-          ) : null}
-          <FilterSection
-            links={learningLinks}
-            onSelect={() => setOpen(false)}
-            title="학습 상태"
-          />
-        </div>
-      ) : null}
-    </div>
+        ) : null}
+        <FilterSection
+          links={learningLinks}
+          onSelect={() => setOpen(false)}
+          title="학습 상태"
+        />
+      </PopoverContent>
+    </Popover>
   );
 }

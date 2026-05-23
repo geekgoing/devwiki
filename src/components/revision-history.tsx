@@ -4,6 +4,15 @@ import { GitCompareArrows, RotateCcw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { restoreDocumentRevision } from "@/app/actions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
 import type { DocumentRevision } from "@/types/devwiki";
 
@@ -198,7 +207,7 @@ function diffStats(diff: DiffLine[]) {
 
 function diffSideClassName(type: DiffSide["type"]) {
   if (type === "added") {
-    return "bg-emerald-50 text-emerald-950";
+    return "bg-teal-50 text-teal-950";
   }
 
   if (type === "removed") {
@@ -206,10 +215,10 @@ function diffSideClassName(type: DiffSide["type"]) {
   }
 
   if (type === "blank") {
-    return "bg-slate-50 text-slate-300";
+    return "bg-muted/55 text-muted-foreground/55";
   }
 
-  return "bg-white text-slate-600";
+  return "bg-background text-foreground";
 }
 
 function RevisionDiffModal({
@@ -238,56 +247,52 @@ function RevisionDiffModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/55 p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="revision-diff-title"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-md bg-white shadow-2xl"
+        className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-background shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3 sm:px-5">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h3
-                id="revision-diff-title"
-                className="text-base font-semibold text-slate-950"
-              >
+              <h3 id="revision-diff-title" className="text-base font-semibold">
                 {comparison.revision.editSummary || "변경 내용 비교"}
               </h3>
               {comparison.isCurrentSnapshot ? (
-                <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-500">
-                  현재
-                </span>
+                <Badge variant="secondary">현재</Badge>
               ) : null}
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {formatDate(comparison.revision.createdAt)} · 제목 스냅샷:{" "}
               {comparison.revision.title}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+            <Badge className="bg-teal-50 text-teal-700" variant="outline">
               +{comparison.stats.added}
-            </span>
-            <span className="rounded-md bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">
+            </Badge>
+            <Badge className="bg-rose-50 text-rose-700" variant="outline">
               -{comparison.stats.removed}
-            </span>
-            <button
+            </Badge>
+            <Button
               type="button"
               onClick={onClose}
-              className="inline-flex size-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
+              variant="outline"
+              size="icon"
               aria-label="닫기"
             >
               <X size={16} aria-hidden />
-            </button>
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600">
+        <div className="grid grid-cols-2 border-b bg-muted/55 px-4 py-2 text-xs font-semibold text-muted-foreground">
           <span>Before</span>
           <span>After</span>
         </div>
@@ -299,7 +304,7 @@ function RevisionDiffModal({
           {visibleRows.map((row) => (
             <div
               key={row.id}
-              className="grid min-w-[920px] grid-cols-2 border-b border-slate-100"
+              className="grid min-w-[920px] grid-cols-2 border-b"
             >
               {[row.before, row.after].map((side, sideIndex) => (
                 <div
@@ -308,7 +313,7 @@ function RevisionDiffModal({
                     side.type,
                   )}`}
                 >
-                  <span className="select-none border-r border-black/5 px-2 py-1 text-right text-slate-400">
+                  <span className="select-none border-r border-black/5 px-2 py-1 text-right text-muted-foreground">
                     {side.line ?? ""}
                   </span>
                   <span className="whitespace-pre-wrap break-words px-3 py-1">
@@ -319,15 +324,15 @@ function RevisionDiffModal({
             </div>
           ))}
           {comparison.rows.length > visibleRows.length ? (
-            <p className="px-4 py-3 text-xs text-slate-500">
+            <p className="px-4 py-3 text-xs text-muted-foreground">
               큰 diff는 앞 {visibleRows.length.toLocaleString("ko-KR")}줄만
               표시합니다.
             </p>
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
-          <p className="text-xs text-slate-500">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/55 px-4 py-3 sm:px-5">
+          <p className="text-xs text-muted-foreground">
             붉은 줄은 이전 버전에서 제거된 내용, 초록 줄은 이후 버전에 추가된
             내용입니다.
           </p>
@@ -339,13 +344,9 @@ function RevisionDiffModal({
                 name="revision_id"
                 value={comparison.revision.id}
               />
-              <button
-                type="submit"
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
-              >
-                <RotateCcw size={15} aria-hidden />
-                이 버전으로 복원
-              </button>
+              <Button type="submit">
+                <RotateCcw size={15} aria-hidden />이 버전으로 복원
+              </Button>
             </form>
           ) : null}
         </div>
@@ -392,110 +393,119 @@ export function RevisionHistory({
   );
 
   return (
-    <section
-      className="rounded-md border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/50"
-      data-testid="revision-history"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <GitCompareArrows size={16} className="text-slate-500" aria-hidden />
-          <h2 className="text-sm font-semibold text-slate-950">변경 이력</h2>
-        </div>
+    <Card size="sm" data-testid="revision-history">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <GitCompareArrows
+            size={16}
+            className="text-muted-foreground"
+            aria-hidden
+          />
+          변경 이력
+        </CardTitle>
         {comparisons.length ? (
-          <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-500">
-            {comparisons.length}개
-          </span>
+          <CardAction>
+            <Badge variant="secondary">{comparisons.length}개</Badge>
+          </CardAction>
         ) : null}
-      </div>
-
-      {comparisons.length ? (
-        <ol className="mt-3 space-y-3">
-          {comparisons.map((comparison) => (
-            <li
-              key={comparison.revision.id}
-              className="rounded-md border border-slate-200 bg-slate-50 p-3"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-800">
-                    {comparison.revision.editSummary ||
-                      comparison.revision.title}
-                    {comparison.isCurrentSnapshot ? (
-                      <span className="ml-2 rounded-md bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-500">
-                        현재
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    제목 스냅샷: {comparison.revision.title}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                    +{comparison.stats.added}
-                  </span>
-                  <span className="rounded-md bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700">
-                    -{comparison.stats.removed}
-                  </span>
-                </div>
-              </div>
-
-              {comparison.revision.summary ? (
-                <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
-                  {comparison.revision.summary}
-                </p>
-              ) : null}
-              <time className="mt-2 block text-xs text-slate-500">
-                {formatDate(comparison.revision.createdAt)}
-              </time>
-              <p className="mt-1 text-xs text-slate-400">
-                수정자:{" "}
-                {comparison.revision.editedBy
-                  ? comparison.revision.editedBy.slice(0, 8)
-                  : "알 수 없음"}
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedRevisionId(comparison.revision.id)
-                  }
-                  className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                >
-                  <GitCompareArrows size={14} aria-hidden />
-                  비교
-                </button>
-                {canRestore ? (
-                  <form action={restoreDocumentRevision}>
-                    <input
-                      type="hidden"
-                      name="document_id"
-                      value={documentId}
-                    />
-                    <input
-                      type="hidden"
-                      name="revision_id"
-                      value={comparison.revision.id}
-                    />
-                    <button
-                      type="submit"
-                      className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+      </CardHeader>
+      <CardContent>
+        {comparisons.length ? (
+          <ol className="space-y-3">
+            {comparisons.map((comparison) => (
+              <li
+                key={comparison.revision.id}
+                className="rounded-lg border bg-muted/35 p-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">
+                      {comparison.revision.editSummary ||
+                        comparison.revision.title}
+                      {comparison.isCurrentSnapshot ? (
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 h-5 align-middle text-[11px]"
+                        >
+                          현재
+                        </Badge>
+                      ) : null}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      제목 스냅샷: {comparison.revision.title}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Badge
+                      className="bg-teal-50 text-teal-700"
+                      variant="outline"
                     >
-                      <RotateCcw size={14} aria-hidden />
-                      복원
-                    </button>
-                  </form>
+                      +{comparison.stats.added}
+                    </Badge>
+                    <Badge
+                      className="bg-rose-50 text-rose-700"
+                      variant="outline"
+                    >
+                      -{comparison.stats.removed}
+                    </Badge>
+                  </div>
+                </div>
+
+                {comparison.revision.summary ? (
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                    {comparison.revision.summary}
+                  </p>
                 ) : null}
-              </div>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="mt-3 text-sm text-slate-500">
-          Supabase 연결 후 수정 이력이 쌓입니다.
-        </p>
-      )}
+                <time className="mt-2 block text-xs text-muted-foreground">
+                  {formatDate(comparison.revision.createdAt)}
+                </time>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  수정자:{" "}
+                  {comparison.revision.editedBy
+                    ? comparison.revision.editedBy.slice(0, 8)
+                    : "알 수 없음"}
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      setSelectedRevisionId(comparison.revision.id)
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    <GitCompareArrows size={14} aria-hidden />
+                    비교
+                  </Button>
+                  {canRestore ? (
+                    <form action={restoreDocumentRevision}>
+                      <input
+                        type="hidden"
+                        name="document_id"
+                        value={documentId}
+                      />
+                      <input
+                        type="hidden"
+                        name="revision_id"
+                        value={comparison.revision.id}
+                      />
+                      <Button type="submit" variant="outline" size="sm">
+                        <RotateCcw size={14} aria-hidden />
+                        복원
+                      </Button>
+                    </form>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Supabase 연결 후 수정 이력이 쌓입니다.
+          </p>
+        )}
+      </CardContent>
 
       {selectedComparison ? (
         <RevisionDiffModal
@@ -505,6 +515,6 @@ export function RevisionHistory({
           onClose={() => setSelectedRevisionId(null)}
         />
       ) : null}
-    </section>
+    </Card>
   );
 }

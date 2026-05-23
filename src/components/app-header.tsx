@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { HeaderContentNav } from "@/components/header-content-nav";
 import { ProfileMenu } from "@/components/profile-menu";
+import { Button } from "@/components/ui/button";
 import type { DevWikiUser, Member } from "@/types/devwiki";
 
 type AppHeaderProps = {
@@ -19,17 +20,17 @@ export function AppHeader({
   user,
 }: AppHeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b bg-background/92 backdrop-blur supports-[backdrop-filter]:bg-background/78">
       <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2 text-slate-950">
-          <span className="flex size-9 items-center justify-center rounded-md bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+        <Link href="/" className="flex items-center gap-2.5 text-foreground">
+          <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
             <BookOpen size={18} aria-hidden />
           </span>
           <span>
-            <span className="block text-base font-semibold leading-5">
+            <span className="block text-base font-semibold leading-5 tracking-tight">
               DevWiki
             </span>
-            <span className="block text-xs text-slate-500">
+            <span className="block text-xs text-muted-foreground">
               개발자 지식 베이스
             </span>
           </span>
@@ -41,25 +42,23 @@ export function AppHeader({
           {configured && user ? (
             <>
               {canManageMembers ? (
-                <Link
-                  href="/admin/members"
-                  className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                >
-                  <Users size={16} aria-hidden />
-                  멤버
-                </Link>
+                <Button asChild variant="outline" size="lg">
+                  <Link href="/admin/members">
+                    <Users aria-hidden />
+                    멤버
+                  </Link>
+                </Button>
               ) : null}
 
               {member ? <ProfileMenu member={member} user={user} /> : null}
             </>
           ) : (
-            <Link
-              href="/login"
-              className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
-            >
-              <LogIn size={16} aria-hidden />
-              로그인
-            </Link>
+            <Button asChild size="lg">
+              <Link href="/login">
+                <LogIn aria-hidden />
+                로그인
+              </Link>
+            </Button>
           )}
         </nav>
       </div>

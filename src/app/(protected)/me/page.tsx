@@ -10,11 +10,24 @@ import Link from "next/link";
 
 import { updateMyProfile } from "@/app/actions";
 import { SetupNotice } from "@/components/setup-notice";
+import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { documentDetailPath, parseContentType } from "@/lib/content-routes";
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import type { DocumentStatus } from "@/types/devwiki";
 
 type MePageProps = {
   searchParams: Promise<{
@@ -27,7 +40,7 @@ type RecentDocumentRow = {
   id: string;
   slug: string;
   title: string;
-  status: string;
+  status: DocumentStatus;
   updated_at: string;
 };
 
@@ -181,216 +194,225 @@ export default async function MePage({ searchParams }: MePageProps) {
         {!configured ? <SetupNotice /> : null}
 
         <section>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
-            마이페이지
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+          <h1 className="text-3xl font-semibold tracking-tight">마이페이지</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
             닉네임과 내 최근 활동을 확인합니다.
           </p>
         </section>
 
         {params.notice === "profile" ? (
-          <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          <p className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
             닉네임을 저장했습니다.
           </p>
         ) : null}
 
         {member && user ? (
           <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
-              <div className="flex items-center gap-2">
-                <UserRound size={18} className="text-blue-600" aria-hidden />
-                <h2 className="text-lg font-semibold text-slate-950">프로필</h2>
-              </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <UserRound size={18} className="text-primary" aria-hidden />
+                  프로필
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form action={updateMyProfile} className="mt-5 grid gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="display_name">닉네임</Label>
+                    <Input
+                      id="display_name"
+                      name="display_name"
+                      defaultValue={member.displayName ?? ""}
+                      required
+                      minLength={2}
+                      maxLength={40}
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit">
+                      <Save size={16} aria-hidden />
+                      저장
+                    </Button>
+                  </div>
+                </form>
 
-              <form action={updateMyProfile} className="mt-5 grid gap-3">
-                <label>
-                  <span className="text-sm font-medium text-slate-700">
-                    닉네임
-                  </span>
-                  <input
-                    name="display_name"
-                    defaultValue={member.displayName ?? ""}
-                    required
-                    minLength={2}
-                    maxLength={40}
-                    className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                  />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="submit"
-                    className="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
-                  >
-                    <Save size={16} aria-hidden />
-                    저장
-                  </button>
-                </div>
-              </form>
+                <form action={updateMyProfile} className="mt-2">
+                  <input type="hidden" name="randomize" value="1" />
+                  <Button type="submit" variant="outline">
+                    <RefreshCw size={16} aria-hidden />
+                    랜덤 닉네임으로 변경
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
 
-              <form action={updateMyProfile} className="mt-2">
-                <input type="hidden" name="randomize" value="1" />
-                <button
-                  type="submit"
-                  className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                >
-                  <RefreshCw size={16} aria-hidden />
-                  랜덤 닉네임으로 변경
-                </button>
-              </form>
-            </article>
-
-            <aside className="rounded-md border border-slate-200 bg-white p-5 text-sm shadow-sm shadow-slate-200/50">
-              <dl className="grid gap-3">
-                <div>
-                  <dt className="text-xs font-medium text-slate-500">이메일</dt>
-                  <dd className="mt-1 text-slate-950">{user.email}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-medium text-slate-500">role</dt>
-                  <dd className="mt-1 font-mono text-slate-950">
-                    {member.role}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-medium text-slate-500">
-                    멤버 등록
-                  </dt>
-                  <dd className="mt-1 text-slate-950">
-                    {formatDate(member.createdAt)}
-                  </dd>
-                </div>
-              </dl>
-            </aside>
+            <Card>
+              <CardContent>
+                <dl className="grid gap-3">
+                  <div>
+                    <dt className="text-xs font-medium text-muted-foreground">
+                      이메일
+                    </dt>
+                    <dd className="mt-1">{user.email}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-muted-foreground">
+                      role
+                    </dt>
+                    <dd className="mt-1">
+                      <Badge variant="secondary">{member.role}</Badge>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-muted-foreground">
+                      멤버 등록
+                    </dt>
+                    <dd className="mt-1">{formatDate(member.createdAt)}</dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
           </section>
         ) : null}
 
         <section className="grid gap-4 lg:grid-cols-2">
-          <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 lg:col-span-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-slate-950">
-                내 학습 상태
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href="/search?learning=favorite"
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-medium text-slate-600 transition hover:border-amber-200 hover:text-amber-700"
-                >
-                  <Star size={13} aria-hidden />
-                  즐겨찾기
-                </Link>
-                <Link
-                  href="/search?learning=completed"
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-medium text-slate-600 transition hover:border-emerald-200 hover:text-emerald-700"
-                >
-                  <CheckCircle2 size={13} aria-hidden />
-                  숙지함
-                </Link>
-              </div>
-            </div>
-            {learningDocuments.length ? (
-              <ol className="mt-4 grid gap-2 md:grid-cols-2">
-                {learningDocuments.map((item) => (
-                  <li key={item.document_id}>
-                    <Link
-                      href={item.document ? documentHref(item.document) : "/"}
-                      className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"
-                    >
-                      <span className="block text-sm font-medium text-slate-950">
-                        {item.document?.title ?? "삭제된 문서"}
-                      </span>
-                      <span className="mt-2 flex flex-wrap gap-1.5">
-                        {item.is_favorite ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
-                            <Star
-                              size={12}
-                              className="fill-current"
-                              aria-hidden
-                            />
-                            즐겨찾기
-                          </span>
-                        ) : null}
-                        {item.is_completed ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
-                            <CheckCircle2 size={12} aria-hidden />
-                            숙지함
-                          </span>
-                        ) : null}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                아직 즐겨찾기하거나 숙지 완료한 문서가 없습니다.
-              </p>
-            )}
-          </article>
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>내 학습 상태</CardTitle>
+              <CardAction className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/search?learning=favorite">
+                    <Star size={13} aria-hidden />
+                    즐겨찾기
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/search?learning=completed">
+                    <CheckCircle2 size={13} aria-hidden />
+                    숙지함
+                  </Link>
+                </Button>
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              {learningDocuments.length ? (
+                <ol className="grid gap-2 md:grid-cols-2">
+                  {learningDocuments.map((item) => (
+                    <li key={item.document_id}>
+                      <Link
+                        href={item.document ? documentHref(item.document) : "/"}
+                        className="block rounded-lg border bg-muted/35 px-3 py-2 transition hover:border-primary/25 hover:bg-accent/60"
+                      >
+                        <span className="block text-sm font-medium">
+                          {item.document?.title ?? "삭제된 문서"}
+                        </span>
+                        <span className="mt-2 flex flex-wrap gap-1.5">
+                          {item.is_favorite ? (
+                            <Badge
+                              variant="outline"
+                              className="border-amber-200 bg-amber-50 text-amber-700"
+                            >
+                              <Star
+                                size={12}
+                                className="fill-current"
+                                aria-hidden
+                              />
+                              즐겨찾기
+                            </Badge>
+                          ) : null}
+                          {item.is_completed ? (
+                            <Badge
+                              variant="outline"
+                              className="border-teal-200 bg-teal-50 text-teal-700"
+                            >
+                              <CheckCircle2 size={12} aria-hidden />
+                              숙지함
+                            </Badge>
+                          ) : null}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">
+                  아직 즐겨찾기하거나 숙지 완료한 문서가 없습니다.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-          <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
-            <h2 className="text-lg font-semibold text-slate-950">
-              최근 작성/수정 문서
-            </h2>
-            {recentDocuments.length ? (
-              <ol className="mt-4 grid gap-2">
-                {recentDocuments.map((document) => (
-                  <li key={document.id}>
-                    <Link
-                      href={documentHref(document)}
-                      className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"
-                    >
-                      <span className="block text-sm font-medium text-slate-950">
-                        {document.title}
-                      </span>
-                      <span className="mt-1 block text-xs text-slate-500">
-                        {document.status} · {formatDate(document.updated_at)}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                아직 직접 작성하거나 수정한 문서가 없습니다.
-              </p>
-            )}
-          </article>
+          <Card>
+            <CardHeader>
+              <CardTitle>최근 작성/수정 문서</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {recentDocuments.length ? (
+                <ol className="grid gap-2">
+                  {recentDocuments.map((document) => (
+                    <li key={document.id}>
+                      <Link
+                        href={documentHref(document)}
+                        className="block rounded-lg border bg-muted/35 px-3 py-2 transition hover:border-primary/25 hover:bg-accent/60"
+                      >
+                        <span className="block text-sm font-medium">
+                          {document.title}
+                        </span>
+                        <span className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <StatusBadge status={document.status} />
+                          {formatDate(document.updated_at)}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">
+                  아직 직접 작성하거나 수정한 문서가 없습니다.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-          <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
-            <div className="flex items-center gap-2">
-              <MessageSquare size={18} className="text-blue-600" aria-hidden />
-              <h2 className="text-lg font-semibold text-slate-950">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare size={18} className="text-primary" aria-hidden />
                 최근 댓글
-              </h2>
-            </div>
-            {recentComments.length ? (
-              <ol className="mt-4 grid gap-2">
-                {recentComments.map((comment) => (
-                  <li key={comment.id}>
-                    <Link
-                      href={
-                        comment.document ? documentHref(comment.document) : "/"
-                      }
-                      className="block rounded-md border border-slate-200 bg-slate-50 px-3 py-2 transition hover:border-blue-200 hover:bg-blue-50"
-                    >
-                      <span className="line-clamp-2 block text-sm leading-6 text-slate-700">
-                        {comment.body}
-                      </span>
-                      <span className="mt-1 block text-xs text-slate-500">
-                        {comment.document?.title ?? "삭제된 문서"} ·{" "}
-                        {formatDate(comment.created_at)}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                아직 남긴 댓글이 없습니다.
-              </p>
-            )}
-          </article>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {recentComments.length ? (
+                <ol className="grid gap-2">
+                  {recentComments.map((comment) => (
+                    <li key={comment.id}>
+                      <Link
+                        href={
+                          comment.document
+                            ? documentHref(comment.document)
+                            : "/"
+                        }
+                        className="block rounded-lg border bg-muted/35 px-3 py-2 transition hover:border-primary/25 hover:bg-accent/60"
+                      >
+                        <span className="line-clamp-2 block text-sm leading-6">
+                          {comment.body}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {comment.document?.title ?? "삭제된 문서"} ·{" "}
+                          {formatDate(comment.created_at)}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">
+                  아직 남긴 댓글이 없습니다.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </section>
       </div>
     </main>

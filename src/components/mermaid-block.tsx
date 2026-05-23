@@ -17,10 +17,10 @@ export function MermaidBlock({ chart }: { chart: string }) {
       securityLevel: "strict",
       theme: "base",
       themeVariables: {
-        primaryColor: "#f8fafc",
-        primaryTextColor: "#0f172a",
-        primaryBorderColor: "#cbd5e1",
-        lineColor: "#475569",
+        primaryColor: "#f7f9fa",
+        primaryTextColor: "#27333f",
+        primaryBorderColor: "#c8d2dc",
+        lineColor: "#52677a",
         fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
       },
     });
@@ -51,7 +51,7 @@ export function MermaidBlock({ chart }: { chart: string }) {
   if (error) {
     return (
       <div
-        className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
+        className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
         data-testid="mermaid-error"
       >
         <p className="font-medium">Mermaid 다이어그램 문법을 확인하세요.</p>
@@ -63,7 +63,7 @@ export function MermaidBlock({ chart }: { chart: string }) {
           <summary className="cursor-pointer text-xs font-medium text-rose-700">
             오류 자세히 보기
           </summary>
-          <pre className="mt-2 max-h-40 overflow-auto rounded border border-rose-200 bg-white/70 p-2 text-xs leading-5">
+          <pre className="mt-2 max-h-40 overflow-auto rounded border border-rose-200 bg-background/70 p-2 text-xs leading-5">
             {error}
           </pre>
         </details>
@@ -74,7 +74,7 @@ export function MermaidBlock({ chart }: { chart: string }) {
   if (!svg) {
     return (
       <div
-        className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500"
+        className="rounded-lg border bg-muted p-4 text-sm text-muted-foreground"
         data-testid="mermaid-loading"
       >
         다이어그램 렌더링 중
@@ -84,7 +84,7 @@ export function MermaidBlock({ chart }: { chart: string }) {
 
   return (
     <div
-      className="overflow-x-auto rounded-md border border-slate-200 bg-white p-4"
+      className="overflow-x-auto rounded-lg border bg-background p-4"
       data-testid="mermaid-block"
       dangerouslySetInnerHTML={{ __html: svg }}
     />
