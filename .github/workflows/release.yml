@@ -149,6 +149,11 @@ jobs:
 
           yq eval '.images[] |= select(.name == "ghcr.io/geekgoing/devwiki").newTag = env(RELEASE_VERSION)' -i apps/devwiki/overlays/prod/kustomization.yaml
 
+          if git diff --quiet -- apps/devwiki/overlays/prod/kustomization.yaml; then
+            echo "gitops image tag is already ${RELEASE_VERSION}; nothing to commit"
+            exit 0
+          fi
+
           git add apps/devwiki/overlays/prod/kustomization.yaml
           git commit -m "chore: devwiki 이미지를 v${RELEASE_VERSION}로 업데이트"
           git push
