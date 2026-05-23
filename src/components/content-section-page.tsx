@@ -70,58 +70,57 @@ export async function ContentSectionPage({
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid gap-5">
-          {!configured ? <SetupNotice /> : null}
+      <div className="grid gap-5">
+        {!configured ? <SetupNotice /> : null}
 
-          <section className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
-                {contentTypeLabels[contentType]}
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                {documents.length}개 문서
-              </p>
-            </div>
+        <section className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
+              {contentTypeLabels[contentType]}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {documents.length}개 문서
+            </p>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <DocumentFilterToolbar
-                basePath={routePath}
-                category={
-                  contentType === "interview_qa" ? interviewCategory : undefined
-                }
-                contentType={contentType}
-                learning={learning}
-                status={status}
-              />
-              {canCreate ? (
-                <Link
-                  href={newDocumentHref(contentType, interviewCategory)}
-                  className="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
-                >
-                  <Plus size={16} aria-hidden />
-                  새 문서
-                </Link>
-              ) : null}
-            </div>
-          </section>
-
-          {documents.length ? (
-            shouldShowDiscovery ? (
-              <DocumentDiscoveryBoard documents={documents} />
-            ) : (
-              <section className="grid gap-4">
-                {documents.map((document) => (
-                  <DocumentListCard key={document.id} document={document} />
-                ))}
-              </section>
-            )
-          ) : (
-            <EmptyState
-              canCreate={canCreate}
-              createHref={newDocumentHref(contentType, interviewCategory)}
+          <div className="flex items-center gap-2">
+            <DocumentFilterToolbar
+              basePath={routePath}
+              category={
+                contentType === "interview_qa" ? interviewCategory : undefined
+              }
+              contentType={contentType}
+              learning={learning}
+              status={status}
             />
-          )}
-        </div>
+            {canCreate ? (
+              <Link
+                href={newDocumentHref(contentType, interviewCategory)}
+                className="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                <Plus size={16} aria-hidden />새 문서
+              </Link>
+            ) : null}
+          </div>
+        </section>
+
+        {documents.length ? (
+          shouldShowDiscovery ? (
+            <DocumentDiscoveryBoard documents={documents} />
+          ) : (
+            <section className="grid gap-4">
+              {documents.map((document) => (
+                <DocumentListCard key={document.id} document={document} />
+              ))}
+            </section>
+          )
+        ) : (
+          <EmptyState
+            canCreate={canCreate}
+            createHref={newDocumentHref(contentType, interviewCategory)}
+          />
+        )}
+      </div>
     </main>
   );
 }

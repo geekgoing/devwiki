@@ -49,38 +49,38 @@ export default async function EditDocumentPage({
 
   return (
     <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="sr-only">문서 수정</h1>
+      <h1 className="sr-only">문서 수정</h1>
 
-        {!configured ? (
-          <SetupNotice />
-        ) : !canEdit ? (
-          <section className="rounded-md border border-amber-200 bg-amber-50 px-5 py-6">
-            <h1 className="text-xl font-semibold text-amber-950">
-              editor 권한이 필요합니다
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-amber-900">
-              viewer는 문서를 읽고 토론할 수 있지만 문서 수정은 할 수 없습니다.
-            </p>
-          </section>
-        ) : (
-          <DocumentEditor
-            action={updateDocument}
-            linkableDocuments={linkableDocuments}
-            mode="edit"
-            initialDocument={{
-              id: document.id,
-              title: document.title,
-              slug: document.slug,
-              summary: document.summary,
-              bodyMarkdown: document.bodyMarkdown,
-              status: document.status,
-              contentType: document.contentType,
-              interviewCategory: document.interviewCategory ?? undefined,
-              tags: document.tags.map((tag) => tag.name).join(", "),
-              relatedDocumentIds,
-            }}
-          />
-        )}
+      {!configured ? (
+        <SetupNotice />
+      ) : !canEdit ? (
+        <section className="rounded-md border border-amber-200 bg-amber-50 px-5 py-6">
+          <h1 className="text-xl font-semibold text-amber-950">
+            editor 권한이 필요합니다
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-amber-900">
+            viewer는 문서를 읽고 토론할 수 있지만 문서 수정은 할 수 없습니다.
+          </p>
+        </section>
+      ) : (
+        <DocumentEditor
+          action={updateDocument}
+          linkableDocuments={linkableDocuments}
+          mode="edit"
+          initialDocument={{
+            id: document.id,
+            title: document.title,
+            slug: document.slug,
+            summary: document.summary,
+            bodyMarkdown: document.bodyMarkdown,
+            status: document.status,
+            contentType: document.contentType,
+            interviewCategory: document.interviewCategory ?? undefined,
+            tags: document.tags.map((tag) => tag.name).join(", "),
+            relatedDocumentIds,
+          }}
+        />
+      )}
     </main>
   );
 }

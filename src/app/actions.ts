@@ -61,7 +61,10 @@ function readString(formData: FormData, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function documentPath(slug: string, contentType: "term" | "interview_qa" | "scenario") {
+function documentPath(
+  slug: string,
+  contentType: "term" | "interview_qa" | "scenario",
+) {
   return documentDetailPath({ contentType, slug });
 }
 
@@ -105,7 +108,9 @@ function normalizeDocumentContent(
   return {
     contentType,
     interviewCategory:
-      contentType === "interview_qa" ? (interviewCategory ?? "technical") : null,
+      contentType === "interview_qa"
+        ? (interviewCategory ?? "technical")
+        : null,
   };
 }
 
@@ -329,9 +334,7 @@ export async function createDocument(formData: FormData) {
     parsed.interviewCategory,
   );
   const parsedTags = parseTagNames(parsed.tags);
-  const relatedDocumentIds = parseRelatedDocumentIds(
-    parsed.relatedDocumentIds,
-  );
+  const relatedDocumentIds = parseRelatedDocumentIds(parsed.relatedDocumentIds);
   const slug = await uniqueSlug(slugify(parsed.slug || parsed.title));
 
   const { data, error } = await supabase
@@ -382,9 +385,7 @@ export async function updateDocument(formData: FormData) {
     parsed.interviewCategory,
   );
   const parsedTags = parseTagNames(parsed.tags);
-  const relatedDocumentIds = parseRelatedDocumentIds(
-    parsed.relatedDocumentIds,
-  );
+  const relatedDocumentIds = parseRelatedDocumentIds(parsed.relatedDocumentIds);
 
   if (!parsed.id) {
     throw new Error("수정할 문서 ID가 없습니다.");
@@ -402,7 +403,10 @@ export async function updateDocument(formData: FormData) {
     );
   }
 
-  const slug = await uniqueSlug(slugify(parsed.slug || parsed.title), parsed.id);
+  const slug = await uniqueSlug(
+    slugify(parsed.slug || parsed.title),
+    parsed.id,
+  );
   const { data: updatedDocument, error } = await supabase
     .from("documents")
     .update({
@@ -435,7 +439,12 @@ export async function updateDocument(formData: FormData) {
     slug,
     parseContentType(updatedDocument.content_type ?? undefined),
   );
-  redirect(documentPath(slug, parseContentType(updatedDocument.content_type ?? undefined)));
+  redirect(
+    documentPath(
+      slug,
+      parseContentType(updatedDocument.content_type ?? undefined),
+    ),
+  );
 }
 
 export async function restoreDocumentRevision(formData: FormData) {
@@ -453,7 +462,9 @@ export async function restoreDocumentRevision(formData: FormData) {
     .single();
 
   if (revisionError || !revision) {
-    throw new Error(revisionError?.message ?? "복원할 변경 이력을 찾지 못했습니다.");
+    throw new Error(
+      revisionError?.message ?? "복원할 변경 이력을 찾지 못했습니다.",
+    );
   }
 
   const { data: document, error: documentError } = await supabase

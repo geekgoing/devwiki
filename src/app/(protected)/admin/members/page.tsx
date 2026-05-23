@@ -44,13 +44,7 @@ function RoleSelect({
   );
 }
 
-function StatusMessage({
-  notice,
-  error,
-}: {
-  notice?: string;
-  error?: string;
-}) {
+function StatusMessage({ notice, error }: { notice?: string; error?: string }) {
   if (!notice && !error) {
     return null;
   }
@@ -138,91 +132,93 @@ export default async function MembersAdminPage({
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid gap-6">
-          {!configured ? <SetupNotice /> : null}
+      <div className="grid gap-6">
+        {!configured ? <SetupNotice /> : null}
 
-          {!canManageMemberList ? (
-            <section className="rounded-md border border-amber-200 bg-amber-50 px-5 py-6">
-              <div className="flex items-center gap-3">
-                <ShieldAlert size={22} className="text-amber-700" aria-hidden />
-                <h1 className="text-xl font-semibold text-amber-950">
-                  owner 권한이 필요합니다
+        {!canManageMemberList ? (
+          <section className="rounded-md border border-amber-200 bg-amber-50 px-5 py-6">
+            <div className="flex items-center gap-3">
+              <ShieldAlert size={22} className="text-amber-700" aria-hidden />
+              <h1 className="text-xl font-semibold text-amber-950">
+                owner 권한이 필요합니다
+              </h1>
+            </div>
+          </section>
+        ) : (
+          <>
+            <section className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
+                  멤버 관리
                 </h1>
+                <p className="mt-2 text-sm text-slate-500">
+                  {members.length}명
+                </p>
               </div>
+              <span className="inline-flex size-10 items-center justify-center rounded-md bg-slate-100 text-slate-600">
+                <Users size={20} aria-hidden />
+              </span>
             </section>
-          ) : (
-            <>
-              <section className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
-                    멤버 관리
-                  </h1>
-                  <p className="mt-2 text-sm text-slate-500">
-                    {members.length}명
-                  </p>
-                </div>
-                <span className="inline-flex size-10 items-center justify-center rounded-md bg-slate-100 text-slate-600">
-                  <Users size={20} aria-hidden />
-                </span>
-              </section>
 
-              <StatusMessage notice={params.notice} error={params.error} />
+            <StatusMessage notice={params.notice} error={params.error} />
 
-              <section className="rounded-md border border-slate-200 bg-white p-4">
-                <h2 className="text-sm font-semibold text-slate-950">멤버 추가</h2>
-                <form
-                  action={createMember}
-                  className="mt-4 grid gap-3 lg:grid-cols-[minmax(220px,1.2fr)_130px_minmax(160px,0.8fr)_90px]"
+            <section className="rounded-md border border-slate-200 bg-white p-4">
+              <h2 className="text-sm font-semibold text-slate-950">
+                멤버 추가
+              </h2>
+              <form
+                action={createMember}
+                className="mt-4 grid gap-3 lg:grid-cols-[minmax(220px,1.2fr)_130px_minmax(160px,0.8fr)_90px]"
+              >
+                <label>
+                  <span className="sr-only">이메일</span>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    placeholder="member@example.com"
+                    className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  />
+                </label>
+                <RoleSelect name="role" />
+                <label>
+                  <span className="sr-only">임시 비밀번호</span>
+                  <input
+                    type="password"
+                    name="password"
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    placeholder="임시 비밀번호"
+                    className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
                 >
-                  <label>
-                    <span className="sr-only">이메일</span>
-                    <input
-                      type="email"
-                      name="email"
-                      required
-                      placeholder="member@example.com"
-                      className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                    />
-                  </label>
-                  <RoleSelect name="role" />
-                  <label>
-                    <span className="sr-only">임시 비밀번호</span>
-                    <input
-                      type="password"
-                      name="password"
-                      required
-                      minLength={6}
-                      autoComplete="new-password"
-                      placeholder="임시 비밀번호"
-                      className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
-                  >
-                    추가
-                  </button>
-                </form>
-              </section>
+                  추가
+                </button>
+              </form>
+            </section>
 
-              <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
-                <div className="hidden border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium text-slate-500 lg:grid lg:grid-cols-[minmax(220px,1.2fr)_minmax(150px,0.8fr)_130px_100px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_90px]">
-                  <span>이메일</span>
-                  <span>닉네임</span>
-                  <span>role</span>
-                  <span>상태</span>
-                  <span>멤버</span>
-                  <span>Auth</span>
-                  <span>저장</span>
-                </div>
-                {members.map((adminMember) => (
-                  <MemberRow key={adminMember.email} member={adminMember} />
-                ))}
-              </section>
-            </>
-          )}
-        </div>
+            <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
+              <div className="hidden border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium text-slate-500 lg:grid lg:grid-cols-[minmax(220px,1.2fr)_minmax(150px,0.8fr)_130px_100px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_90px]">
+                <span>이메일</span>
+                <span>닉네임</span>
+                <span>role</span>
+                <span>상태</span>
+                <span>멤버</span>
+                <span>Auth</span>
+                <span>저장</span>
+              </div>
+              {members.map((adminMember) => (
+                <MemberRow key={adminMember.email} member={adminMember} />
+              ))}
+            </section>
+          </>
+        )}
+      </div>
     </main>
   );
 }
