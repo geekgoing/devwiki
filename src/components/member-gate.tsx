@@ -16,7 +16,7 @@ export function MemberGate({ user }: { user: DevWikiUser }) {
         있지 않습니다. 관리자에게 이메일 등록을 요청한 뒤 다시 시도하세요.
       </p>
       <form action={signOut}>
-        <Button type="submit" variant="outline" className="mt-4 bg-white">
+        <Button type="submit" variant="outline" className="mt-4 bg-background">
           <LogOut aria-hidden />
           로그아웃하고 다시 로그인
         </Button>

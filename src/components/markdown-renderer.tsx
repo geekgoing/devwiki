@@ -7,6 +7,7 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 
 import { MermaidBlock } from "@/components/mermaid-block";
+import { Button } from "@/components/ui/button";
 
 type MarkdownRendererProps = {
   content: string;
@@ -58,14 +59,20 @@ function CodeBlock({
     <div className="code-block">
       <div className="code-block-header">
         <span>{language ?? "code"}</span>
-        <button type="button" onClick={copyCode}>
+        <Button
+          type="button"
+          onClick={copyCode}
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-xs text-[var(--code-foreground)] hover:bg-[var(--code-border)] hover:text-[var(--code-foreground)]"
+        >
           {copied ? (
             <Check size={14} aria-hidden />
           ) : (
             <Copy size={14} aria-hidden />
           )}
           {copied ? "복사됨" : "복사"}
-        </button>
+        </Button>
       </div>
       <pre>{children}</pre>
     </div>
@@ -87,11 +94,7 @@ function Heading({
     <Tag id={id} className="group">
       <span>{children}</span>
       {id ? (
-        <a
-          href={`#${id}`}
-          className="heading-anchor"
-          aria-label="헤딩 링크"
-        >
+        <a href={`#${id}`} className="heading-anchor" aria-label="헤딩 링크">
           <Link2 size={16} aria-hidden />
         </a>
       ) : null}
@@ -130,10 +133,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           pre({ children }) {
             const { child, code, language } = extractCode(children);
 
-            if (
-              child &&
-              child.props.className?.includes("language-mermaid")
-            ) {
+            if (child && child.props.className?.includes("language-mermaid")) {
               return (
                 <MermaidBlock chart={String(child.props.children).trim()} />
               );

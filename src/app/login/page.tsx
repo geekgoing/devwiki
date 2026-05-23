@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -98,11 +99,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 />
               </div>
               <Label className="flex items-center gap-2 text-muted-foreground">
-                <input
-                  type="checkbox"
+                <Checkbox
                   name="remember_email"
                   defaultChecked={Boolean(rememberedEmail)}
-                  className="size-4 rounded border-input accent-primary"
                 />
                 이메일 기억
               </Label>

@@ -313,7 +313,7 @@ function RevisionDiffModal({
                     side.type,
                   )}`}
                 >
-                  <span className="select-none border-r border-black/5 px-2 py-1 text-right text-muted-foreground">
+                  <span className="select-none border-r border-border px-2 py-1 text-right text-muted-foreground">
                     {side.line ?? ""}
                   </span>
                   <span className="whitespace-pre-wrap break-words px-3 py-1">

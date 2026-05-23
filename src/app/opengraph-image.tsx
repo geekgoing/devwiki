@@ -2,6 +2,14 @@ import { ImageResponse } from "next/og";
 
 import { siteDescription, siteName } from "@/lib/site";
 
+const palette = {
+  background: "#f7fafb",
+  foreground: "#27333f",
+  muted: "#64727f",
+  primary: "#0f4f63",
+  primaryForeground: "#f7fafb",
+};
+
 export const alt = "DevWiki";
 export const size = {
   width: 1200,
@@ -12,60 +20,58 @@ export const contentType = "image/png";
 
 export default function OpenGraphImage() {
   return new ImageResponse(
-    (
+    <div
+      style={{
+        background: palette.background,
+        color: palette.foreground,
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        justifyContent: "space-between",
+        padding: 72,
+        width: "100%",
+      }}
+    >
       <div
         style={{
-          background: "#f8fafc",
-          color: "#0f172a",
+          alignItems: "center",
           display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "space-between",
-          padding: 72,
-          width: "100%",
+          gap: 24,
         }}
       >
         <div
           style={{
             alignItems: "center",
+            background: palette.primary,
+            borderRadius: 18,
+            color: palette.primaryForeground,
             display: "flex",
-            gap: 24,
+            fontSize: 44,
+            fontWeight: 800,
+            height: 86,
+            justifyContent: "center",
+            width: 86,
           }}
         >
-          <div
-            style={{
-              alignItems: "center",
-              background: "#2563eb",
-              borderRadius: 18,
-              color: "white",
-              display: "flex",
-              fontSize: 44,
-              fontWeight: 800,
-              height: 86,
-              justifyContent: "center",
-              width: 86,
-            }}
-          >
-            D
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 48, fontWeight: 800 }}>{siteName}</div>
-            <div style={{ color: "#475569", fontSize: 26 }}>
-              Member-only interview knowledge base
-            </div>
-          </div>
+          D
         </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-          <div style={{ fontSize: 76, fontWeight: 800 }}>
-            기술 면접 지식을 팀으로 정리합니다
-          </div>
-          <div style={{ color: "#475569", fontSize: 34, lineHeight: 1.35 }}>
-            {siteDescription}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ fontSize: 48, fontWeight: 800 }}>{siteName}</div>
+          <div style={{ color: palette.muted, fontSize: 26 }}>
+            Member-only interview knowledge base
           </div>
         </div>
       </div>
-    ),
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+        <div style={{ fontSize: 76, fontWeight: 800 }}>
+          기술 면접 지식을 팀으로 정리합니다
+        </div>
+        <div style={{ color: palette.muted, fontSize: 34, lineHeight: 1.35 }}>
+          {siteDescription}
+        </div>
+      </div>
+    </div>,
     size,
   );
 }
