@@ -31,7 +31,11 @@ import type ReactCodeMirror from "@uiw/react-codemirror";
 
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { slugify, toTagSlug } from "@/lib/slugify";
-import type { DocumentStatus } from "@/types/devwiki";
+import type {
+  DocumentContentType,
+  DocumentStatus,
+  InterviewCategory,
+} from "@/types/devwiki";
 
 type CodeMirrorProps = React.ComponentProps<typeof ReactCodeMirror>;
 type EditorViewInstance = Parameters<
@@ -66,6 +70,8 @@ type DocumentEditorProps = {
     slug?: string;
     summary?: string | null;
     bodyMarkdown?: string;
+    contentType?: DocumentContentType;
+    interviewCategory?: InterviewCategory;
     status?: DocumentStatus;
     tags?: string;
     relatedDocumentIds?: string[];
@@ -77,6 +83,8 @@ type EditorDraft = {
   slug: string;
   summary: string;
   body: string;
+  contentType: DocumentContentType;
+  interviewCategory: InterviewCategory | "";
   status: DocumentStatus;
   tags: string;
   editSummary: string;
@@ -106,9 +114,43 @@ flowchart LR
 ## 참고 자료
 `;
 
+const interviewQaStarterMarkdown = `# 질문
+
+## 질문 의도
+
+## 답변 Tip
+
+## 좋은 답변 흐름
+
+## 답변 예시
+
+## 주의할 점
+
+## 꼬리 질문
+`;
+
+const scenarioStarterMarkdown = `# 상황
+
+## 문제 이해
+
+## 해결 전략
+
+## 트레이드오프
+
+## 답변 예시
+
+## 토론 포인트
+`;
+
+const starterMarkdownByType: Record<DocumentContentType, string> = {
+  term: starterMarkdown,
+  interview_qa: interviewQaStarterMarkdown,
+  scenario: scenarioStarterMarkdown,
+};
+
 const statusDescriptions: Record<DocumentStatus, string> = {
   draft: "로그인한 멤버에게만 노출됩니다.",
-  published: "비로그인 사용자도 읽을 수 있습니다.",
+  published: "전체 멤버의 기본 목록에 노출됩니다.",
   archived: "기본 목록에서는 숨기고 보관 필터에서만 봅니다.",
 };
 
@@ -161,6 +203,12 @@ export function DocumentEditor({
   const [title, setTitle] = useState(initialDocument?.title ?? "");
   const [slug, setSlug] = useState(initialDocument?.slug ?? "");
   const [summary, setSummary] = useState(initialDocument?.summary ?? "");
+  const [contentType, setContentType] = useState<DocumentContentType>(
+    initialDocument?.contentType ?? "term",
+  );
+  const [interviewCategory, setInterviewCategory] = useState<
+    InterviewCategory | ""
+  >(initialDocument?.interviewCategory ?? "technical");
   const [status, setStatus] = useState<DocumentStatus>(
     initialDocument?.status ?? "draft",
   );
@@ -168,7 +216,8 @@ export function DocumentEditor({
   const [tagInput, setTagInput] = useState("");
   const [editSummary, setEditSummary] = useState("");
   const [body, setBody] = useState(
-    initialDocument?.bodyMarkdown ?? starterMarkdown,
+    initialDocument?.bodyMarkdown ??
+      starterMarkdownByType[initialDocument?.contentType ?? "term"],
   );
   const [view, setView] = useState<"edit" | "preview" | "split">("split");
   const [uploading, setUploading] = useState(false);
@@ -250,6 +299,27 @@ export function DocumentEditor({
     setIsDirty(true);
   }
 
+  function handleContentTypeChange(nextContentType: DocumentContentType) {
+    const shouldReplaceStarter =
+      mode === "create" &&
+      !isDirty &&
+      body === starterMarkdownByType[contentType];
+
+    setContentType(nextContentType);
+
+    if (nextContentType !== "interview_qa") {
+      setInterviewCategory("");
+    } else if (!interviewCategory) {
+      setInterviewCategory("technical");
+    }
+
+    if (shouldReplaceStarter) {
+      setBody(starterMarkdownByType[nextContentType]);
+    }
+
+    markDirty();
+  }
+
   useEffect(() => {
     const rawDraft = window.localStorage.getItem(draftKey);
     let timeoutId: number | null = null;
@@ -286,6 +356,8 @@ export function DocumentEditor({
         slug,
         summary,
         body,
+        contentType,
+        interviewCategory,
         status,
         tags: submittedTags,
         editSummary,
@@ -308,6 +380,8 @@ export function DocumentEditor({
     body,
     draftKey,
     editSummary,
+    contentType,
+    interviewCategory,
     isDirty,
     slug,
     status,
@@ -529,6 +603,8 @@ export function DocumentEditor({
     setSlug(draft.slug);
     setSummary(draft.summary);
     setBody(draft.body);
+    setContentType(draft.contentType ?? "term");
+    setInterviewCategory(draft.interviewCategory ?? "");
     setStatus(draft.status);
     setTags(draft.tags);
     setEditSummary(draft.editSummary);
@@ -646,6 +722,12 @@ export function DocumentEditor({
       ) : null}
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="body_markdown" value={body} />
+      <input type="hidden" name="content_type" value={contentType} />
+      <input
+        type="hidden"
+        name="interview_category"
+        value={contentType === "interview_qa" ? interviewCategory : ""}
+      />
       <input type="hidden" name="tags" value={submittedTags} />
       <input
         type="hidden"
@@ -986,6 +1068,42 @@ export function DocumentEditor({
                     문서 설정
                   </h2>
                 </div>
+
+                <label className="mt-4 block">
+                  <FieldLabel>콘텐츠 유형</FieldLabel>
+                  <select
+                    value={contentType}
+                    onChange={(event) =>
+                      handleContentTypeChange(
+                        event.target.value as DocumentContentType,
+                      )
+                    }
+                    className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  >
+                    <option value="term">기술 용어</option>
+                    <option value="interview_qa">면접 Q&A</option>
+                    <option value="scenario">상황 시뮬레이션</option>
+                  </select>
+                </label>
+
+                {contentType === "interview_qa" ? (
+                  <label className="mt-4 block">
+                    <FieldLabel>면접 분류</FieldLabel>
+                    <select
+                      value={interviewCategory || "technical"}
+                      onChange={(event) => {
+                        setInterviewCategory(
+                          event.target.value as InterviewCategory,
+                        );
+                        markDirty();
+                      }}
+                      className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-950 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    >
+                      <option value="technical">기술</option>
+                      <option value="behavioral">인성</option>
+                    </select>
+                  </label>
+                ) : null}
 
                 <label className="mt-4 block">
                   <FieldLabel optional>요약</FieldLabel>

@@ -9,6 +9,8 @@ export const demoDocuments: DocumentSummary[] = [
     title: "멱등성",
     summary: "같은 요청을 여러 번 실행해도 결과가 한 번 실행한 것과 같게 유지되는 성질.",
     status: "published",
+    contentType: "term",
+    interviewCategory: null,
     createdAt: now,
     updatedAt: now,
     tags: [
@@ -22,6 +24,8 @@ export const demoDocuments: DocumentSummary[] = [
     title: "트랜잭션",
     summary: "여러 데이터 변경을 하나의 논리적 작업 단위로 묶어 원자성과 일관성을 지키는 방법.",
     status: "draft",
+    contentType: "term",
+    interviewCategory: null,
     createdAt: now,
     updatedAt: now,
     tags: [

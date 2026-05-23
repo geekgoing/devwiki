@@ -3,9 +3,11 @@ import Link from "next/link";
 
 export function EmptyState({
   canCreate,
+  createHref = "/documents/new",
   query,
 }: {
   canCreate: boolean;
+  createHref?: string;
   query?: string;
 }) {
   const isSearchEmpty = Boolean(query?.trim());
@@ -23,7 +25,7 @@ export function EmptyState({
       </p>
       {canCreate && !isSearchEmpty ? (
         <Link
-          href="/documents/new"
+          href={createHref}
           className="mt-4 inline-flex h-9 items-center rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800"
         >
           새 문서 작성

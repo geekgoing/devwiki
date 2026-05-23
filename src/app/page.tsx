@@ -16,21 +16,31 @@ import {
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
 import { EmptyState } from "@/components/empty-state";
+import { MemberGate } from "@/components/member-gate";
 import { SetupNotice } from "@/components/setup-notice";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate } from "@/lib/format";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { getDocuments } from "@/lib/documents";
+import { canEditContent, canManageMembers } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import type { DocumentStatusFilter, DocumentSummary } from "@/types/devwiki";
+import type {
+  DocumentContentType,
+  DocumentStatusFilter,
+  DocumentSummary,
+  InterviewCategory,
+} from "@/types/devwiki";
 
 type HomeProps = {
   searchParams: Promise<{
+    category?: string;
     q?: string;
     status?: string;
+    type?: string;
   }>;
 };
 
@@ -40,6 +50,29 @@ const statusLabels: Record<DocumentStatusFilter, string> = {
   draft: "초안",
   archived: "보관",
 };
+
+const contentTypeLabels: Record<DocumentContentType, string> = {
+  term: "기술 용어",
+  interview_qa: "면접 Q&A",
+  scenario: "상황 시뮬레이션",
+};
+
+const contentTypeSummaries: Record<DocumentContentType, string> = {
+  term: "기술 개념, 실무 예시, 꼬리 질문을 빠르게 훑습니다.",
+  interview_qa: "면접에서 받은 질문과 답변 Tip을 Q&A 형태로 정리합니다.",
+  scenario: "서술형 상황 질문을 해결 흐름과 토론 중심으로 다룹니다.",
+};
+
+const interviewCategoryLabels: Record<InterviewCategory, string> = {
+  technical: "기술",
+  behavioral: "인성",
+};
+
+const contentTypes: DocumentContentType[] = [
+  "term",
+  "interview_qa",
+  "scenario",
+];
 
 const statusIcons = {
   active: FileText,
@@ -208,8 +241,38 @@ function parseStatusFilter(value?: string): DocumentStatusFilter {
     : "active";
 }
 
-function filterHref(query: string, status: DocumentStatusFilter) {
+function parseContentType(value?: string): DocumentContentType {
+  return value === "interview_qa" || value === "scenario" ? value : "term";
+}
+
+function parseInterviewCategory(value?: string): InterviewCategory | undefined {
+  return value === "technical" || value === "behavioral" ? value : undefined;
+}
+
+function loginHref(next: string) {
+  return `/login?next=${encodeURIComponent(next)}`;
+}
+
+function filterHref({
+  category,
+  contentType,
+  query,
+  status,
+}: {
+  category?: InterviewCategory;
+  contentType: DocumentContentType;
+  query: string;
+  status: DocumentStatusFilter;
+}) {
   const params = new URLSearchParams();
+
+  if (contentType !== "term") {
+    params.set("type", contentType);
+  }
+
+  if (category && contentType === "interview_qa") {
+    params.set("category", category);
+  }
 
   if (query) {
     params.set("q", query);
@@ -323,12 +386,14 @@ function CompactDocumentLink({
 }
 
 function SearchAndFilters({
-  canReadPrivate,
+  category,
+  contentType,
   filters,
   query,
   status,
 }: {
-  canReadPrivate: boolean;
+  category?: InterviewCategory;
+  contentType: DocumentContentType;
   filters: DocumentStatusFilter[];
   query: string;
   status: DocumentStatusFilter;
@@ -341,6 +406,8 @@ function SearchAndFilters({
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           aria-hidden
         />
+        <input type="hidden" name="type" value={contentType} />
+        {category ? <input type="hidden" name="category" value={category} /> : null}
         <input type="hidden" name="status" value={status} />
         <input
           name="q"
@@ -354,15 +421,17 @@ function SearchAndFilters({
         {filters.map((filter) => {
           const Icon = statusIcons[filter];
           const selected = status === filter;
-          const label =
-            filter === "active" && !canReadPrivate
-              ? "공개"
-              : statusLabels[filter];
+          const label = statusLabels[filter];
 
           return (
             <Link
               key={filter}
-              href={filterHref(query, filter)}
+              href={filterHref({
+                category,
+                contentType,
+                query,
+                status: filter,
+              })}
               className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition ${
                 selected
                   ? "border-blue-600 bg-blue-600 text-white"
@@ -376,6 +445,99 @@ function SearchAndFilters({
         })}
       </nav>
     </div>
+  );
+}
+
+function ContentTypeTabs({
+  category,
+  contentType,
+  query,
+  status,
+}: {
+  category?: InterviewCategory;
+  contentType: DocumentContentType;
+  query: string;
+  status: DocumentStatusFilter;
+}) {
+  return (
+    <nav className="grid gap-3 md:grid-cols-3" aria-label="콘텐츠 유형">
+      {contentTypes.map((type) => {
+        const selected = contentType === type;
+
+        return (
+          <Link
+            key={type}
+            href={filterHref({
+              category,
+              contentType: type,
+              query,
+              status,
+            })}
+            className={`rounded-md border p-4 transition ${
+              selected
+                ? "border-blue-600 bg-blue-50 text-blue-950"
+                : "border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50"
+            }`}
+          >
+            <span className="text-sm font-semibold">
+              {contentTypeLabels[type]}
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-slate-500">
+              {contentTypeSummaries[type]}
+            </span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+function InterviewCategoryFilter({
+  category,
+  contentType,
+  query,
+  status,
+}: {
+  category?: InterviewCategory;
+  contentType: DocumentContentType;
+  query: string;
+  status: DocumentStatusFilter;
+}) {
+  if (contentType !== "interview_qa") {
+    return null;
+  }
+
+  return (
+    <nav className="flex flex-wrap gap-2" aria-label="면접 Q&A 분류">
+      <Link
+        href={filterHref({ contentType, query, status })}
+        className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition ${
+          !category
+            ? "border-slate-950 bg-slate-950 text-white"
+            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+        }`}
+      >
+        전체
+      </Link>
+      {(["technical", "behavioral"] as InterviewCategory[]).map((item) => (
+        <Link
+          key={item}
+          href={filterHref({
+            category: item,
+            contentType,
+            query,
+            status,
+          })}
+          className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium transition ${
+            category === item
+              ? "border-slate-950 bg-slate-950 text-white"
+              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+          }`}
+        >
+          {interviewCategoryLabels[item]}
+        </Link>
+      ))}
+    </nav>
   );
 }
 
@@ -503,29 +665,55 @@ function DiscoveryBoard({ documents }: { documents: DocumentSummary[] }) {
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
+  const contentType = parseContentType(params.type);
+  const interviewCategory = parseInterviewCategory(params.category);
   const query = params.q?.trim() ?? "";
   const status = parseStatusFilter(params.status);
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
+
+  if (configured && !user) {
+    redirect(loginHref("/"));
+  }
+
+  if (configured && user && !member) {
+    return (
+      <>
+        <AppHeader configured={configured} canCreate={false} user={user} />
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
+          <MemberGate user={user} />
+        </main>
+      </>
+    );
+  }
+
   const canReadPrivate = !configured || Boolean(member);
   const documents = await getDocuments({
+    contentType,
+    interviewCategory:
+      contentType === "interview_qa" ? interviewCategory : undefined,
     query,
     status,
     canReadPrivate,
   });
-  const filters: DocumentStatusFilter[] = canReadPrivate
-    ? ["active", "published", "draft", "archived"]
-    : ["active"];
-  const showDiscovery = !query && status === "active";
+  const filters: DocumentStatusFilter[] = [
+    "active",
+    "published",
+    "draft",
+    "archived",
+  ];
+  const showDiscovery = !query && status === "active" && contentType === "term";
   const uniqueTagCount = getUniqueTagCount(documents);
+  const canCreate = canEditContent(member);
 
   return (
     <>
       <AppHeader
         configured={configured}
-        canCreate={Boolean(member)}
-        canManageMembers={member?.role === "owner"}
+        canCreate={canCreate}
+        canManageMembers={canManageMembers(member)}
+        member={member}
         user={user}
       />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-10 sm:px-6 lg:px-8">
@@ -533,21 +721,14 @@ export default async function Home({ searchParams }: HomeProps) {
           {!configured ? <SetupNotice /> : null}
 
           <>
-            {configured && user && !member ? (
-              <section className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950 shadow-sm shadow-amber-200/40">
-                공개 문서는 읽을 수 있지만 작성, 수정, 초안 열람은 멤버 등록이
-                필요합니다.
-              </section>
-            ) : null}
-
               <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
                 <div>
                   <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
-                    개발자 지식 베이스
+                    {contentTypeLabels[contentType]}
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                    개발자들이 기술 개념, 면접 질문, 실무 예시, 시각 자료를
-                    함께 정리하는 협업형 지식 베이스입니다.
+                    {contentTypeSummaries[contentType]} 공개 문서는 전체 멤버에게
+                    공개되는 문서입니다.
                   </p>
                 </div>
 
@@ -584,9 +765,24 @@ export default async function Home({ searchParams }: HomeProps) {
                 </div>
               </section>
 
+              <ContentTypeTabs
+                category={interviewCategory}
+                contentType={contentType}
+                query={query}
+                status={status}
+              />
+
               <SearchAndFilters
-                canReadPrivate={canReadPrivate}
+                category={interviewCategory}
+                contentType={contentType}
                 filters={filters}
+                query={query}
+                status={status}
+              />
+
+              <InterviewCategoryFilter
+                category={interviewCategory}
+                contentType={contentType}
                 query={query}
                 status={status}
               />
@@ -602,7 +798,13 @@ export default async function Home({ searchParams }: HomeProps) {
                   </section>
                 )
               ) : (
-                <EmptyState canCreate={Boolean(member)} query={query} />
+                <EmptyState
+                  canCreate={canCreate}
+                  createHref={`/documents/new?type=${contentType}${
+                    interviewCategory ? `&category=${interviewCategory}` : ""
+                  }`}
+                  query={query}
+                />
               )}
           </>
         </div>
