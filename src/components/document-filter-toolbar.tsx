@@ -54,6 +54,7 @@ export function DocumentFilterToolbar({
   category,
   contentType,
   learning,
+  onNavigate,
   query = "",
   status,
 }: {
@@ -61,6 +62,7 @@ export function DocumentFilterToolbar({
   category?: InterviewCategory;
   contentType?: DocumentContentType;
   learning: DocumentLearningFilter;
+  onNavigate?: (href: string) => void;
   query?: string;
   status: DocumentStatusFilter;
 }) {
@@ -120,6 +122,7 @@ export function DocumentFilterToolbar({
       activeCount={activeFilterCount}
       interviewCategoryLinks={interviewCategoryLinks}
       learningLinks={learningLinks}
+      onNavigate={onNavigate}
       resetHref={resetHref}
       statusLinks={statusLinks}
     />

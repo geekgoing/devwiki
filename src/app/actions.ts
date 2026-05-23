@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -14,6 +14,7 @@ import {
   legacyDocumentPath,
   parseContentType,
 } from "@/lib/content-routes";
+import { DEVWIKI_DOCUMENTS_CACHE_TAG } from "@/lib/documents";
 import { generateNickname } from "@/lib/nicknames";
 import { slugify, toTagSlug } from "@/lib/slugify";
 import type { Tag } from "@/types/devwiki";
@@ -76,6 +77,10 @@ function revalidateDocumentPaths(
   revalidatePath(documentEditPath(slug));
   revalidatePath(documentPath(slug, contentType));
   revalidatePath(contentTypePath(contentType));
+}
+
+function revalidateDocumentRows() {
+  updateTag(DEVWIKI_DOCUMENTS_CACHE_TAG);
 }
 
 function safeRedirectPath(value: string) {
@@ -360,6 +365,7 @@ export async function createDocument(formData: FormData) {
 
   await syncTags(supabase, data.id, parsedTags);
   await syncRelatedDocuments(supabase, data.id, relatedDocumentIds, user.id);
+  revalidateDocumentRows();
   revalidatePath("/");
   revalidatePath(contentTypePath(content.contentType));
   redirect(documentPath(data.slug, content.contentType));
@@ -430,6 +436,7 @@ export async function updateDocument(formData: FormData) {
 
   await syncTags(supabase, parsed.id, parsedTags);
   await syncRelatedDocuments(supabase, parsed.id, relatedDocumentIds, user.id);
+  revalidateDocumentRows();
   revalidatePath("/");
   revalidateDocumentPaths(
     currentDocument.slug,
@@ -496,6 +503,7 @@ export async function restoreDocumentRevision(formData: FormData) {
   }
 
   revalidatePath("/");
+  revalidateDocumentRows();
   const contentType = parseContentType(document.content_type ?? undefined);
   revalidateDocumentPaths(document.slug, contentType);
   redirect(documentPath(document.slug, contentType));

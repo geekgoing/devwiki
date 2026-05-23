@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { AppHeader } from "@/components/app-header";
+import { QueryProvider } from "@/components/query-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { canManageMembers } from "@/lib/permissions";
@@ -57,13 +58,15 @@ export default async function RootLayout({
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <TooltipProvider delayDuration={250}>
-          <AppHeader
-            configured={configured}
-            canManageMembers={canManageMembers(member)}
-            member={member}
-            user={user}
-          />
-          {children}
+          <QueryProvider>
+            <AppHeader
+              configured={configured}
+              canManageMembers={canManageMembers(member)}
+              member={member}
+              user={user}
+            />
+            {children}
+          </QueryProvider>
         </TooltipProvider>
       </body>
     </html>

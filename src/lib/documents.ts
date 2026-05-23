@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 import { demoDocumentDetails, demoDocuments } from "@/lib/demo-data";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -54,6 +56,11 @@ const DOCUMENT_LIST_LIMIT = 100;
 const DOCUMENT_SEARCH_PAGE_SIZE = 500;
 const DOCUMENT_SEARCH_MAX_ROWS = 5000;
 const DEFAULT_MEMBER_STATUSES: DocumentStatus[] = ["published", "draft"];
+const DOCUMENT_DETAIL_SELECT =
+  "id, slug, title, summary, body_markdown, status, content_type, interview_category, created_at, updated_at, created_by, updated_by, document_tags(tags(id, name, slug))";
+const DOCUMENT_CACHE_REVALIDATE_SECONDS = 300;
+
+export const DEVWIKI_DOCUMENTS_CACHE_TAG = "devwiki:documents";
 
 type DocumentReadOptions = {
   canReadPrivate?: boolean;
@@ -67,6 +74,17 @@ type DocumentListOptions = DocumentReadOptions & {
   query?: string;
   status?: DocumentStatusFilter;
 };
+
+type DocumentListRowQuery = {
+  contentType?: DocumentContentType;
+  interviewCategory?: InterviewCategory;
+  includeSearchRows: boolean;
+  statuses: DocumentStatus[];
+};
+
+type SupabaseReader =
+  | Awaited<ReturnType<typeof createClient>>
+  | ReturnType<typeof createAdminClient>;
 
 function flattenTags(relations?: RawTagRelation[] | null): Tag[] {
   if (!relations) {
@@ -145,6 +163,118 @@ function visibleStatuses(
 
   return canReadPrivate ? [status] : [];
 }
+
+function canUseDocumentCache(canReadPrivate: boolean) {
+  return (
+    canReadPrivate &&
+    Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)
+  );
+}
+
+async function selectDocumentRows(
+  supabase: SupabaseReader,
+  {
+    contentType,
+    includeSearchRows,
+    interviewCategory,
+    statuses,
+  }: DocumentListRowQuery,
+): Promise<RawDocument[]> {
+  if (includeSearchRows) {
+    const rows: RawDocument[] = [];
+
+    for (
+      let from = 0;
+      from < DOCUMENT_SEARCH_MAX_ROWS;
+      from += DOCUMENT_SEARCH_PAGE_SIZE
+    ) {
+      const to = from + DOCUMENT_SEARCH_PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from("documents")
+        .select(DOCUMENT_LIST_SELECT)
+        .in("status", statuses)
+        .match({
+          ...(contentType ? { content_type: contentType } : {}),
+          ...(interviewCategory
+            ? { interview_category: interviewCategory }
+            : {}),
+        })
+        .order("updated_at", { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      rows.push(...((data ?? []) as RawDocument[]));
+
+      if (!data || data.length < DOCUMENT_SEARCH_PAGE_SIZE) {
+        break;
+      }
+    }
+
+    return rows;
+  }
+
+  const { data, error } = await supabase
+    .from("documents")
+    .select(DOCUMENT_LIST_SELECT)
+    .in("status", statuses)
+    .match({
+      ...(contentType ? { content_type: contentType } : {}),
+      ...(interviewCategory ? { interview_category: interviewCategory } : {}),
+    })
+    .order("updated_at", { ascending: false })
+    .limit(DOCUMENT_LIST_LIMIT);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as RawDocument[];
+}
+
+const getCachedDocumentRows = unstable_cache(
+  async (query: DocumentListRowQuery) => {
+    const admin = createAdminClient();
+    return selectDocumentRows(admin, query);
+  },
+  ["devwiki-document-list-rows"],
+  {
+    revalidate: DOCUMENT_CACHE_REVALIDATE_SECONDS,
+    tags: [DEVWIKI_DOCUMENTS_CACHE_TAG],
+  },
+);
+
+async function selectDocumentRowBySlug(
+  supabase: SupabaseReader,
+  slug: string,
+) {
+  const { data, error } = await supabase
+    .from("documents")
+    .select(DOCUMENT_DETAIL_SELECT)
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as RawDocument | null;
+}
+
+const getCachedDocumentRowBySlug = unstable_cache(
+  async (slug: string) => {
+    const admin = createAdminClient();
+    return selectDocumentRowBySlug(admin, slug);
+  },
+  ["devwiki-document-detail-row"],
+  {
+    revalidate: DOCUMENT_CACHE_REVALIDATE_SECONDS,
+    tags: [DEVWIKI_DOCUMENTS_CACHE_TAG],
+  },
+);
 
 function hasVisibleStatus(
   document: DocumentSummary,
@@ -303,69 +433,22 @@ export async function getDocuments({
     );
   }
 
-  const supabase = await createClient();
   const normalizedQuery = query.trim();
+  const rowQuery = {
+    contentType,
+    includeSearchRows: Boolean(normalizedQuery),
+    interviewCategory,
+    statuses,
+  };
+  const rows = canUseDocumentCache(canReadPrivate)
+    ? await getCachedDocumentRows(rowQuery)
+    : await selectDocumentRows(await createClient(), rowQuery);
+  const documents = await attachDocumentStates(rows, viewerId);
 
-  if (normalizedQuery) {
-    const rows: RawDocument[] = [];
-
-    for (
-      let from = 0;
-      from < DOCUMENT_SEARCH_MAX_ROWS;
-      from += DOCUMENT_SEARCH_PAGE_SIZE
-    ) {
-      const to = from + DOCUMENT_SEARCH_PAGE_SIZE - 1;
-      const { data, error } = await supabase
-        .from("documents")
-        .select(DOCUMENT_LIST_SELECT)
-        .in("status", statuses)
-        .match({
-          ...(contentType ? { content_type: contentType } : {}),
-          ...(interviewCategory
-            ? { interview_category: interviewCategory }
-            : {}),
-        })
-        .order("updated_at", { ascending: false })
-        .range(from, to);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      rows.push(...((data ?? []) as RawDocument[]));
-
-      if (!data || data.length < DOCUMENT_SEARCH_PAGE_SIZE) {
-        break;
-      }
-    }
-
-    const documents = await attachDocumentStates(rows, viewerId);
-    return documents.filter(
-      (document) =>
-        matchesLearningFilter(document, learning) &&
-        matchesQuery(document, normalizedQuery),
-    );
-  }
-
-  const { data, error } = await supabase
-    .from("documents")
-    .select(DOCUMENT_LIST_SELECT)
-    .in("status", statuses)
-    .match({
-      ...(contentType ? { content_type: contentType } : {}),
-      ...(interviewCategory ? { interview_category: interviewCategory } : {}),
-    })
-    .order("updated_at", { ascending: false })
-    .limit(DOCUMENT_LIST_LIMIT);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const documents = await attachDocumentStates((data ?? []) as RawDocument[], viewerId);
   return documents.filter(
     (document) =>
-      matchesLearningFilter(document, learning) && matchesQuery(document, query),
+      matchesLearningFilter(document, learning) &&
+      matchesQuery(document, normalizedQuery),
   );
 }
 
@@ -392,19 +475,9 @@ export async function getDocumentBySlug(
     return null;
   }
 
-  const supabase = await createClient();
-  const query = supabase
-    .from("documents")
-    .select(
-      "id, slug, title, summary, body_markdown, status, content_type, interview_category, created_at, updated_at, created_by, updated_by, document_tags(tags(id, name, slug))",
-    )
-    .eq("slug", slug);
-
-  const { data, error } = await query.maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  const data = canUseDocumentCache(canReadPrivate)
+    ? await getCachedDocumentRowBySlug(slug)
+    : await selectDocumentRowBySlug(await createClient(), slug);
 
   if (!data) {
     return null;
