@@ -53,7 +53,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const noticeMessage =
     params.notice === "confirmed"
       ? "이메일 확인이 완료되었습니다. owner 승인 후 로그인할 수 있습니다."
-      : null;
+      : params.notice === "signup-pending"
+        ? "회원가입이 완료되었습니다. owner 승인 후 로그인해주세요."
+        : params.notice === "already-approved"
+          ? "이미 승인된 멤버입니다. 로그인해주세요."
+          : null;
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6">

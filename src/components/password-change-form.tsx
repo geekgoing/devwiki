@@ -1,5 +1,6 @@
 "use client";
 
+import { Save } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { z } from "zod";
 
@@ -8,40 +9,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   MAX_PASSWORD_LENGTH,
-  SIGNUP_MIN_PASSWORD_LENGTH,
+  PASSWORD_CHANGE_MIN_PASSWORD_LENGTH,
 } from "@/lib/password-policy";
 
-const signupClientSchema = z
+const passwordChangeClientSchema = z
   .object({
-    email: z.string().trim().toLowerCase().email("올바른 이메일을 입력해주세요."),
+    currentPassword: z.string().min(1, "현재 비밀번호를 입력해주세요."),
     password: z
       .string()
       .min(
-        SIGNUP_MIN_PASSWORD_LENGTH,
-        `비밀번호는 ${SIGNUP_MIN_PASSWORD_LENGTH}자 이상이어야 합니다.`,
+        PASSWORD_CHANGE_MIN_PASSWORD_LENGTH,
+        `새 비밀번호는 ${PASSWORD_CHANGE_MIN_PASSWORD_LENGTH}자 이상이어야 합니다.`,
       )
       .max(
         MAX_PASSWORD_LENGTH,
-        `비밀번호는 ${MAX_PASSWORD_LENGTH}자 이하로 입력해주세요.`,
+        `새 비밀번호는 ${MAX_PASSWORD_LENGTH}자 이하로 입력해주세요.`,
       ),
-    passwordConfirm: z.string().min(1, "비밀번호 확인을 입력해주세요."),
+    passwordConfirm: z.string().min(1, "새 비밀번호 확인을 입력해주세요."),
   })
   .superRefine((value, context) => {
     if (value.password !== value.passwordConfirm) {
       context.addIssue({
         code: "custom",
         path: ["passwordConfirm"],
-        message: "비밀번호 확인이 일치하지 않습니다.",
+        message: "새 비밀번호 확인이 일치하지 않습니다.",
+      });
+    }
+
+    if (value.currentPassword === value.password) {
+      context.addIssue({
+        code: "custom",
+        path: ["password"],
+        message: "새 비밀번호는 현재 비밀번호와 달라야 합니다.",
       });
     }
   });
 
-type SignUpField = "email" | "password" | "passwordConfirm";
-type SignUpErrors = Partial<Record<SignUpField, string>>;
+type PasswordField = "currentPassword" | "password" | "passwordConfirm";
+type PasswordErrors = Partial<Record<PasswordField, string>>;
 
-type SignUpFormProps = {
-  disabled: boolean;
-  signUpAction: (formData: FormData) => void | Promise<void>;
+type PasswordChangeFormProps = {
+  next: string;
+  updatePasswordAction: (formData: FormData) => void | Promise<void>;
 };
 
 function readString(formData: FormData, key: string) {
@@ -49,29 +58,32 @@ function readString(formData: FormData, key: string) {
   return typeof value === "string" ? value : "";
 }
 
-function errorId(field: SignUpField) {
+function errorId(field: PasswordField) {
   return `${field}-error`;
 }
 
-export function SignUpForm({ disabled, signUpAction }: SignUpFormProps) {
-  const [errors, setErrors] = useState<SignUpErrors>({});
+export function PasswordChangeForm({
+  next,
+  updatePasswordAction,
+}: PasswordChangeFormProps) {
+  const [errors, setErrors] = useState<PasswordErrors>({});
 
-  function clearFieldError(field: SignUpField) {
+  function clearFieldError(field: PasswordField) {
     setErrors((current) => {
       if (!current[field]) {
         return current;
       }
 
-      const next = { ...current };
-      delete next[field];
-      return next;
+      const nextErrors = { ...current };
+      delete nextErrors[field];
+      return nextErrors;
     });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const formData = new FormData(event.currentTarget);
-    const parsed = signupClientSchema.safeParse({
-      email: readString(formData, "email"),
+    const parsed = passwordChangeClientSchema.safeParse({
+      currentPassword: readString(formData, "current_password"),
       password: readString(formData, "password"),
       passwordConfirm: readString(formData, "password_confirm"),
     });
@@ -83,13 +95,13 @@ export function SignUpForm({ disabled, signUpAction }: SignUpFormProps) {
 
     event.preventDefault();
 
-    const nextErrors: SignUpErrors = {};
+    const nextErrors: PasswordErrors = {};
 
     for (const issue of parsed.error.issues) {
       const field = issue.path[0];
 
       if (
-        (field === "email" ||
+        (field === "currentPassword" ||
           field === "password" ||
           field === "passwordConfirm") &&
         !nextErrors[field]
@@ -103,40 +115,43 @@ export function SignUpForm({ disabled, signUpAction }: SignUpFormProps) {
 
   return (
     <form
-      action={signUpAction}
-      className="space-y-4"
+      action={updatePasswordAction}
+      className="grid gap-4"
       noValidate
       onSubmit={handleSubmit}
     >
-      <div className="grid gap-2">
-        <Label htmlFor="email">이메일</Label>
+      <input type="hidden" name="next" value={next} />
+
+      <div className="grid gap-1.5">
+        <Label htmlFor="current_password">현재 비밀번호</Label>
         <Input
-          id="email"
-          type="email"
-          name="email"
+          id="current_password"
+          name="current_password"
+          type="password"
           required
-          autoComplete="email"
-          placeholder="name@example.com"
-          aria-describedby={errors.email ? errorId("email") : undefined}
-          aria-invalid={Boolean(errors.email)}
+          autoComplete="current-password"
+          aria-describedby={
+            errors.currentPassword ? errorId("currentPassword") : undefined
+          }
+          aria-invalid={Boolean(errors.currentPassword)}
           className="h-11"
-          onInput={() => clearFieldError("email")}
+          onInput={() => clearFieldError("currentPassword")}
         />
-        {errors.email ? (
-          <p id={errorId("email")} className="text-sm text-destructive">
-            {errors.email}
+        {errors.currentPassword ? (
+          <p id={errorId("currentPassword")} className="text-sm text-destructive">
+            {errors.currentPassword}
           </p>
         ) : null}
       </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="password">비밀번호</Label>
+      <div className="grid gap-1.5">
+        <Label htmlFor="password">새 비밀번호</Label>
         <Input
           id="password"
-          type="password"
           name="password"
+          type="password"
           required
-          minLength={SIGNUP_MIN_PASSWORD_LENGTH}
+          minLength={PASSWORD_CHANGE_MIN_PASSWORD_LENGTH}
           maxLength={MAX_PASSWORD_LENGTH}
           autoComplete="new-password"
           aria-describedby={errors.password ? errorId("password") : undefined}
@@ -151,14 +166,14 @@ export function SignUpForm({ disabled, signUpAction }: SignUpFormProps) {
         ) : null}
       </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="password_confirm">비밀번호 확인</Label>
+      <div className="grid gap-1.5">
+        <Label htmlFor="password_confirm">새 비밀번호 확인</Label>
         <Input
           id="password_confirm"
-          type="password"
           name="password_confirm"
+          type="password"
           required
-          minLength={SIGNUP_MIN_PASSWORD_LENGTH}
+          minLength={PASSWORD_CHANGE_MIN_PASSWORD_LENGTH}
           maxLength={MAX_PASSWORD_LENGTH}
           autoComplete="new-password"
           aria-describedby={
@@ -178,9 +193,12 @@ export function SignUpForm({ disabled, signUpAction }: SignUpFormProps) {
         ) : null}
       </div>
 
-      <Button type="submit" disabled={disabled} className="h-11 w-full">
-        회원가입
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" size="lg">
+          <Save size={16} aria-hidden />
+          변경
+        </Button>
+      </div>
     </form>
   );
 }

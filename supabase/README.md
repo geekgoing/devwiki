@@ -87,8 +87,9 @@ set display_name = excluded.display_name,
 `members`에 `owner`로 등록합니다. 이후 사용자는 `/signup`에서 직접 Auth user를
 만듭니다. 앱은 서버 전용 `auth.admin.createUser`에 `email_confirm: true`를
 사용하므로 회원가입 확인 메일을 보내지 않습니다. owner 승인은 별도로 필요합니다.
-앱은 비밀번호를 4자 이상으로 검증합니다. Supabase 프로젝트의 Auth password
-policy가 더 긴 최소 길이를 요구하면 Supabase 쪽 설정이 우선 적용됩니다.
+회원가입과 마이페이지 비밀번호 변경은 모두 비밀번호를 6자 이상으로
+검증합니다. Supabase 프로젝트의 Auth password policy가 더 긴 최소 길이를
+요구하면 Supabase 쪽 설정이 우선 적용됩니다.
 
 최종 검증 스크립트에서 테스트 계정을 자동 생성하거나 비밀번호를 동기화하려면
 `DEVWIKI_E2E_MANAGE_MEMBER=1`을 함께 설정합니다. 이 옵션은
