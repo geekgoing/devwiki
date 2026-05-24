@@ -1,11 +1,9 @@
-import { KeyRound, Save } from "lucide-react";
+import { KeyRound } from "lucide-react";
 
 import { updateMyPassword } from "@/app/actions";
+import { PasswordChangeForm } from "@/components/password-change-form";
 import { SetupNotice } from "@/components/setup-notice";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -19,7 +17,7 @@ type PasswordPageProps = {
 const errorMessages: Record<string, string> = {
   current: "현재 비밀번호를 확인해주세요.",
   invalid: "비밀번호 입력값을 확인해주세요.",
-  length: "새 비밀번호는 4자 이상이어야 합니다.",
+  length: "새 비밀번호는 6자 이상이어야 합니다.",
   mismatch: "새 비밀번호 확인이 일치하지 않습니다.",
   session: "로그인 세션을 확인하지 못했습니다. 다시 로그인해주세요.",
   unchanged: "새 비밀번호는 현재 비밀번호와 달라야 합니다.",
@@ -71,56 +69,10 @@ export default async function PasswordPage({ searchParams }: PasswordPageProps) 
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <form action={updateMyPassword} className="grid gap-4">
-                <input type="hidden" name="next" value={next} />
-
-                <div className="grid gap-1.5">
-                  <Label htmlFor="current_password">현재 비밀번호</Label>
-                  <Input
-                    id="current_password"
-                    name="current_password"
-                    type="password"
-                    required
-                    autoComplete="current-password"
-                    className="h-11"
-                  />
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label htmlFor="password">새 비밀번호</Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    minLength={4}
-                    maxLength={72}
-                    autoComplete="new-password"
-                    className="h-11"
-                  />
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label htmlFor="password_confirm">새 비밀번호 확인</Label>
-                  <Input
-                    id="password_confirm"
-                    name="password_confirm"
-                    type="password"
-                    required
-                    minLength={4}
-                    maxLength={72}
-                    autoComplete="new-password"
-                    className="h-11"
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button type="submit" size="lg">
-                    <Save size={16} aria-hidden />
-                    변경
-                  </Button>
-                </div>
-              </form>
+              <PasswordChangeForm
+                next={next}
+                updatePasswordAction={updateMyPassword}
+              />
             </CardContent>
           </Card>
         ) : null}

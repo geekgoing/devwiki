@@ -16,6 +16,11 @@ import {
 } from "@/lib/content-routes";
 import { DEVWIKI_DOCUMENTS_CACHE_TAG } from "@/lib/documents";
 import { generateNickname } from "@/lib/nicknames";
+import {
+  MAX_PASSWORD_LENGTH,
+  PASSWORD_CHANGE_MIN_PASSWORD_LENGTH,
+  SIGNUP_MIN_PASSWORD_LENGTH,
+} from "@/lib/password-policy";
 import { slugify, toTagSlug } from "@/lib/slugify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tag } from "@/types/devwiki";
@@ -52,12 +57,10 @@ const profileSchema = z.object({
     .max(40, "닉네임은 40자 이하로 입력하세요."),
 });
 
-const MIN_PASSWORD_LENGTH = 4;
-
 const signUpSchema = z
   .object({
     email: z.string().trim().toLowerCase().email(),
-    password: z.string().min(MIN_PASSWORD_LENGTH).max(72),
+    password: z.string().min(SIGNUP_MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH),
     passwordConfirm: z.string().min(1),
   })
   .superRefine((value, context) => {
@@ -73,7 +76,10 @@ const signUpSchema = z
 const passwordSchema = z
   .object({
     currentPassword: z.string().min(1),
-    password: z.string().min(MIN_PASSWORD_LENGTH).max(72),
+    password: z
+      .string()
+      .min(PASSWORD_CHANGE_MIN_PASSWORD_LENGTH)
+      .max(MAX_PASSWORD_LENGTH),
     passwordConfirm: z.string().min(1),
   })
   .superRefine((value, context) => {
@@ -136,11 +142,15 @@ function safeRedirectPath(value: string) {
   return value;
 }
 
-function loginPath(params: { error?: string; next?: string }) {
+function loginPath(params: { error?: string; next?: string; notice?: string }) {
   const searchParams = new URLSearchParams();
 
   if (params.error) {
     searchParams.set("error", params.error);
+  }
+
+  if (params.notice) {
+    searchParams.set("notice", params.notice);
   }
 
   if (params.next && params.next !== "/") {
@@ -516,11 +526,11 @@ export async function signUpWithPassword(formData: FormData) {
   }
 
   if (existingMember?.is_active) {
-    redirect(signUpPath({ error: "already-approved" }));
+    redirect(loginPath({ notice: "already-approved" }));
   }
 
   if (existingMember) {
-    redirect(signUpPath({ notice: "pending" }));
+    redirect(loginPath({ notice: "signup-pending" }));
   }
 
   const { error: signUpError } = await admin.auth.admin.createUser({
@@ -549,7 +559,7 @@ export async function signUpWithPassword(formData: FormData) {
         redirect(signUpPath({ error: "member" }));
       }
 
-      redirect(signUpPath({ notice: "pending" }));
+      redirect(loginPath({ notice: "signup-pending" }));
     }
 
     redirect(signUpPath({ error }));
@@ -565,7 +575,7 @@ export async function signUpWithPassword(formData: FormData) {
     redirect(signUpPath({ error: "member" }));
   }
 
-  redirect(signUpPath({ notice: "pending" }));
+  redirect(loginPath({ notice: "signup-pending" }));
 }
 
 export async function signOut() {
@@ -845,9 +855,24 @@ export async function updateMyPassword(formData: FormData) {
   });
 
   if (updateError) {
-    const error = /password/i.test(updateError.message)
-      ? "current"
-      : "update";
+    const message = updateError.message.toLowerCase();
+    const code = updateError.code?.toLowerCase() ?? "";
+    const error =
+      code.includes("weak_password") ||
+      /weak|minimum|at least|characters/.test(message)
+        ? "length"
+        : /current|invalid|password/.test(message)
+          ? "current"
+          : "update";
+
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Supabase password update failed", {
+        code: updateError.code,
+        message: updateError.message,
+        status: updateError.status,
+      });
+    }
+
     redirect(
       passwordChangePath({
         error,

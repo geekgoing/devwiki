@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { SIGNUP_MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 type SignUpPageProps = {
@@ -28,7 +29,7 @@ const errorMessages: Record<string, string> = {
   invalid: "가입 정보를 확인해주세요.",
   member: "계정은 생성됐지만 회원 정보를 남기지 못했습니다. 다시 시도해주세요.",
   mismatch: "비밀번호 확인이 일치하지 않습니다.",
-  password: "비밀번호는 4자 이상이어야 합니다.",
+  password: `비밀번호는 ${SIGNUP_MIN_PASSWORD_LENGTH}자 이상이어야 합니다.`,
   "rate-limit": "회원가입 요청이 잠시 제한되었습니다. 잠시 뒤 다시 시도해주세요.",
   server: "회원가입 상태를 확인하지 못했습니다. 잠시 뒤 다시 시도해주세요.",
 };
