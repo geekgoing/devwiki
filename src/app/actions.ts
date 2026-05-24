@@ -17,10 +17,13 @@ import {
 import { DEVWIKI_DOCUMENTS_CACHE_TAG } from "@/lib/documents";
 import { generateNickname } from "@/lib/nicknames";
 import { slugify, toTagSlug } from "@/lib/slugify";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tag } from "@/types/devwiki";
 
 const MAX_TAG_NAME_LENGTH = 40;
 const REMEMBER_EMAIL_COOKIE = "devwiki_remember_email";
+const AUTH_USER_LOOKUP_PAGE_SIZE = 200;
+const AUTH_USER_LOOKUP_MAX_PAGES = 10;
 
 const documentSchema = z.object({
   id: z.string().optional(),
@@ -48,6 +51,48 @@ const profileSchema = z.object({
     .min(2, "닉네임은 2자 이상이어야 합니다.")
     .max(40, "닉네임은 40자 이하로 입력하세요."),
 });
+
+const MIN_PASSWORD_LENGTH = 4;
+
+const signUpSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email(),
+    password: z.string().min(MIN_PASSWORD_LENGTH).max(72),
+    passwordConfirm: z.string().min(1),
+  })
+  .superRefine((value, context) => {
+    if (value.password !== value.passwordConfirm) {
+      context.addIssue({
+        code: "custom",
+        path: ["passwordConfirm"],
+        message: "password_mismatch",
+      });
+    }
+  });
+
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(1),
+    password: z.string().min(MIN_PASSWORD_LENGTH).max(72),
+    passwordConfirm: z.string().min(1),
+  })
+  .superRefine((value, context) => {
+    if (value.password !== value.passwordConfirm) {
+      context.addIssue({
+        code: "custom",
+        path: ["passwordConfirm"],
+        message: "password_mismatch",
+      });
+    }
+
+    if (value.currentPassword === value.password) {
+      context.addIssue({
+        code: "custom",
+        path: ["password"],
+        message: "password_unchanged",
+      });
+    }
+  });
 
 const documentLearningStateSchema = z.object({
   contentType: z.enum(["term", "interview_qa", "scenario"]),
@@ -104,6 +149,128 @@ function loginPath(params: { error?: string; next?: string }) {
 
   const query = searchParams.toString();
   return query ? `/login?${query}` : "/login";
+}
+
+function signUpPath(params: { error?: string; notice?: string }) {
+  const searchParams = new URLSearchParams();
+
+  if (params.error) {
+    searchParams.set("error", params.error);
+  }
+
+  if (params.notice) {
+    searchParams.set("notice", params.notice);
+  }
+
+  const query = searchParams.toString();
+  return query ? `/signup?${query}` : "/signup";
+}
+
+function passwordChangePath(params: { error?: string; next?: string }) {
+  const searchParams = new URLSearchParams();
+
+  if (params.error) {
+    searchParams.set("error", params.error);
+  }
+
+  if (params.next && params.next !== "/") {
+    searchParams.set("next", safeRedirectPath(params.next));
+  }
+
+  const query = searchParams.toString();
+  return query ? `/me/password?${query}` : "/me/password";
+}
+
+function signUpAuthErrorCode(error: {
+  code?: string;
+  message: string;
+  status?: number;
+}) {
+  const code = error.code?.toLowerCase() ?? "";
+  const message = error.message.toLowerCase();
+
+  if (
+    error.status === 429 ||
+    code.includes("rate_limit") ||
+    /rate limit|too many requests|security purposes|after \d+ seconds/.test(
+      message,
+    )
+  ) {
+    return "rate-limit";
+  }
+
+  if (
+    code.includes("weak_password") ||
+    /password|characters|weak|at least \d+/.test(message)
+  ) {
+    return "password";
+  }
+
+  if (code.includes("email") && /invalid|bad/.test(message)) {
+    return "email";
+  }
+
+  if (
+    code.includes("signup_disabled") ||
+    /signup.*disabled|not allowed/.test(message)
+  ) {
+    return "disabled";
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.error("Supabase signup failed", {
+      code: error.code,
+      message: error.message,
+      status: error.status,
+    });
+  }
+
+  return "auth";
+}
+
+async function authUserExistsByEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  email: string,
+) {
+  const normalizedEmail = email.toLowerCase();
+
+  for (let page = 1; page <= AUTH_USER_LOOKUP_MAX_PAGES; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: AUTH_USER_LOOKUP_PAGE_SIZE,
+    });
+
+    if (error) {
+      return false;
+    }
+
+    if (
+      data.users.some(
+        (user) => user.email?.toLowerCase() === normalizedEmail,
+      )
+    ) {
+      return true;
+    }
+
+    if (data.users.length < AUTH_USER_LOOKUP_PAGE_SIZE) {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+async function createPendingMember(
+  admin: ReturnType<typeof createAdminClient>,
+  email: string,
+  displayName: string,
+) {
+  return admin.from("members").insert({
+    email,
+    display_name: displayName,
+    role: "viewer",
+    is_active: false,
+  });
 }
 
 function normalizeDocumentContent(
@@ -312,6 +479,93 @@ export async function signInWithPassword(formData: FormData) {
   }
 
   redirect(next);
+}
+
+export async function signUpWithPassword(formData: FormData) {
+  const parsed = signUpSchema.safeParse({
+    email: readString(formData, "email"),
+    password: readString(formData, "password"),
+    passwordConfirm: readString(formData, "password_confirm"),
+  });
+
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const error =
+      issue?.message === "password_mismatch"
+        ? "mismatch"
+        : issue?.path[0] === "password"
+          ? "password"
+          : issue?.path[0] === "email"
+            ? "email"
+            : "invalid";
+
+    redirect(signUpPath({ error }));
+  }
+
+  const { email, password } = parsed.data;
+  const memberDisplayName = generateNickname();
+  const admin = createAdminClient();
+  const { data: existingMember, error: memberLookupError } = await admin
+    .from("members")
+    .select("email, is_active")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (memberLookupError) {
+    redirect(signUpPath({ error: "server" }));
+  }
+
+  if (existingMember?.is_active) {
+    redirect(signUpPath({ error: "already-approved" }));
+  }
+
+  if (existingMember) {
+    redirect(signUpPath({ notice: "pending" }));
+  }
+
+  const { error: signUpError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      name: memberDisplayName,
+    },
+  });
+
+  if (signUpError) {
+    const error = signUpAuthErrorCode(signUpError);
+
+    if (
+      /already|registered|exists/i.test(signUpError.message) &&
+      (await authUserExistsByEmail(admin, email))
+    ) {
+      const { error: memberError } = await createPendingMember(
+        admin,
+        email,
+        memberDisplayName,
+      );
+
+      if (memberError && memberError.code !== "23505") {
+        redirect(signUpPath({ error: "member" }));
+      }
+
+      redirect(signUpPath({ notice: "pending" }));
+    }
+
+    redirect(signUpPath({ error }));
+  }
+
+  const { error: memberError } = await createPendingMember(
+    admin,
+    email,
+    memberDisplayName,
+  );
+
+  if (memberError) {
+    redirect(signUpPath({ error: "member" }));
+  }
+
+  redirect(signUpPath({ notice: "pending" }));
 }
 
 export async function signOut() {
@@ -554,6 +808,57 @@ export async function updateMyProfile(formData: FormData) {
   revalidatePath("/", "layout");
   revalidatePath("/me");
   redirect("/me?notice=profile");
+}
+
+export async function updateMyPassword(formData: FormData) {
+  const { supabase } = await requireAuthenticatedMember();
+  const next = safeRedirectPath(readString(formData, "next") || "/me");
+  const parsed = passwordSchema.safeParse({
+    currentPassword: readString(formData, "current_password"),
+    password: readString(formData, "password"),
+    passwordConfirm: readString(formData, "password_confirm"),
+  });
+
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const error =
+      issue?.message === "password_mismatch"
+        ? "mismatch"
+        : issue?.message === "password_unchanged"
+          ? "unchanged"
+          : issue?.path[0] === "password"
+            ? "length"
+            : "invalid";
+
+    redirect(passwordChangePath({ error, next }));
+  }
+
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !authData.user) {
+    redirect(passwordChangePath({ error: "session", next }));
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+    current_password: parsed.data.currentPassword,
+  });
+
+  if (updateError) {
+    const error = /password/i.test(updateError.message)
+      ? "current"
+      : "update";
+    redirect(
+      passwordChangePath({
+        error,
+        next,
+      }),
+    );
+  }
+
+  revalidatePath("/", "layout");
+  revalidatePath("/me");
+  redirect(next === "/me" ? "/me?notice=password" : next);
 }
 
 export async function updateDocumentLearningState(formData: FormData) {

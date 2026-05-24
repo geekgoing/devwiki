@@ -41,7 +41,7 @@ Owner/editor members can upload `png`, `jpeg`, `webp`, and `gif` images from the
 
 ## Member management
 
-Owner members can open `/admin/members` to create a Supabase Auth user and `members` row together, then edit member roles and active status. New members receive an automatically generated nickname and can edit it on `/me`. The first owner account still has to be created in Supabase once before the in-app admin screen can be used.
+Users can sign up from `/signup`. Signup creates a confirmed Supabase Auth user on the server and an inactive `members` row with an automatically generated nickname, so no signup confirmation email is sent. Owner members can open `/admin/members`, choose a role for pending users, and activate them. Members can update their nickname and password from `/me`. The first owner account still has to be created in Supabase once before the in-app admin screen can be used.
 
 ## Scripts
 

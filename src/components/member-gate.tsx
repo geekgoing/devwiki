@@ -1,26 +1,43 @@
 import { LogOut } from "lucide-react";
+import Link from "next/link";
 
 import { signOut } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { DevWikiUser } from "@/types/devwiki";
+import type { DevWikiUser, Member } from "@/types/devwiki";
 
-export function MemberGate({ user }: { user: DevWikiUser }) {
+export function MemberGate({
+  member,
+  user,
+}: {
+  member?: Member | null;
+  user: DevWikiUser;
+}) {
+  const isPending = member && !member.isActive;
+
   return (
     <Card className="border-amber-200 bg-amber-50 px-5 py-6 text-amber-950 shadow-none">
       <h1 className="text-xl font-semibold tracking-tight">
-        멤버 등록이 필요합니다
+        {isPending ? "승인 대기 중입니다" : "회원가입이 필요합니다"}
       </h1>
       <p className="mt-2 text-sm leading-6">
-        현재 로그인한 계정 `{user.email}`은 `members`에 활성 멤버로 등록되어
-        있지 않습니다. 관리자에게 이메일 등록을 요청한 뒤 다시 시도하세요.
+        {isPending
+          ? `현재 로그인한 계정 ${user.email}의 회원가입은 완료됐지만 아직 owner 승인이 완료되지 않았습니다.`
+          : `현재 로그인한 계정 ${user.email}은 승인 대기 목록에 없습니다. 회원가입을 먼저 진행해주세요.`}
       </p>
-      <form action={signOut}>
-        <Button type="submit" variant="outline" className="mt-4 bg-background">
-          <LogOut aria-hidden />
-          로그아웃하고 다시 로그인
-        </Button>
-      </form>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {!isPending ? (
+          <Button asChild variant="outline" className="bg-background">
+            <Link href="/signup">회원가입</Link>
+          </Button>
+        ) : null}
+        <form action={signOut}>
+          <Button type="submit" variant="outline" className="bg-background">
+            <LogOut aria-hidden />
+            로그아웃
+          </Button>
+        </form>
+      </div>
     </Card>
   );
 }
