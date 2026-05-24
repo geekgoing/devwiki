@@ -5,17 +5,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requireOwnerMember } from "@/lib/auth";
-import { findAuthUserByEmail } from "@/lib/admin-members";
-import { generateNickname } from "@/lib/nicknames";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const memberRoleSchema = z.enum(["owner", "editor", "viewer"]);
-
-const createMemberSchema = z.object({
-  email: z.string().trim().toLowerCase().email("올바른 이메일을 입력하세요."),
-  role: memberRoleSchema,
-  password: z.string().min(6, "임시 비밀번호는 6자 이상이어야 합니다."),
-});
 
 const updateMemberSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -102,71 +94,6 @@ async function ensureOwnerCanChangeTarget({
       }),
     );
   }
-}
-
-export async function createMember(formData: FormData) {
-  await requireOwnerMember();
-  const parsed = createMemberSchema.safeParse({
-    email: readString(formData, "email"),
-    role: readString(formData, "role") || "editor",
-    password: readString(formData, "password"),
-  });
-
-  if (!parsed.success) {
-    redirect(
-      membersAdminPath({
-        error: parsed.error.issues[0]?.message ?? "멤버 정보를 확인해주세요.",
-      }),
-    );
-  }
-
-  const { email, role, password } = parsed.data;
-  const displayName = generateNickname();
-  const admin = createAdminClient();
-  const existingAuthUser = await findAuthUserByEmail(admin, email);
-  let createdAuthUserId: string | null = null;
-
-  if (!existingAuthUser) {
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        name: displayName || email,
-      },
-    });
-
-    if (error || !data.user) {
-      redirect(
-        membersAdminPath({
-          error: error?.message ?? "Auth user를 생성하지 못했습니다.",
-        }),
-      );
-    }
-
-    createdAuthUserId = data.user.id;
-  }
-
-  const { error: memberError } = await admin.from("members").upsert(
-    {
-      email,
-      display_name: displayName || null,
-      role,
-      is_active: true,
-    },
-    { onConflict: "email" },
-  );
-
-  if (memberError) {
-    if (createdAuthUserId) {
-      await admin.auth.admin.deleteUser(createdAuthUserId);
-    }
-
-    redirect(membersAdminPath({ error: memberError.message }));
-  }
-
-  revalidatePath("/admin/members");
-  redirect(membersAdminPath({ notice: "멤버를 추가했습니다." }));
 }
 
 export async function updateMember(formData: FormData) {

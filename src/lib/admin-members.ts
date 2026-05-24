@@ -58,7 +58,8 @@ export async function getAdminMembers(): Promise<AdminMember[]> {
     admin
       .from("members")
       .select("email, display_name, role, is_active, created_at")
-      .order("created_at", { ascending: true }),
+      .order("is_active", { ascending: true })
+      .order("created_at", { ascending: false }),
     listAuthUsers(admin),
   ]);
 

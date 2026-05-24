@@ -33,7 +33,7 @@ export async function requireCurrentUser() {
   return user;
 }
 
-export const getCurrentMember = cache(async (): Promise<Member | null> => {
+export const getCurrentMembership = cache(async (): Promise<Member | null> => {
   const user = await getCurrentUser();
 
   if (!user || !user.email) {
@@ -45,7 +45,6 @@ export const getCurrentMember = cache(async (): Promise<Member | null> => {
     .from("members")
     .select("email, display_name, role, is_active, created_at")
     .eq("email", user.email.toLowerCase())
-    .eq("is_active", true)
     .maybeSingle();
 
   if (error || !data) {
@@ -59,6 +58,12 @@ export const getCurrentMember = cache(async (): Promise<Member | null> => {
     isActive: data.is_active,
     createdAt: data.created_at,
   };
+});
+
+export const getCurrentMember = cache(async (): Promise<Member | null> => {
+  const member = await getCurrentMembership();
+
+  return member?.isActive ? member : null;
 });
 
 export async function requireAuthenticatedMember() {

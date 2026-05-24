@@ -75,17 +75,20 @@ set display_name = excluded.display_name,
 합니다. `owner`와 `editor`는 문서 작성, 수정, 복원, 이미지 업로드가 가능하고
 `viewer`는 읽기와 토론 댓글만 가능합니다. 멤버십 조회는 로그인 이메일과
 `members.email`을 직접 비교하므로, 이메일은 소문자로 등록하세요. 첫 owner
-계정을 수동 등록한 뒤 로그인하면 `/admin/members`에서 이후 멤버의 Auth user와
-`members` row를 함께 생성할 수 있습니다. 앱에서 추가되는 멤버는 자동 닉네임을
-받고 `/me`에서 직접 수정합니다.
+계정을 수동 등록한 뒤 로그인하면 `/admin/members`에서 이후 회원가입 사용자를
+승인할 수 있습니다. 사용자는 `/signup`에서 이메일과 비밀번호로 회원가입하고,
+앱은 서버에서 확인 완료된 Supabase Auth user와 `is_active = false`인
+`members` row를 생성합니다. 닉네임은 자동 생성됩니다. owner가 role을 정하고
+활성화하면 문서 접근이 열립니다.
 
 ## 4. Auth Users
 
-Supabase Dashboard의 Authentication > Users에서 멤버 이메일과 같은 Auth user를
-만들고 비밀번호를 설정합니다. 초대/가입 UI는 MVP 범위에 포함하지 않고,
-DevWiki 앱은 등록된 Auth user가 이메일+비밀번호로 로그인하는 흐름을
-제공합니다. 첫 owner 로그인 이후에는 owner가 `/admin/members`에서 새 Auth user와
-멤버 권한을 같이 만들 수 있습니다.
+첫 owner만 Supabase Dashboard의 Authentication > Users에서 수동 생성하고,
+`members`에 `owner`로 등록합니다. 이후 사용자는 `/signup`에서 직접 Auth user를
+만듭니다. 앱은 서버 전용 `auth.admin.createUser`에 `email_confirm: true`를
+사용하므로 회원가입 확인 메일을 보내지 않습니다. owner 승인은 별도로 필요합니다.
+앱은 비밀번호를 4자 이상으로 검증합니다. Supabase 프로젝트의 Auth password
+policy가 더 긴 최소 길이를 요구하면 Supabase 쪽 설정이 우선 적용됩니다.
 
 최종 검증 스크립트에서 테스트 계정을 자동 생성하거나 비밀번호를 동기화하려면
 `DEVWIKI_E2E_MANAGE_MEMBER=1`을 함께 설정합니다. 이 옵션은

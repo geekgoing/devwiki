@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  KeyRound,
   MessageSquare,
   RefreshCw,
   Save,
@@ -206,6 +207,12 @@ export default async function MePage({ searchParams }: MePageProps) {
           </p>
         ) : null}
 
+        {params.notice === "password" ? (
+          <p className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+            비밀번호를 변경했습니다.
+          </p>
+        ) : null}
+
         {member && user ? (
           <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
             <Card>
@@ -244,6 +251,21 @@ export default async function MePage({ searchParams }: MePageProps) {
                     랜덤 닉네임으로 변경
                   </Button>
                 </form>
+
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/35 px-3 py-3">
+                  <div>
+                    <p className="text-sm font-medium">비밀번호</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      현재 비밀번호 확인 후 변경
+                    </p>
+                  </div>
+                  <Button asChild variant="outline">
+                    <Link href="/me/password">
+                      <KeyRound size={16} aria-hidden />
+                      변경
+                    </Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 

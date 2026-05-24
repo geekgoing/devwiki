@@ -1,5 +1,6 @@
 import { Mail } from "lucide-react";
 import { cookies } from "next/headers";
+import Link from "next/link";
 
 import { signInWithPassword } from "@/app/actions";
 import { SetupNotice } from "@/components/setup-notice";
@@ -20,6 +21,7 @@ type LoginPageProps = {
   searchParams: Promise<{
     error?: string;
     next?: string;
+    notice?: string;
   }>;
 };
 
@@ -41,11 +43,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         ? "비밀번호를 입력해주세요."
         : params.error === "rate-limit"
           ? "로그인 요청이 잠시 제한되었습니다. 잠시 뒤 다시 시도해주세요."
+          : params.error === "confirm"
+            ? "이메일 확인 링크를 처리하지 못했습니다. 다시 시도해주세요."
           : params.error === "credentials"
             ? "이메일 또는 비밀번호를 확인해주세요."
             : params.error
               ? "로그인 처리 중 문제가 발생했습니다. 잠시 뒤 다시 시도해주세요."
               : null;
+  const noticeMessage =
+    params.notice === "confirmed"
+      ? "이메일 확인이 완료되었습니다. owner 승인 후 로그인할 수 있습니다."
+      : null;
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10 sm:px-6">
@@ -66,6 +74,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </CardHeader>
 
           <CardContent>
+            {noticeMessage ? (
+              <p className="mb-4 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+                {noticeMessage}
+              </p>
+            ) : null}
+
             {errorMessage ? (
               <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {errorMessage}
@@ -113,6 +127,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 로그인
               </Button>
             </form>
+
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              계정이 없다면{" "}
+              <Link href="/signup" className="font-medium text-primary">
+                회원가입
+              </Link>
+            </p>
           </CardContent>
         </Card>
       </div>

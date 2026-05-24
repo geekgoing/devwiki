@@ -1,12 +1,11 @@
 import { ShieldAlert, Users } from "lucide-react";
 
-import { createMember, updateMember } from "@/app/admin/members/actions";
+import { updateMember } from "@/app/admin/members/actions";
 import { SetupNotice } from "@/components/setup-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -77,10 +76,14 @@ function StatusMessage({ notice, error }: { notice?: string; error?: string }) {
 }
 
 function MemberRow({ member }: { member: AdminMember }) {
+  const isPending = !member.isActive;
+
   return (
     <form
       action={updateMember}
-      className="grid gap-3 border-b px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(220px,1.2fr)_minmax(150px,0.8fr)_130px_100px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_90px]"
+      className={`grid gap-3 border-b px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(220px,1.2fr)_minmax(150px,0.8fr)_130px_110px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_90px] ${
+        isPending ? "bg-amber-50/45" : ""
+      }`}
     >
       <input type="hidden" name="email" value={member.email} />
 
@@ -102,10 +105,16 @@ function MemberRow({ member }: { member: AdminMember }) {
 
       <Label className="inline-flex h-10 items-center gap-2">
         <Checkbox name="is_active" defaultChecked={member.isActive} />
-        활성
+        {isPending ? "승인" : "활성"}
       </Label>
 
       <div className="text-xs leading-5 text-muted-foreground">
+        <Badge
+          variant={isPending ? "outline" : "secondary"}
+          className={isPending ? "border-amber-200 bg-amber-50 text-amber-800" : ""}
+        >
+          {isPending ? "승인 대기" : "활성"}
+        </Badge>
         <p>생성 {formatDate(member.createdAt)}</p>
       </div>
 
@@ -135,6 +144,8 @@ export default async function MembersAdminPage({
 
   const canManageMemberList = canManageMembers(member);
   const members = canManageMemberList ? await getAdminMembers() : [];
+  const pendingCount = members.filter((adminMember) => !adminMember.isActive)
+    .length;
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
@@ -161,6 +172,14 @@ export default async function MembersAdminPage({
                 </h1>
                 <p className="mt-2 text-sm text-muted-foreground">
                   <Badge variant="secondary">{members.length}명</Badge>
+                  {pendingCount ? (
+                    <Badge
+                      variant="outline"
+                      className="ml-2 border-amber-200 bg-amber-50 text-amber-800"
+                    >
+                      승인 대기 {pendingCount}명
+                    </Badge>
+                  ) : null}
                 </p>
               </div>
               <span className="inline-flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -170,47 +189,16 @@ export default async function MembersAdminPage({
 
             <StatusMessage notice={params.notice} error={params.error} />
 
-            <Card>
-              <CardHeader>
-                <CardTitle>멤버 추가</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form
-                  action={createMember}
-                  className="grid gap-3 lg:grid-cols-[minmax(220px,1.2fr)_130px_minmax(160px,0.8fr)_90px]"
-                >
-                  <Label>
-                    <span className="sr-only">이메일</span>
-                    <Input
-                      type="email"
-                      name="email"
-                      required
-                      placeholder="member@example.com"
-                      className="h-10"
-                    />
-                  </Label>
-                  <RoleSelect name="role" />
-                  <Label>
-                    <span className="sr-only">임시 비밀번호</span>
-                    <Input
-                      type="password"
-                      name="password"
-                      required
-                      minLength={6}
-                      autoComplete="new-password"
-                      placeholder="임시 비밀번호"
-                      className="h-10"
-                    />
-                  </Label>
-                  <Button type="submit" className="h-10">
-                    추가
-                  </Button>
-                </form>
+            <Card className="border-dashed shadow-none">
+              <CardContent className="px-4 py-3 text-sm leading-6 text-muted-foreground">
+                새 사용자는 <code>/signup</code>에서 회원가입합니다.
+                owner는 승인 대기 멤버의 role을 정하고 승인 체크 후 저장하면
+                됩니다.
               </CardContent>
             </Card>
 
             <Card className="p-0">
-              <div className="hidden border-b bg-muted/45 px-4 py-2 text-xs font-medium text-muted-foreground lg:grid lg:grid-cols-[minmax(220px,1.2fr)_minmax(150px,0.8fr)_130px_100px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_90px]">
+              <div className="hidden border-b bg-muted/45 px-4 py-2 text-xs font-medium text-muted-foreground lg:grid lg:grid-cols-[minmax(220px,1.2fr)_minmax(150px,0.8fr)_130px_110px_minmax(150px,0.8fr)_minmax(150px,0.8fr)_90px]">
                 <span>이메일</span>
                 <span>닉네임</span>
                 <span>role</span>
