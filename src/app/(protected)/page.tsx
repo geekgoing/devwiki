@@ -284,8 +284,6 @@ export default async function Home() {
           })}
         </section>
 
-        <LearningRouteBoard documents={allDocuments} />
-
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <article className="grid gap-4">
             <div className="flex items-center justify-between gap-3">
@@ -351,6 +349,8 @@ export default async function Home() {
             </Card>
           </aside>
         </section>
+
+        <LearningRouteBoard documents={allDocuments} />
       </div>
     </main>
   );
