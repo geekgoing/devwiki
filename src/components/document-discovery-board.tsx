@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  BookOpen,
   Database,
   FileText,
   Gauge,
@@ -410,11 +409,9 @@ export function DocumentDiscoveryBoard({
             <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Route size={20} aria-hidden />
             </span>
-            <h2 className="mt-4 text-lg font-semibold">
-              자주 이어지는 학습 경로
-            </h2>
+            <h2 className="mt-4 text-lg font-semibold">추천 학습 루트</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              면접 답변에서 꼬리 질문으로 이어지기 쉬운 개념 묶음입니다.
+              한 답변에서 다음 꼬리 질문으로 이어지는 순서형 묶음입니다.
             </p>
           </CardContent>
         </Card>
@@ -437,11 +434,9 @@ export function DocumentDiscoveryBoard({
                         {path.summary}
                       </p>
                     </div>
-                    <BookOpen
-                      size={18}
-                      className="shrink-0 text-primary"
-                      aria-hidden
-                    />
+                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                      {pathDocuments.length}단계
+                    </span>
                   </div>
 
                   <ol className="mt-4 grid gap-2">

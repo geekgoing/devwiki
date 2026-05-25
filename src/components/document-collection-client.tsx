@@ -10,6 +10,7 @@ import { DocumentDiscoveryBoard } from "@/components/document-discovery-board";
 import { DocumentFilterToolbar } from "@/components/document-filter-toolbar";
 import { DocumentListCard } from "@/components/document-list-card";
 import { DocumentListSkeleton } from "@/components/document-list-skeleton";
+import { DocumentSectionBoard } from "@/components/document-section-board";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { contentTypeLabels } from "@/lib/content-routes";
@@ -107,6 +108,12 @@ export function DocumentCollectionClient({
     currentFilters.learning === "all" &&
     !currentFilters.interviewCategory &&
     !currentFilters.query;
+  const shouldShowSectionBoard =
+    (contentType === "interview_qa" || contentType === "scenario") &&
+    currentFilters.status === "active" &&
+    currentFilters.learning === "all" &&
+    !currentFilters.interviewCategory &&
+    !currentFilters.query;
   const createHref = newDocumentHref(
     contentType,
     currentFilters.interviewCategory,
@@ -172,6 +179,11 @@ export function DocumentCollectionClient({
       ) : documents.length ? (
         shouldShowDiscovery ? (
           <DocumentDiscoveryBoard documents={documents} />
+        ) : shouldShowSectionBoard ? (
+          <DocumentSectionBoard
+            contentType={contentType}
+            documents={documents}
+          />
         ) : (
           <section className="grid gap-4">
             {documents.map((document) => (
