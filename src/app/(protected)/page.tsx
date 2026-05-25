@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 
 import { DocumentListCard } from "@/components/document-list-card";
+import { LearningRouteBoard } from "@/components/learning-route-board";
 import { SetupNotice } from "@/components/setup-notice";
 import { Button } from "@/components/ui/button";
 import {
@@ -282,6 +283,8 @@ export default async function Home() {
             );
           })}
         </section>
+
+        <LearningRouteBoard documents={allDocuments} />
 
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <article className="grid gap-4">

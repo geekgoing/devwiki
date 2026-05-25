@@ -5,7 +5,6 @@ import {
   Gauge,
   GitBranch,
   Network,
-  Route,
   ShieldCheck,
   Wrench,
 } from "lucide-react";
@@ -128,54 +127,6 @@ const discoverySections = [
   icon: typeof FileText;
   iconClassName: string;
   linkClassName: string;
-}[];
-
-const learningPaths = [
-  {
-    title: "재시도에서 장애 격리까지",
-    summary: "중복 요청, 타임아웃, 서킷, 압력 제어를 이어서 봅니다.",
-    slugs: [
-      "idempotency",
-      "timeout-retry",
-      "circuit-breaker",
-      "backpressure",
-      "rate-limiting",
-      "observability",
-    ],
-  },
-  {
-    title: "분산 트랜잭션 답변 흐름",
-    summary: "MSA의 정합성 문제를 Saga와 Outbox로 설명합니다.",
-    slugs: [
-      "msa",
-      "saga",
-      "compensation",
-      "eventual-consistency",
-      "outbox",
-      "delivery-semantics",
-    ],
-  },
-  {
-    title: "DB 정합성과 확장",
-    summary: "단일 트랜잭션부터 복제, 샤딩, CAP까지 확장합니다.",
-    slugs: [
-      "acid",
-      "isolation",
-      "locking",
-      "replication",
-      "sharding",
-      "cap-theorem",
-    ],
-  },
-  {
-    title: "웹 API 인증 흐름",
-    summary: "브라우저 요청에서 Gateway 인증까지 한 줄로 연결합니다.",
-    slugs: ["cors", "session-cookie", "jwt", "oauth2", "api-gateway"],
-  },
-] satisfies {
-  title: string;
-  summary: string;
-  slugs: string[];
 }[];
 
 function documentHref(document: DocumentSummary) {
@@ -364,109 +315,42 @@ export function DocumentDiscoveryBoard({
     : topicGroups;
 
   return (
-    <div className="grid gap-8">
-      <section className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <Card className="p-0 lg:sticky lg:top-24 lg:self-start">
-          <CardContent className="p-4">
-            <h2 className="text-base font-semibold">카테고리</h2>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              주제별로 먼저 고르고, 바로 관련 문서를 이어서 봅니다.
-            </p>
-            <nav className="mt-4 grid gap-1" aria-label="기술 용어 카테고리">
-              {visibleTopicGroups.map((section) => (
-                <TopicIndexLink
-                  key={section.id}
-                  count={section.documents.length}
-                  icon={section.icon}
-                  iconClassName={section.iconClassName}
-                  id={section.id}
-                  title={section.title}
-                />
-              ))}
-            </nav>
-          </CardContent>
-        </Card>
+    <section className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <Card className="p-0 lg:sticky lg:top-24 lg:self-start">
+        <CardContent className="p-4">
+          <h2 className="text-base font-semibold">카테고리</h2>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            주제별로 먼저 고르고, 바로 관련 문서를 이어서 봅니다.
+          </p>
+          <nav className="mt-4 grid gap-1" aria-label="기술 용어 카테고리">
+            {visibleTopicGroups.map((section) => (
+              <TopicIndexLink
+                key={section.id}
+                count={section.documents.length}
+                icon={section.icon}
+                iconClassName={section.iconClassName}
+                id={section.id}
+                title={section.title}
+              />
+            ))}
+          </nav>
+        </CardContent>
+      </Card>
 
-        <div className="grid gap-3">
-          {visibleTopicGroups.map((section) => (
-            <TopicSection
-              key={section.id}
-              documents={section.documents}
-              icon={section.icon}
-              iconClassName={section.iconClassName}
-              id={section.id}
-              linkClassName={section.linkClassName}
-              summary={section.summary}
-              title={section.title}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <Card>
-          <CardContent className="p-5">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Route size={20} aria-hidden />
-            </span>
-            <h2 className="mt-4 text-lg font-semibold">추천 학습 루트</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              한 답변에서 다음 꼬리 질문으로 이어지는 순서형 묶음입니다.
-            </p>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          {learningPaths.map((path) => {
-            const pathDocuments = pickDocuments(documentBySlug, path.slugs);
-
-            if (!pathDocuments.length) {
-              return null;
-            }
-
-            return (
-              <Card key={path.title} className="p-0">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-semibold">{path.title}</h3>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        {path.summary}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                      {pathDocuments.length}단계
-                    </span>
-                  </div>
-
-                  <ol className="mt-4 grid gap-2">
-                    {pathDocuments.map((document, index) => (
-                      <li key={document.id}>
-                        <Link
-                          href={documentHref(document)}
-                          className="group grid min-h-10 grid-cols-[1.75rem_minmax(0,1fr)_1rem] items-center gap-2 rounded-lg border bg-muted/35 px-2 py-2 transition hover:border-primary/25 hover:bg-accent/60"
-                        >
-                          <span className="flex size-7 items-center justify-center rounded-md bg-background text-xs font-semibold text-muted-foreground">
-                            {index + 1}
-                          </span>
-                          <span className="truncate text-sm font-medium transition group-hover:text-primary">
-                            {document.title}
-                          </span>
-                          <ArrowRight
-                            size={14}
-                            className="text-muted-foreground/55 transition group-hover:text-primary"
-                            aria-hidden
-                          />
-                        </Link>
-                      </li>
-                    ))}
-                  </ol>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
-    </div>
+      <div className="grid gap-3">
+        {visibleTopicGroups.map((section) => (
+          <TopicSection
+            key={section.id}
+            documents={section.documents}
+            icon={section.icon}
+            iconClassName={section.iconClassName}
+            id={section.id}
+            linkClassName={section.linkClassName}
+            summary={section.summary}
+            title={section.title}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
