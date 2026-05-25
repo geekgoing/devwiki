@@ -18,9 +18,11 @@ import type { DocumentSummary } from "@/types/devwiki";
 
 const discoverySections = [
   {
+    id: "category-database",
     title: "DB / 트랜잭션",
     summary: "정합성, 락, 인덱스, 확장 전략",
     slugs: [
+      "transaction",
       "acid",
       "isolation",
       "locking",
@@ -37,6 +39,7 @@ const discoverySections = [
     linkClassName: "hover:border-teal-200 hover:bg-teal-50",
   },
   {
+    id: "category-distributed-system",
     title: "분산 시스템",
     summary: "MSA, 일관성, 이벤트 기반 설계",
     slugs: [
@@ -54,6 +57,7 @@ const discoverySections = [
     linkClassName: "hover:border-sky-200 hover:bg-sky-50",
   },
   {
+    id: "category-messaging",
     title: "메시징 / 비동기",
     summary: "큐, 전달 보장, 소비자 운영",
     slugs: [
@@ -69,6 +73,7 @@ const discoverySections = [
     linkClassName: "hover:border-violet-200 hover:bg-violet-50",
   },
   {
+    id: "category-cache-performance",
     title: "캐시 / 성능",
     summary: "캐시 전략, 제한, 트래픽 분산",
     slugs: [
@@ -84,6 +89,7 @@ const discoverySections = [
     linkClassName: "hover:border-amber-200 hover:bg-amber-50",
   },
   {
+    id: "category-security-network",
     title: "보안 / 네트워크",
     summary: "HTTP, 인증, 브라우저 보안",
     slugs: [
@@ -99,9 +105,11 @@ const discoverySections = [
     linkClassName: "hover:border-rose-200 hover:bg-rose-50",
   },
   {
+    id: "category-operation",
     title: "운영 / 장애대응",
     summary: "타임아웃, 격리, 관측성",
     slugs: [
+      "idempotency",
       "timeout-retry",
       "circuit-breaker",
       "observability",
@@ -114,6 +122,7 @@ const discoverySections = [
     linkClassName: "hover:border-cyan-200 hover:bg-cyan-50",
   },
 ] satisfies {
+  id: string;
   title: string;
   summary: string;
   slugs: string[];
@@ -192,7 +201,15 @@ function pickDocuments(
     .slice(0, limit);
 }
 
-function CompactDocumentLink({
+function getUncategorizedDocuments(documents: DocumentSummary[]) {
+  const categorizedSlugs = new Set(
+    discoverySections.flatMap((section) => section.slugs),
+  );
+
+  return documents.filter((document) => !categorizedSlugs.has(document.slug));
+}
+
+function TopicDocumentLink({
   document,
   linkClassName,
 }: {
@@ -202,25 +219,119 @@ function CompactDocumentLink({
   return (
     <Link
       href={documentHref(document)}
-      className={`group block min-h-[86px] rounded-lg border bg-muted/35 px-3 py-3 transition ${linkClassName}`}
+      className={`group grid min-h-[74px] grid-cols-[minmax(0,1fr)_1rem] gap-3 rounded-lg border bg-background px-3 py-3 transition ${linkClassName}`}
       data-testid="document-card"
     >
-      <span className="flex items-start justify-between gap-2">
-        <span className="min-w-0 text-sm font-semibold transition group-hover:text-primary">
+      <span className="min-w-0">
+        <span className="line-clamp-1 text-sm font-semibold transition group-hover:text-primary">
           {document.title}
         </span>
-        <ArrowRight
-          size={14}
-          className="mt-0.5 shrink-0 text-muted-foreground/55 transition group-hover:text-primary"
-          aria-hidden
-        />
+        {document.summary ? (
+          <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground">
+            {document.summary}
+          </span>
+        ) : null}
       </span>
-      {document.summary ? (
-        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground">
-          {document.summary}
-        </span>
-      ) : null}
+      <ArrowRight
+        size={14}
+        className="mt-0.5 shrink-0 text-muted-foreground/55 transition group-hover:text-primary"
+        aria-hidden
+      />
     </Link>
+  );
+}
+
+function TopicIndexLink({
+  count,
+  icon,
+  iconClassName,
+  id,
+  title,
+}: {
+  count: number;
+  icon: typeof FileText;
+  iconClassName: string;
+  id: string;
+  title: string;
+}) {
+  const Icon = icon;
+
+  return (
+    <Link
+      href={`#${id}`}
+      className="group flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-accent/60"
+    >
+      <span
+        className={`flex size-8 shrink-0 items-center justify-center rounded-md ${iconClassName}`}
+      >
+        <Icon size={16} aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium transition group-hover:text-primary">
+          {title}
+        </span>
+        <span className="text-xs text-muted-foreground">{count}개 문서</span>
+      </span>
+    </Link>
+  );
+}
+
+function TopicSection({
+  documents,
+  icon,
+  iconClassName,
+  id,
+  linkClassName,
+  summary,
+  title,
+}: {
+  documents: DocumentSummary[];
+  icon: typeof FileText;
+  iconClassName: string;
+  id: string;
+  linkClassName: string;
+  summary: string;
+  title: string;
+}) {
+  const Icon = icon;
+
+  return (
+    <section
+      id={id}
+      className="scroll-mt-24 rounded-lg border bg-card p-4"
+      aria-labelledby={`${id}-title`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span
+            className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
+          >
+            <Icon size={20} aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 id={`${id}-title`} className="text-base font-semibold">
+              {title}
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {summary}
+            </p>
+          </div>
+        </div>
+        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+          {documents.length}개
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-2 md:grid-cols-2">
+        {documents.map((document) => (
+          <TopicDocumentLink
+            key={`${id}-${document.id}`}
+            document={document}
+            linkClassName={linkClassName}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -230,52 +341,67 @@ export function DocumentDiscoveryBoard({
   documents: DocumentSummary[];
 }) {
   const documentBySlug = getDocumentMap(documents);
+  const topicGroups = discoverySections
+    .map((section) => ({
+      ...section,
+      documents: pickDocuments(documentBySlug, section.slugs),
+    }))
+    .filter((section) => section.documents.length);
+  const uncategorizedDocuments = getUncategorizedDocuments(documents);
+  const visibleTopicGroups = uncategorizedDocuments.length
+    ? [
+        ...topicGroups,
+        {
+          id: "category-etc",
+          title: "기타 문서",
+          summary: "주요 묶음 밖에 있는 개별 개념",
+          slugs: [],
+          documents: uncategorizedDocuments,
+          icon: FileText,
+          iconClassName: "bg-slate-50 text-slate-700",
+          linkClassName: "hover:border-slate-200 hover:bg-slate-50",
+        },
+      ]
+    : topicGroups;
 
   return (
     <div className="grid gap-8">
-      <section className="grid gap-4 lg:grid-cols-3">
-        {discoverySections.map((section) => {
-          const Icon = section.icon;
-          const sectionDocuments = pickDocuments(
-            documentBySlug,
-            section.slugs,
-            5,
-          );
+      <section className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <Card className="p-0 lg:sticky lg:top-24 lg:self-start">
+          <CardContent className="p-4">
+            <h2 className="text-base font-semibold">카테고리</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              주제별로 먼저 고르고, 바로 관련 문서를 이어서 봅니다.
+            </p>
+            <nav className="mt-4 grid gap-1" aria-label="기술 용어 카테고리">
+              {visibleTopicGroups.map((section) => (
+                <TopicIndexLink
+                  key={section.id}
+                  count={section.documents.length}
+                  icon={section.icon}
+                  iconClassName={section.iconClassName}
+                  id={section.id}
+                  title={section.title}
+                />
+              ))}
+            </nav>
+          </CardContent>
+        </Card>
 
-          if (!sectionDocuments.length) {
-            return null;
-          }
-
-          return (
-            <Card key={section.title} className="p-0">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <span
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${section.iconClassName}`}
-                  >
-                    <Icon size={20} aria-hidden />
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="text-base font-semibold">{section.title}</h2>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      {section.summary}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-2">
-                  {sectionDocuments.map((document) => (
-                    <CompactDocumentLink
-                      key={document.id}
-                      document={document}
-                      linkClassName={section.linkClassName}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        <div className="grid gap-3">
+          {visibleTopicGroups.map((section) => (
+            <TopicSection
+              key={section.id}
+              documents={section.documents}
+              icon={section.icon}
+              iconClassName={section.iconClassName}
+              id={section.id}
+              linkClassName={section.linkClassName}
+              summary={section.summary}
+              title={section.title}
+            />
+          ))}
+        </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">

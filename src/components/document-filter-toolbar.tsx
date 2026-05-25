@@ -109,6 +109,21 @@ export function DocumentFilterToolbar({
         selected: category === option.value,
       }))
     : [];
+  const statusLabel = statusFilterOptions.find(
+    (option) => option.value === status,
+  )?.label;
+  const learningLabel = learningFilterOptions.find(
+    (option) => option.value === learning,
+  )?.label;
+  const categoryLabel = category
+    ? interviewCategoryFilterOptions.find((option) => option.value === category)
+        ?.label
+    : undefined;
+  const activeFilterLabels = [
+    status !== "active" && statusLabel ? `상태: ${statusLabel}` : undefined,
+    learning !== "all" && learningLabel ? `학습: ${learningLabel}` : undefined,
+    categoryLabel ? `분류: ${categoryLabel}` : undefined,
+  ].filter((label): label is string => Boolean(label));
   const activeFilterCount =
     Number(status !== "active") +
     Number(learning !== "all") +
@@ -120,6 +135,7 @@ export function DocumentFilterToolbar({
   return (
     <DocumentFilterPopover
       activeCount={activeFilterCount}
+      activeLabels={activeFilterLabels}
       interviewCategoryLinks={interviewCategoryLinks}
       learningLinks={learningLinks}
       onNavigate={onNavigate}
