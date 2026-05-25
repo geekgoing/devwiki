@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, MessageSquareText } from "lucide-react";
+import { BookOpen, MessageSquareText, Route } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -12,21 +12,25 @@ import type { DocumentContentType } from "@/types/devwiki";
 const contentNavItems = [
   {
     href: contentRoutes.term.href,
+    icon: BookOpen,
     label: contentRoutes.term.label,
     type: "term",
   },
   {
     href: contentRoutes.interview_qa.href,
+    icon: MessageSquareText,
     label: contentRoutes.interview_qa.label,
     type: "interview_qa",
   },
   {
     href: contentRoutes.scenario.href,
+    icon: Route,
     label: "시뮬레이션",
     type: "scenario",
   },
 ] satisfies Array<{
   href: string;
+  icon: typeof BookOpen;
   label: string;
   type: DocumentContentType;
 }>;
@@ -45,6 +49,7 @@ export function HeaderContentNav() {
     >
       {contentNavItems.map((item) => {
         const selected = isSelected(pathname, item.href);
+        const Icon = item.icon;
 
         return (
           <Link
@@ -56,17 +61,13 @@ export function HeaderContentNav() {
                 variant: selected ? "secondary" : "ghost",
                 size: "lg",
               }),
-              "px-3 sm:px-4",
+              "flex-1 px-3 sm:px-4 md:flex-none",
               selected
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground",
             )}
           >
-            {item.type === "term" ? (
-              <BookOpen size={15} aria-hidden />
-            ) : (
-              <MessageSquareText size={15} aria-hidden />
-            )}
+            <Icon size={15} aria-hidden />
             {item.label}
           </Link>
         );

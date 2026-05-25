@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  contentTypeLabels,
   contentTypePath,
   documentDetailPath,
   documentEditPath,
@@ -288,11 +289,19 @@ export async function DocumentDetailPage({
   const shouldShowRelatedDocuments =
     relatedDocuments.length > 0 || canContribute;
   const editHref = documentEditPath(document.slug);
+  const listHref = contentTypePath(document.contentType);
 
   return (
     <main className="mx-auto grid w-full max-w-7xl flex-1 gap-7 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
       <Card className="lg:col-span-2">
         <CardContent className="px-5 py-6 sm:px-7">
+          <Button asChild variant="ghost" size="sm" className="-ml-2 mb-4">
+            <Link href={listHref}>
+              <ArrowLeft size={15} aria-hidden />
+              {contentTypeLabels[document.contentType]} 목록
+            </Link>
+          </Button>
+
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-2">

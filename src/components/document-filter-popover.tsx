@@ -27,6 +27,7 @@ type DocumentFilterPopoverProps = {
   learningLinks: FilterLink[];
   statusLinks: FilterLink[];
   activeCount: number;
+  activeLabels?: string[];
   onNavigate?: (href: string) => void;
   resetHref: string;
 };
@@ -91,6 +92,7 @@ export function DocumentFilterPopover({
   learningLinks,
   statusLinks,
   activeCount,
+  activeLabels = [],
   onNavigate,
   resetHref,
 }: DocumentFilterPopoverProps) {
@@ -108,14 +110,14 @@ export function DocumentFilterPopover({
       <PopoverTrigger asChild>
         <Button
           type="button"
-          aria-label="필터"
+          aria-label={activeCount ? `필터 ${activeCount}개 적용됨` : "필터"}
           variant={activeCount ? "default" : "outline"}
-          size="icon-lg"
-          className="relative"
+          size="lg"
         >
           <Filter aria-hidden />
+          필터
           {activeCount ? (
-            <Badge className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full p-0 text-[11px]">
+            <Badge className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px]">
               {activeCount}
             </Badge>
           ) : null}
@@ -145,6 +147,15 @@ export function DocumentFilterPopover({
             )}
           </Button>
         </PopoverHeader>
+        {activeLabels.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {activeLabels.map((label) => (
+              <Badge key={label} variant="secondary">
+                {label}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
         <Separator />
         <FilterSection
           links={statusLinks}

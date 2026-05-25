@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 
 import { DocumentListCard } from "@/components/document-list-card";
+import { LearningRouteBoard } from "@/components/learning-route-board";
 import { SetupNotice } from "@/components/setup-notice";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import {
   contentRoutes,
   contentTypeLabels,
+  contentTypeSummaries,
   documentDetailPath,
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
@@ -64,6 +66,41 @@ function getDocumentCounts(documents: DocumentSummary[]) {
       interview_qa: 0,
       scenario: 0,
     } satisfies Record<DocumentContentType, number>,
+  );
+}
+
+function getDocumentsByContentType(documents: DocumentSummary[]) {
+  const grouped: Record<DocumentContentType, DocumentSummary[]> = {
+    term: [],
+    interview_qa: [],
+    scenario: [],
+  };
+
+  documents.forEach((document) => {
+    grouped[document.contentType].push(document);
+  });
+
+  return grouped;
+}
+
+function SectionDocumentPeek({ document }: { document: DocumentSummary }) {
+  return (
+    <Link
+      href={documentDetailPath({
+        contentType: document.contentType,
+        slug: document.slug,
+      })}
+      className="group flex min-h-9 items-center justify-between gap-2 rounded-md px-2 py-1.5 transition hover:bg-accent/60"
+    >
+      <span className="min-w-0 truncate text-sm font-medium transition group-hover:text-primary">
+        {document.title}
+      </span>
+      <ArrowRight
+        size={13}
+        className="shrink-0 text-muted-foreground/55 transition group-hover:text-primary"
+        aria-hidden
+      />
+    </Link>
   );
 }
 
@@ -117,6 +154,7 @@ export default async function Home() {
     .slice(0, 4);
   const recentDocuments = allDocuments.slice(0, 6);
   const counts = getDocumentCounts(allDocuments);
+  const documentsByContentType = getDocumentsByContentType(allDocuments);
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
@@ -197,32 +235,50 @@ export default async function Home() {
           {sectionCards.map((section) => {
             const Icon = section.icon;
             const route = contentRoutes[section.contentType];
+            const previewDocuments = documentsByContentType[
+              section.contentType
+            ].slice(0, 2);
 
             return (
               <Card
                 key={section.contentType}
                 className="p-0 transition hover:-translate-y-0.5 hover:ring-primary/20"
               >
-                <Link href={route.href} className="group block p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <span
-                      className={`flex size-10 items-center justify-center rounded-lg ${section.accentClassName}`}
-                    >
-                      <Icon size={20} aria-hidden />
-                    </span>
-                    <ArrowRight
-                      size={16}
-                      className="text-muted-foreground/55 transition group-hover:text-primary"
-                      aria-hidden
-                    />
-                  </div>
-                  <h2 className="mt-4 text-base font-semibold">
-                    {route.label}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                <div className="p-4">
+                  <Link href={route.href} className="group block">
+                    <div className="flex items-start justify-between gap-3">
+                      <span
+                        className={`flex size-10 items-center justify-center rounded-lg ${section.accentClassName}`}
+                      >
+                        <Icon size={20} aria-hidden />
+                      </span>
+                      <ArrowRight
+                        size={16}
+                        className="text-muted-foreground/55 transition group-hover:text-primary"
+                        aria-hidden
+                      />
+                    </div>
+                    <h2 className="mt-4 text-base font-semibold transition group-hover:text-primary">
+                      {route.label}
+                    </h2>
+                  </Link>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    {contentTypeSummaries[section.contentType]}
+                  </p>
+                  <p className="mt-3 text-xs font-medium text-muted-foreground">
                     {counts[section.contentType]}개 문서
                   </p>
-                </Link>
+                </div>
+                {previewDocuments.length ? (
+                  <div className="border-t bg-muted/25 px-2 py-2">
+                    {previewDocuments.map((document) => (
+                      <SectionDocumentPeek
+                        key={document.id}
+                        document={document}
+                      />
+                    ))}
+                  </div>
+                ) : null}
               </Card>
             );
           })}
@@ -293,6 +349,8 @@ export default async function Home() {
             </Card>
           </aside>
         </section>
+
+        <LearningRouteBoard documents={allDocuments} />
       </div>
     </main>
   );
