@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { findAuthUserByEmail } from "@/lib/admin-members";
 import { requireOwnerMember } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -260,6 +261,36 @@ export async function deleteMember(formData: FormData) {
     targetEmail: email,
   });
 
+  let authUser: Awaited<ReturnType<typeof findAuthUserByEmail>> = null;
+
+  try {
+    authUser = await findAuthUserByEmail(admin, email);
+  } catch (error) {
+    redirect(
+      membersAdminPath({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Auth 계정 조회에 실패했습니다.",
+      }),
+    );
+  }
+
+  if (authUser) {
+    const { error: authDeleteError } = await admin.auth.admin.deleteUser(
+      authUser.id,
+      false,
+    );
+
+    if (authDeleteError) {
+      redirect(
+        membersAdminPath({
+          error: `Auth 계정 삭제에 실패했습니다: ${authDeleteError.message}`,
+        }),
+      );
+    }
+  }
+
   const { error } = await admin.from("members").delete().eq("email", email);
 
   if (error) {
@@ -267,5 +298,11 @@ export async function deleteMember(formData: FormData) {
   }
 
   revalidatePath("/admin/members");
-  redirect(membersAdminPath({ notice: "멤버를 삭제했습니다." }));
+  redirect(
+    membersAdminPath({
+      notice: authUser
+        ? "멤버와 Auth 계정을 삭제했습니다."
+        : "멤버를 삭제했습니다. 연결된 Auth 계정은 없었습니다.",
+    }),
+  );
 }

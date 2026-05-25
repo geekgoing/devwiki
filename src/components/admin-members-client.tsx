@@ -1,11 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useMemo, useState } from "react";
 import {
   CheckCircle2,
   Clock3,
-  Mail,
   MoreHorizontal,
+  Search,
   Shield,
   Trash2,
   UserCheck,
@@ -26,6 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -34,6 +36,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
 import type { AdminMember, MemberRole } from "@/types/devwiki";
 
@@ -69,8 +79,16 @@ function roleLabel(role: MemberRole) {
   return roles.find((item) => item.value === role)?.label ?? role;
 }
 
-function getInitial(member: AdminMember) {
-  return (member.displayName ?? member.email).trim().charAt(0).toUpperCase();
+function roleBadgeClass(role: MemberRole) {
+  if (role === "owner") {
+    return "border-sky-200 bg-sky-50 text-sky-800";
+  }
+
+  if (role === "editor") {
+    return "border-violet-200 bg-violet-50 text-violet-800";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
 function StatCard({
@@ -100,17 +118,30 @@ function StatCard({
 function MemberStatusBadge({ member }: { member: AdminMember }) {
   if (!member.isActive) {
     return (
-      <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
-        <Clock3 size={12} aria-hidden />
+      <Badge
+        variant="outline"
+        className="border-amber-200 bg-amber-50 text-amber-800"
+      >
         승인 대기
       </Badge>
     );
   }
 
   return (
-    <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-700">
-      <CheckCircle2 size={12} aria-hidden />
+    <Badge
+      variant="outline"
+      className="border-teal-200 bg-teal-50 text-teal-700"
+    >
       활성
+    </Badge>
+  );
+}
+
+function RoleBadge({ role }: { role: MemberRole }) {
+  return (
+    <Badge variant="outline" className={roleBadgeClass(role)}>
+      <Shield size={12} aria-hidden />
+      {roleLabel(role)}
     </Badge>
   );
 }
@@ -151,7 +182,10 @@ function MemberEditDialog({
           <div className="grid gap-2">
             <Label htmlFor={`role-${member.email}`}>Role</Label>
             <Select name="role" defaultValue={member.role}>
-              <SelectTrigger id={`role-${member.email}`} className="h-10 w-full">
+              <SelectTrigger
+                id={`role-${member.email}`}
+                className="h-10 w-full"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -217,8 +251,7 @@ function MemberDeleteDialog({
         <DialogHeader>
           <DialogTitle>멤버 삭제</DialogTitle>
           <DialogDescription>
-            멤버 목록에서 제거합니다. Auth 계정은 삭제하지 않지만, 멤버 권한은
-            즉시 사라집니다.
+            멤버 권한과 Supabase Auth 계정을 함께 삭제합니다.
           </DialogDescription>
         </DialogHeader>
 
@@ -229,7 +262,8 @@ function MemberDeleteDialog({
               {member.email}
             </p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              삭제 후 다시 접근하려면 회원가입과 owner 승인이 다시 필요합니다.
+              삭제 후 다시 접근하려면 새 Auth 계정 생성과 owner 승인이 다시
+              필요합니다.
             </p>
           </div>
 
@@ -249,7 +283,7 @@ function MemberDeleteDialog({
   );
 }
 
-function MemberCard({
+function MemberActions({
   approveMemberAction,
   currentEmail,
   deleteMemberAction,
@@ -263,87 +297,35 @@ function MemberCard({
   updateMemberAction: MemberAction;
 }) {
   const isSelf = member.email.toLowerCase() === currentEmail.toLowerCase();
-  const isPending = !member.isActive;
 
   return (
-    <Card className={isPending ? "p-0 ring-1 ring-amber-200" : "p-0"}>
-      <CardContent className="grid gap-4 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
-              {getInitial(member)}
-            </span>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-base font-semibold">
-                  {member.displayName ?? "닉네임 없음"}
-                </h2>
-                {isSelf ? <Badge variant="secondary">나</Badge> : null}
-              </div>
-              <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Mail size={14} aria-hidden />
-                <span className="truncate">{member.email}</span>
-              </p>
-            </div>
-          </div>
+    <div className="flex justify-end gap-2">
+      {!member.isActive ? (
+        <form action={approveMemberAction}>
+          <input type="hidden" name="email" value={member.email} />
+          <Button type="submit" size="sm">
+            <UserCheck aria-hidden />
+            승인
+          </Button>
+        </form>
+      ) : null}
+      <MemberEditDialog member={member} updateMemberAction={updateMemberAction} />
+      <MemberDeleteDialog
+        deleteMemberAction={deleteMemberAction}
+        disabled={isSelf}
+        member={member}
+      />
+    </div>
+  );
+}
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <MemberStatusBadge member={member} />
-            <Badge variant="secondary">
-              <Shield size={12} aria-hidden />
-              {roleLabel(member.role)}
-            </Badge>
-          </div>
-        </div>
-
-        <div className="grid gap-3 text-sm sm:grid-cols-3">
-          <div className="rounded-lg bg-muted/45 px-3 py-2">
-            <span className="text-xs text-muted-foreground">가입 요청</span>
-            <strong className="mt-1 block font-medium">
-              {formatDate(member.createdAt)}
-            </strong>
-          </div>
-          <div className="rounded-lg bg-muted/45 px-3 py-2">
-            <span className="text-xs text-muted-foreground">이메일 확인</span>
-            <strong className="mt-1 block font-medium">
-              {member.authConfirmedAt ? formatDate(member.authConfirmedAt) : "-"}
-            </strong>
-          </div>
-          <div className="rounded-lg bg-muted/45 px-3 py-2">
-            <span className="text-xs text-muted-foreground">최근 로그인</span>
-            <strong className="mt-1 block font-medium">
-              {member.lastSignInAt ? formatDate(member.lastSignInAt) : "-"}
-            </strong>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-          <div className="text-xs text-muted-foreground">
-            Auth {member.authUserId ? "연결됨" : "계정 없음"}
-          </div>
-          <div className="flex flex-wrap justify-end gap-2">
-            {isPending ? (
-              <form action={approveMemberAction}>
-                <input type="hidden" name="email" value={member.email} />
-                <Button type="submit" size="sm">
-                  <UserCheck aria-hidden />
-                  승인
-                </Button>
-              </form>
-            ) : null}
-            <MemberEditDialog
-              member={member}
-              updateMemberAction={updateMemberAction}
-            />
-            <MemberDeleteDialog
-              deleteMemberAction={deleteMemberAction}
-              disabled={isSelf}
-              member={member}
-            />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+function EmptyRow({ children }: { children: ReactNode }) {
+  return (
+    <TableRow>
+      <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+        {children}
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -354,15 +336,26 @@ export function AdminMembersClient({
   members,
   updateMemberAction,
 }: AdminMembersClientProps) {
+  const [emailQuery, setEmailQuery] = useState("");
   const activeCount = members.filter((member) => member.isActive).length;
   const pendingCount = members.length - activeCount;
   const ownerCount = members.filter(
     (member) => member.role === "owner" && member.isActive,
   ).length;
+  const normalizedQuery = emailQuery.trim().toLowerCase();
+  const filteredMembers = useMemo(() => {
+    if (!normalizedQuery) {
+      return members;
+    }
+
+    return members.filter((member) =>
+      member.email.toLowerCase().includes(normalizedQuery),
+    );
+  }, [members, normalizedQuery]);
 
   return (
     <div className="grid gap-5">
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={<Users size={18} aria-hidden />}
           label="전체 멤버"
@@ -374,24 +367,108 @@ export function AdminMembersClient({
           value={pendingCount}
         />
         <StatCard
+          icon={<CheckCircle2 size={18} aria-hidden />}
+          label="활성 멤버"
+          value={activeCount}
+        />
+        <StatCard
           icon={<Shield size={18} aria-hidden />}
           label="활성 owner"
           value={ownerCount}
         />
       </section>
 
-      <section className="grid gap-3">
-        {members.map((member) => (
-          <MemberCard
-            key={member.email}
-            approveMemberAction={approveMemberAction}
-            currentEmail={currentEmail}
-            deleteMemberAction={deleteMemberAction}
-            member={member}
-            updateMemberAction={updateMemberAction}
-          />
-        ))}
-      </section>
+      <Card className="p-0">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="relative w-full sm:max-w-sm">
+            <Search
+              size={16}
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              value={emailQuery}
+              onChange={(event) => setEmailQuery(event.target.value)}
+              className="h-10 pl-9"
+              placeholder="이메일 검색"
+              aria-label="이메일 검색"
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {filteredMembers.length}명 표시
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/45 hover:bg-muted/45">
+              <TableHead className="min-w-72 px-4">Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead className="min-w-44">최근 로그인일시</TableHead>
+              <TableHead className="min-w-44">가입요청일시</TableHead>
+              <TableHead className="min-w-48 pr-4 text-right">작업</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredMembers.length ? (
+              filteredMembers.map((member) => {
+                const isSelf =
+                  member.email.toLowerCase() === currentEmail.toLowerCase();
+
+                return (
+                  <TableRow
+                    key={member.email}
+                    className={!member.isActive ? "bg-amber-50/40" : undefined}
+                  >
+                    <TableCell className="px-4">
+                      <div className="flex min-w-0 flex-col gap-1.5">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate font-medium">
+                            {member.email}
+                          </span>
+                          {isSelf ? <Badge variant="secondary">나</Badge> : null}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <MemberStatusBadge member={member} />
+                          {!member.authUserId ? (
+                            <Badge variant="outline">Auth 계정 없음</Badge>
+                          ) : null}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <RoleBadge role={member.role} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {member.lastSignInAt
+                        ? formatDate(member.lastSignInAt)
+                        : "-"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(member.createdAt)}
+                    </TableCell>
+                    <TableCell className="pr-4">
+                      <MemberActions
+                        approveMemberAction={approveMemberAction}
+                        currentEmail={currentEmail}
+                        deleteMemberAction={deleteMemberAction}
+                        member={member}
+                        updateMemberAction={updateMemberAction}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            ) : (
+              <EmptyRow>
+                {members.length ? "검색 결과가 없습니다." : "멤버가 없습니다."}
+              </EmptyRow>
+            )}
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   );
 }
