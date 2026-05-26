@@ -15,8 +15,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { addComment, updateDocumentLearningState } from "@/app/actions";
+import { updateDocumentLearningState } from "@/app/actions";
 import { CopyLinkButton } from "@/components/copy-link-button";
+import { DocumentComments } from "@/components/document-comments";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { MarkdownToc } from "@/components/markdown-toc";
 import { MemberGate } from "@/components/member-gate";
@@ -25,7 +26,6 @@ import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import {
   contentTypeLabels,
   contentTypePath,
@@ -284,7 +284,6 @@ export async function DocumentDetailPage({
       getBacklinkDocuments(document.id, { canReadPrivate }),
     ]);
   const canContribute = canEditContent(member);
-  const canDiscuss = Boolean(configured && member);
   const canTrackLearning = Boolean(configured && member);
   const shouldShowRelatedDocuments =
     relatedDocuments.length > 0 || canContribute;
@@ -442,69 +441,15 @@ export async function DocumentDetailPage({
           canRestore={canContribute}
         />
 
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare
-                size={16}
-                className="text-muted-foreground"
-                aria-hidden
-              />
-              토론
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {comments.length ? (
-              <ol className="space-y-3">
-                {comments.map((comment) => (
-                  <li
-                    key={comment.id}
-                    className="rounded-lg border bg-muted/35 p-3"
-                  >
-                    <p className="whitespace-pre-wrap text-sm leading-6">
-                      {comment.body}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">
-                        {comment.authorLabel}
-                      </span>
-                      <span aria-hidden>·</span>
-                      <time>{formatDate(comment.createdAt)}</time>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="text-sm leading-6 text-muted-foreground">
-                문서 방향이나 보강할 질문을 남길 수 있습니다.
-              </p>
-            )}
-
-            {canDiscuss ? (
-              <form action={addComment} className="mt-4 space-y-2">
-                <input
-                  type="hidden"
-                  name="content_type"
-                  value={document.contentType}
-                />
-                <input type="hidden" name="document_id" value={document.id} />
-                <input type="hidden" name="slug" value={document.slug} />
-                <Textarea
-                  name="body"
-                  required
-                  rows={4}
-                  className="resize-y"
-                  placeholder="질문이나 보강 의견"
-                />
-                <Button type="submit">의견 남기기</Button>
-              </form>
-            ) : configured ? (
-              <p className="mt-4 rounded-lg border bg-muted/35 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                의견 작성은 로그인한 멤버만 할 수 있습니다.
-              </p>
-            ) : null}
-          </CardContent>
-        </Card>
+        <DocumentComments
+          comments={comments}
+          configured={configured}
+          contentType={document.contentType}
+          currentUserId={user?.id}
+          documentId={document.id}
+          memberRole={member?.role}
+          slug={document.slug}
+        />
       </aside>
     </main>
   );

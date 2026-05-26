@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "verify:mvp": "node scripts/verify-devwiki-mvp.mjs",
     "verify:mvp-data": "node scripts/verify-devwiki-mvp-data.mjs",
     "verify:mvp-ui": "node scripts/verify-devwiki-mvp-ui.mjs",
@@ -46,6 +47,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.7"
   }
 }

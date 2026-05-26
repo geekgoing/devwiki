@@ -46,6 +46,7 @@ export type DocumentSummary = {
   slug: string;
   title: string;
   summary: string | null;
+  searchSnippet?: string | null;
   status: DocumentStatus;
   contentType: DocumentContentType;
   interviewCategory: InterviewCategory | null;
@@ -72,6 +73,7 @@ export type DocumentRevision = {
   editSummary: string | null;
   createdAt: string;
   editedBy: string | null;
+  editedByLabel: string | null;
 };
 
 export type DocumentComment = {
@@ -80,4 +82,10 @@ export type DocumentComment = {
   createdAt: string;
   createdBy: string | null;
   authorLabel: string;
+  updatedAt: string;
+  updatedBy: string | null;
+  editorLabel: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  resolvedByLabel: string | null;
 };

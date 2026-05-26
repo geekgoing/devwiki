@@ -14,27 +14,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
+import {
+  buildSideBySideRows,
+  diffStats,
+  lineDiff,
+  type DiffLine,
+  type DiffRow,
+  type DiffSide,
+} from "@/lib/revision-diff";
 import type { DocumentRevision } from "@/types/devwiki";
-
-type DiffLine = {
-  id: string;
-  type: "same" | "added" | "removed";
-  text: string;
-  oldLine?: number;
-  newLine?: number;
-};
-
-type DiffSide = {
-  line?: number;
-  text: string;
-  type: DiffLine["type"] | "blank";
-};
-
-type DiffRow = {
-  id: string;
-  before: DiffSide;
-  after: DiffSide;
-};
 
 type RevisionComparison = {
   revision: DocumentRevision;
@@ -46,164 +34,6 @@ type RevisionComparison = {
   };
   isCurrentSnapshot: boolean;
 };
-
-function toLines(value: string) {
-  return value ? value.split(/\r?\n/) : [];
-}
-
-function lineDiff(previous: string, current: string): DiffLine[] {
-  const previousLines = toLines(previous);
-  const currentLines = toLines(current);
-  const previousLength = previousLines.length;
-  const currentLength = currentLines.length;
-  const table = Array.from({ length: previousLength + 1 }, () =>
-    Array.from({ length: currentLength + 1 }, () => 0),
-  );
-  const lines: DiffLine[] = [];
-
-  for (let oldIndex = previousLength - 1; oldIndex >= 0; oldIndex -= 1) {
-    for (let newIndex = currentLength - 1; newIndex >= 0; newIndex -= 1) {
-      table[oldIndex][newIndex] =
-        previousLines[oldIndex] === currentLines[newIndex]
-          ? table[oldIndex + 1][newIndex + 1] + 1
-          : Math.max(
-              table[oldIndex + 1][newIndex],
-              table[oldIndex][newIndex + 1],
-            );
-    }
-  }
-
-  let oldIndex = 0;
-  let newIndex = 0;
-
-  while (oldIndex < previousLength || newIndex < currentLength) {
-    if (
-      oldIndex < previousLength &&
-      newIndex < currentLength &&
-      previousLines[oldIndex] === currentLines[newIndex]
-    ) {
-      lines.push({
-        id: `same-${oldIndex}-${newIndex}`,
-        type: "same",
-        text: previousLines[oldIndex],
-        oldLine: oldIndex + 1,
-        newLine: newIndex + 1,
-      });
-      oldIndex += 1;
-      newIndex += 1;
-      continue;
-    }
-
-    if (
-      newIndex >= currentLength ||
-      (oldIndex < previousLength &&
-        table[oldIndex + 1][newIndex] >= table[oldIndex][newIndex + 1])
-    ) {
-      lines.push({
-        id: `removed-${oldIndex}-${newIndex}`,
-        type: "removed",
-        text: previousLines[oldIndex],
-        oldLine: oldIndex + 1,
-      });
-      oldIndex += 1;
-      continue;
-    }
-
-    lines.push({
-      id: `added-${oldIndex}-${newIndex}`,
-      type: "added",
-      text: currentLines[newIndex],
-      newLine: newIndex + 1,
-    });
-    newIndex += 1;
-  }
-
-  return lines;
-}
-
-function blankSide(): DiffSide {
-  return {
-    text: "",
-    type: "blank",
-  };
-}
-
-function buildSideBySideRows(diff: DiffLine[]) {
-  const rows: DiffRow[] = [];
-  let index = 0;
-
-  while (index < diff.length) {
-    const line = diff[index];
-
-    if (line.type === "same") {
-      rows.push({
-        id: line.id,
-        before: {
-          line: line.oldLine,
-          text: line.text,
-          type: "same",
-        },
-        after: {
-          line: line.newLine,
-          text: line.text,
-          type: "same",
-        },
-      });
-      index += 1;
-      continue;
-    }
-
-    const removedLines: DiffLine[] = [];
-    const addedLines: DiffLine[] = [];
-
-    while (diff[index]?.type === "removed") {
-      removedLines.push(diff[index]);
-      index += 1;
-    }
-
-    while (diff[index]?.type === "added") {
-      addedLines.push(diff[index]);
-      index += 1;
-    }
-
-    const rowCount = Math.max(removedLines.length, addedLines.length);
-
-    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-      const removed = removedLines[rowIndex];
-      const added = addedLines[rowIndex];
-
-      rows.push({
-        id: `changed-${removed?.id ?? "none"}-${added?.id ?? "none"}`,
-        before: removed
-          ? {
-              line: removed.oldLine,
-              text: removed.text,
-              type: "removed",
-            }
-          : blankSide(),
-        after: added
-          ? {
-              line: added.newLine,
-              text: added.text,
-              type: "added",
-            }
-          : blankSide(),
-      });
-    }
-  }
-
-  return rows;
-}
-
-function diffStats(diff: DiffLine[]) {
-  return diff.reduce(
-    (stats, line) => ({
-      added: stats.added + (line.type === "added" ? 1 : 0),
-      removed: stats.removed + (line.type === "removed" ? 1 : 0),
-    }),
-    { added: 0, removed: 0 },
-  );
-}
 
 function diffSideClassName(type: DiffSide["type"]) {
   if (type === "added") {
@@ -369,28 +199,36 @@ export function RevisionHistory({
   const [selectedRevisionId, setSelectedRevisionId] = useState<string | null>(
     null,
   );
-  const comparisons = useMemo<RevisionComparison[]>(
+  const revisionItems = useMemo(
     () =>
-      revisions.map((revision, index) => {
-        const previousRevision = revisions[index + 1];
-        const diff = lineDiff(
-          previousRevision?.bodyMarkdown ?? "",
-          revision.bodyMarkdown,
-        );
-
-        return {
-          revision,
-          diff,
-          rows: buildSideBySideRows(diff),
-          stats: diffStats(diff),
-          isCurrentSnapshot: revision.bodyMarkdown === currentBody,
-        };
-      }),
+      revisions.map((revision, index) => ({
+        revision,
+        previousBody: revisions[index + 1]?.bodyMarkdown ?? "",
+        isCurrentSnapshot: revision.bodyMarkdown === currentBody,
+      })),
     [currentBody, revisions],
   );
-  const selectedComparison = comparisons.find(
-    (comparison) => comparison.revision.id === selectedRevisionId,
+  const selectedRevisionItem = revisionItems.find(
+    (item) => item.revision.id === selectedRevisionId,
   );
+  const selectedComparison = useMemo<RevisionComparison | null>(() => {
+    if (!selectedRevisionItem) {
+      return null;
+    }
+
+    const diff = lineDiff(
+      selectedRevisionItem.previousBody,
+      selectedRevisionItem.revision.bodyMarkdown,
+    );
+
+    return {
+      revision: selectedRevisionItem.revision,
+      diff,
+      rows: buildSideBySideRows(diff),
+      stats: diffStats(diff),
+      isCurrentSnapshot: selectedRevisionItem.isCurrentSnapshot,
+    };
+  }, [selectedRevisionItem]);
 
   return (
     <Card size="sm" data-testid="revision-history">
@@ -403,26 +241,25 @@ export function RevisionHistory({
           />
           변경 이력
         </CardTitle>
-        {comparisons.length ? (
+        {revisionItems.length ? (
           <CardAction>
-            <Badge variant="secondary">{comparisons.length}개</Badge>
+            <Badge variant="secondary">{revisionItems.length}개</Badge>
           </CardAction>
         ) : null}
       </CardHeader>
       <CardContent>
-        {comparisons.length ? (
+        {revisionItems.length ? (
           <ol className="space-y-3">
-            {comparisons.map((comparison) => (
+            {revisionItems.map((item) => (
               <li
-                key={comparison.revision.id}
+                key={item.revision.id}
                 className="rounded-lg border bg-muted/35 p-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
-                      {comparison.revision.editSummary ||
-                        comparison.revision.title}
-                      {comparison.isCurrentSnapshot ? (
+                      {item.revision.editSummary || item.revision.title}
+                      {item.isCurrentSnapshot ? (
                         <Badge
                           variant="secondary"
                           className="ml-2 h-5 align-middle text-[11px]"
@@ -432,46 +269,27 @@ export function RevisionHistory({
                       ) : null}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      제목 스냅샷: {comparison.revision.title}
+                      제목 스냅샷: {item.revision.title}
                     </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Badge
-                      className="bg-teal-50 text-teal-700"
-                      variant="outline"
-                    >
-                      +{comparison.stats.added}
-                    </Badge>
-                    <Badge
-                      className="bg-rose-50 text-rose-700"
-                      variant="outline"
-                    >
-                      -{comparison.stats.removed}
-                    </Badge>
                   </div>
                 </div>
 
-                {comparison.revision.summary ? (
+                {item.revision.summary ? (
                   <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                    {comparison.revision.summary}
+                    {item.revision.summary}
                   </p>
                 ) : null}
                 <time className="mt-2 block text-xs text-muted-foreground">
-                  {formatDate(comparison.revision.createdAt)}
+                  {formatDate(item.revision.createdAt)}
                 </time>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  수정자:{" "}
-                  {comparison.revision.editedBy
-                    ? comparison.revision.editedBy.slice(0, 8)
-                    : "알 수 없음"}
+                  수정자: {item.revision.editedByLabel ?? "알 수 없음"}
                 </p>
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     type="button"
-                    onClick={() =>
-                      setSelectedRevisionId(comparison.revision.id)
-                    }
+                    onClick={() => setSelectedRevisionId(item.revision.id)}
                     variant="outline"
                     size="sm"
                   >
@@ -488,7 +306,7 @@ export function RevisionHistory({
                       <input
                         type="hidden"
                         name="revision_id"
-                        value={comparison.revision.id}
+                        value={item.revision.id}
                       />
                       <Button type="submit" variant="outline" size="sm">
                         <RotateCcw size={14} aria-hidden />

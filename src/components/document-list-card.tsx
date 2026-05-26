@@ -15,6 +15,25 @@ function documentHref(document: DocumentSummary) {
   });
 }
 
+function SearchSnippet({ value }: { value: string }) {
+  return (
+    <>
+      {value.split(/(\*\*[^*]+\*\*)/g).map((part, index) =>
+        part.startsWith("**") && part.endsWith("**") ? (
+          <mark
+            key={`${part}-${index}`}
+            className="rounded bg-amber-100 px-0.5 text-amber-950"
+          >
+            {part.slice(2, -2)}
+          </mark>
+        ) : (
+          <span key={`${part}-${index}`}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 export function DocumentListCard({
   document,
   showContentType = false,
@@ -22,6 +41,8 @@ export function DocumentListCard({
   document: DocumentSummary;
   showContentType?: boolean;
 }) {
+  const description = document.searchSnippet || document.summary;
+
   return (
     <Card
       className="group/card p-0 transition hover:-translate-y-0.5 hover:ring-primary/20"
@@ -57,9 +78,18 @@ export function DocumentListCard({
                 </Badge>
               ) : null}
             </div>
-            {document.summary ? (
+            {description ? (
               <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                {document.summary}
+                {document.searchSnippet ? (
+                  <span className="mr-1 font-medium text-foreground">
+                    검색 일치
+                  </span>
+                ) : null}
+                {document.searchSnippet ? (
+                  <SearchSnippet value={description} />
+                ) : (
+                  description
+                )}
               </p>
             ) : null}
           </div>

@@ -13,6 +13,8 @@
 - Supabase Storage image uploads
 - Member-only access, role-based editing, profile nicknames
 - Per-member favorites and completed-learning filters
+- Database-backed full-text search with body snippets
+- Editable, resolvable document discussions
 - Share metadata, generated app icons, and document link copying
 
 ## Local setup
@@ -47,6 +49,7 @@ Users can sign up from `/signup`. Signup creates a confirmed Supabase Auth user 
 
 ```bash
 npm run dev
+npm run test
 npm run lint
 npm run build
 npm run verify:mvp
@@ -55,7 +58,7 @@ npm run verify:mvp-data
 npm run verify:mvp-ui
 ```
 
-`verify:mvp` is the final completion gate. It runs lint, build, Supabase
+`verify:mvp` is the final completion gate. It runs lint, unit tests, build, Supabase
 readiness checks, authenticated data checks, and browser UI checks. It requires
 `SUPABASE_SERVICE_ROLE_KEY`, `DEVWIKI_E2E_EMAIL`, and
 `DEVWIKI_E2E_PASSWORD`; if no app is already running, it starts a local dev
