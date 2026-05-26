@@ -17,12 +17,17 @@ type EditDocumentPageProps = {
   params: Promise<{
     slug: string;
   }>;
+  searchParams: Promise<{
+    error?: string;
+  }>;
 };
 
 export default async function EditDocumentPage({
   params,
+  searchParams,
 }: EditDocumentPageProps) {
   const { slug: encodedSlug } = await params;
+  const pageParams = await searchParams;
   const slug = decodeURIComponent(encodedSlug);
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
@@ -66,6 +71,7 @@ export default async function EditDocumentPage({
       ) : (
         <DocumentEditor
           action={updateDocument}
+          conflictDetected={pageParams.error === "conflict"}
           linkableDocuments={linkableDocuments}
           mode="edit"
           initialDocument={{
@@ -79,6 +85,7 @@ export default async function EditDocumentPage({
             interviewCategory: document.interviewCategory ?? undefined,
             tags: document.tags.map((tag) => tag.name).join(", "),
             relatedDocumentIds,
+            updatedAt: document.updatedAt,
           }}
         />
       )}

@@ -16,6 +16,7 @@ import {
 } from "@/lib/content-routes";
 import { DEVWIKI_DOCUMENTS_CACHE_TAG } from "@/lib/documents";
 import { generateNickname } from "@/lib/nicknames";
+import { canEditContent } from "@/lib/permissions";
 import {
   MAX_PASSWORD_LENGTH,
   PASSWORD_CHANGE_MIN_PASSWORD_LENGTH,
@@ -42,6 +43,7 @@ const documentSchema = z.object({
   tags: z.string().trim().optional(),
   editSummary: z.string().trim().max(160).optional(),
   relatedDocumentIds: z.string().trim().optional(),
+  lastKnownUpdatedAt: z.string().trim().optional(),
 });
 
 const restoreRevisionSchema = z.object({
@@ -106,6 +108,26 @@ const documentLearningStateSchema = z.object({
   enabled: z.boolean(),
   field: z.enum(["favorite", "completed"]),
   slug: z.string().trim().min(1),
+});
+
+const commentSchema = z.object({
+  contentType: z.enum(["term", "interview_qa", "scenario"]),
+  documentId: z.string().uuid(),
+  slug: z.string().trim().min(1),
+});
+
+const updateCommentSchema = commentSchema.extend({
+  body: z.string().trim().min(1).max(2000),
+  commentId: z.string().uuid(),
+});
+
+const deleteCommentSchema = commentSchema.extend({
+  commentId: z.string().uuid(),
+});
+
+const resolveCommentSchema = commentSchema.extend({
+  commentId: z.string().uuid(),
+  resolved: z.boolean(),
 });
 
 function readString(formData: FormData, key: string) {
@@ -649,6 +671,7 @@ export async function updateDocument(formData: FormData) {
     tags: readString(formData, "tags"),
     editSummary: readString(formData, "edit_summary"),
     relatedDocumentIds: readString(formData, "related_document_ids"),
+    lastKnownUpdatedAt: readString(formData, "last_known_updated_at"),
   });
   const content = normalizeDocumentContent(
     parsed.contentType,
@@ -663,7 +686,7 @@ export async function updateDocument(formData: FormData) {
 
   const { data: currentDocument, error: currentDocumentError } = await supabase
     .from("documents")
-    .select("slug, content_type")
+    .select("slug, content_type, updated_at")
     .eq("id", parsed.id)
     .single();
 
@@ -671,6 +694,13 @@ export async function updateDocument(formData: FormData) {
     throw new Error(
       currentDocumentError?.message ?? "수정할 문서를 찾을 수 없습니다.",
     );
+  }
+
+  if (
+    parsed.lastKnownUpdatedAt &&
+    currentDocument.updated_at !== parsed.lastKnownUpdatedAt
+  ) {
+    redirect(`${documentEditPath(currentDocument.slug)}?error=conflict`);
   }
 
   const slug = await uniqueSlug(
@@ -773,28 +803,142 @@ export async function restoreDocumentRevision(formData: FormData) {
   redirect(documentPath(document.slug, contentType));
 }
 
+async function getCommentForAction(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  commentId: string,
+  documentId: string,
+) {
+  const { data, error } = await supabase
+    .from("comments")
+    .select("id, created_by")
+    .eq("id", commentId)
+    .eq("document_id", documentId)
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "댓글을 찾을 수 없습니다.");
+  }
+
+  return data;
+}
+
 export async function addComment(formData: FormData) {
   const { supabase, user } = await requireAuthenticatedMember();
-  const contentType = parseContentType(readString(formData, "content_type"));
-  const documentId = readString(formData, "document_id");
-  const slug = readString(formData, "slug");
+  const parsed = commentSchema.parse({
+    contentType: readString(formData, "content_type") || "term",
+    documentId: readString(formData, "document_id"),
+    slug: readString(formData, "slug"),
+  });
   const body = readString(formData, "body").trim();
 
-  if (!documentId || !body) {
+  if (!body) {
     return;
   }
 
   const { error } = await supabase.from("comments").insert({
-    document_id: documentId,
+    document_id: parsed.documentId,
     body,
     created_by: user.id,
+    updated_by: user.id,
   });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  revalidateDocumentPaths(slug, contentType);
+  revalidateDocumentPaths(parsed.slug, parsed.contentType);
+}
+
+export async function updateComment(formData: FormData) {
+  const { member, supabase, user } = await requireAuthenticatedMember();
+  const parsed = updateCommentSchema.parse({
+    body: readString(formData, "body"),
+    commentId: readString(formData, "comment_id"),
+    contentType: readString(formData, "content_type") || "term",
+    documentId: readString(formData, "document_id"),
+    slug: readString(formData, "slug"),
+  });
+  const comment = await getCommentForAction(
+    supabase,
+    parsed.commentId,
+    parsed.documentId,
+  );
+
+  if (comment.created_by !== user.id && !canEditContent(member)) {
+    throw new Error("댓글을 수정할 권한이 없습니다.");
+  }
+
+  const { error } = await supabase
+    .from("comments")
+    .update({
+      body: parsed.body,
+      updated_by: user.id,
+    })
+    .eq("id", parsed.commentId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidateDocumentPaths(parsed.slug, parsed.contentType);
+}
+
+export async function deleteComment(formData: FormData) {
+  const { member, supabase, user } = await requireAuthenticatedMember();
+  const parsed = deleteCommentSchema.parse({
+    commentId: readString(formData, "comment_id"),
+    contentType: readString(formData, "content_type") || "term",
+    documentId: readString(formData, "document_id"),
+    slug: readString(formData, "slug"),
+  });
+  const comment = await getCommentForAction(
+    supabase,
+    parsed.commentId,
+    parsed.documentId,
+  );
+
+  if (comment.created_by !== user.id && !canEditContent(member)) {
+    throw new Error("댓글을 삭제할 권한이 없습니다.");
+  }
+
+  const { error } = await supabase
+    .from("comments")
+    .delete()
+    .eq("id", parsed.commentId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidateDocumentPaths(parsed.slug, parsed.contentType);
+}
+
+export async function resolveComment(formData: FormData) {
+  const { supabase, user } = await requireEditorMember();
+  const parsed = resolveCommentSchema.parse({
+    commentId: readString(formData, "comment_id"),
+    contentType: readString(formData, "content_type") || "term",
+    documentId: readString(formData, "document_id"),
+    resolved: readString(formData, "resolved") === "1",
+    slug: readString(formData, "slug"),
+  });
+
+  await getCommentForAction(supabase, parsed.commentId, parsed.documentId);
+
+  const { error } = await supabase
+    .from("comments")
+    .update({
+      resolved_at: parsed.resolved ? new Date().toISOString() : null,
+      resolved_by: parsed.resolved ? user.id : null,
+      updated_by: user.id,
+    })
+    .eq("id", parsed.commentId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidateDocumentPaths(parsed.slug, parsed.contentType);
 }
 
 export async function updateMyProfile(formData: FormData) {

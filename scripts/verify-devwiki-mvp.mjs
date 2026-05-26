@@ -334,6 +334,7 @@ async function main() {
   ensureRequiredEnv();
 
   await runCommand("npm", ["run", "lint"]);
+  await runCommand("npm", ["run", "test"]);
   await runCommand("npm", ["run", "build"]);
   await runCommand("npm", ["run", "verify:supabase"]);
   await runCommand("npm", ["run", "verify:mvp-data"]);

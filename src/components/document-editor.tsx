@@ -68,6 +68,7 @@ const CodeMirror = dynamic<CodeMirrorProps>(
 type DocumentEditorProps = {
   action: (formData: FormData) => void | Promise<void>;
   mode: "create" | "edit";
+  conflictDetected?: boolean;
   linkableDocuments?: {
     id: string;
     title: string;
@@ -86,6 +87,7 @@ type DocumentEditorProps = {
     status?: DocumentStatus;
     tags?: string;
     relatedDocumentIds?: string[];
+    updatedAt?: string;
   };
 };
 
@@ -209,6 +211,7 @@ function parseTagNames(value = "") {
 
 export function DocumentEditor({
   action,
+  conflictDetected = false,
   linkableDocuments = [],
   mode,
   initialDocument,
@@ -340,6 +343,18 @@ export function DocumentEditor({
 
     try {
       const parsed = JSON.parse(rawDraft) as EditorDraft;
+      const initialUpdatedAt = initialDocument?.updatedAt
+        ? Date.parse(initialDocument.updatedAt)
+        : null;
+
+      if (
+        !conflictDetected &&
+        initialUpdatedAt &&
+        parsed.savedAt <= initialUpdatedAt
+      ) {
+        window.localStorage.removeItem(draftKey);
+        return;
+      }
 
       if (parsed.body || parsed.title) {
         timeoutId = window.setTimeout(() => setStoredDraft(parsed), 0);
@@ -353,7 +368,7 @@ export function DocumentEditor({
         window.clearTimeout(timeoutId);
       }
     };
-  }, [draftKey]);
+  }, [conflictDetected, draftKey, initialDocument?.updatedAt]);
 
   useEffect(() => {
     if (!isDirty) {
@@ -723,7 +738,6 @@ export function DocumentEditor({
       data-testid="document-editor"
       onKeyDown={handleEditorShortcut}
       onSubmit={() => {
-        window.localStorage.removeItem(draftKey);
         setIsDirty(false);
       }}
     >
@@ -731,6 +745,13 @@ export function DocumentEditor({
         <input type="hidden" name="id" value={initialDocument.id} />
       ) : null}
       <input type="hidden" name="slug" value={slug} />
+      {initialDocument?.updatedAt ? (
+        <input
+          type="hidden"
+          name="last_known_updated_at"
+          value={initialDocument.updatedAt}
+        />
+      ) : null}
       <input type="hidden" name="body_markdown" value={body} />
       <input type="hidden" name="content_type" value={contentType} />
       <input
@@ -758,6 +779,16 @@ export function DocumentEditor({
           }
         }}
       />
+
+      {conflictDetected ? (
+        <section
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
+          role="alert"
+        >
+          다른 멤버가 먼저 저장한 변경이 있어 덮어쓰기를 막았습니다. 로컬
+          초안이 남아 있으면 복원해서 최신 문서와 비교한 뒤 다시 저장하세요.
+        </section>
+      ) : null}
 
       {storedDraft ? (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">

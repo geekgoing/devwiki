@@ -50,11 +50,29 @@ type RawDocumentMemberState = {
   is_favorite: boolean;
 };
 
+type RawDocumentSearchHit = {
+  document_id: string;
+  search_rank: number | null;
+  search_snippet: string | null;
+};
+
+type RawComment = {
+  id: string;
+  body: string;
+  created_at: string;
+  created_by: string | null;
+  updated_at: string;
+  updated_by: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+};
+
 const DOCUMENT_LIST_SELECT =
   "id, slug, title, summary, status, content_type, interview_category, created_at, updated_at, document_tags(tags(id, name, slug))";
 const DOCUMENT_LIST_LIMIT = 100;
 const DOCUMENT_SEARCH_PAGE_SIZE = 500;
 const DOCUMENT_SEARCH_MAX_ROWS = 5000;
+const DOCUMENT_SEARCH_LIMIT = 100;
 const DEFAULT_MEMBER_STATUSES: DocumentStatus[] = ["published", "draft"];
 const DOCUMENT_DETAIL_SELECT =
   "id, slug, title, summary, body_markdown, status, content_type, interview_category, created_at, updated_at, created_by, updated_by, document_tags(tags(id, name, slug))";
@@ -106,12 +124,14 @@ function toDocumentSummary(
     isCompleted: false,
     isFavorite: false,
   },
+  searchSnippet?: string | null,
 ): DocumentSummary {
   return {
     id: row.id,
     slug: row.slug,
     title: row.title,
     summary: row.summary,
+    searchSnippet,
     status: row.status,
     contentType: row.content_type ?? "term",
     interviewCategory: row.interview_category ?? null,
@@ -235,6 +255,83 @@ async function selectDocumentRows(
   return (data ?? []) as RawDocument[];
 }
 
+async function selectDocumentRowsByIds(
+  supabase: SupabaseReader,
+  documentIds: string[],
+) {
+  if (!documentIds.length) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("documents")
+    .select(DOCUMENT_LIST_SELECT)
+    .in("id", documentIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rowById = new Map(
+    ((data ?? []) as RawDocument[]).map((row) => [row.id, row]),
+  );
+
+  return documentIds
+    .map((id) => rowById.get(id))
+    .filter((row): row is RawDocument => Boolean(row));
+}
+
+function isMissingSearchFunctionError(error?: { message?: string } | null) {
+  if (!error?.message) {
+    return false;
+  }
+
+  return (
+    error.message.includes("search_documents") &&
+    /does not exist|could not find|schema cache|function/i.test(error.message)
+  );
+}
+
+async function searchDocumentRows(
+  supabase: SupabaseReader,
+  {
+    contentType,
+    interviewCategory,
+    statuses,
+  }: Omit<DocumentListRowQuery, "includeSearchRows">,
+  query: string,
+) {
+  const { data, error } = await supabase.rpc("search_documents", {
+    p_content_type: contentType ?? null,
+    p_interview_category: interviewCategory ?? null,
+    p_limit: DOCUMENT_SEARCH_LIMIT,
+    p_query: query,
+    p_statuses: statuses,
+  });
+
+  if (error) {
+    if (isMissingSearchFunctionError(error)) {
+      return null;
+    }
+
+    throw new Error(error.message);
+  }
+
+  const hits = (data ?? []) as RawDocumentSearchHit[];
+  const rows = await selectDocumentRowsByIds(
+    supabase,
+    hits.map((hit) => hit.document_id),
+  );
+  const snippetById = new Map(
+    hits.map((hit) => [hit.document_id, hit.search_snippet]),
+  );
+
+  return {
+    rows,
+    snippetById,
+  };
+}
+
 const getCachedDocumentRows = unstable_cache(
   async (query: DocumentListRowQuery) => {
     const admin = createAdminClient();
@@ -333,13 +430,16 @@ async function getDocumentStateMap(documentIds: string[], viewerId?: string | nu
 async function attachDocumentStates(
   rows: RawDocument[],
   viewerId?: string | null,
+  snippetById: Map<string, string | null> = new Map(),
 ) {
   const stateMap = await getDocumentStateMap(
     rows.map((row) => row.id),
     viewerId,
   );
 
-  return rows.map((row) => toDocumentSummary(row, stateMap.get(row.id)));
+  return rows.map((row) =>
+    toDocumentSummary(row, stateMap.get(row.id), snippetById.get(row.id)),
+  );
 }
 
 function isMissingDocumentLinksError(error?: { message?: string } | null) {
@@ -434,15 +534,40 @@ export async function getDocuments({
   }
 
   const normalizedQuery = query.trim();
+  const supabase = canUseDocumentCache(canReadPrivate)
+    ? createAdminClient()
+    : await createClient();
   const rowQuery = {
     contentType,
     includeSearchRows: Boolean(normalizedQuery),
     interviewCategory,
     statuses,
   };
-  const rows = canUseDocumentCache(canReadPrivate)
-    ? await getCachedDocumentRows(rowQuery)
-    : await selectDocumentRows(await createClient(), rowQuery);
+
+  if (normalizedQuery) {
+    const searched = await searchDocumentRows(
+      supabase,
+      {
+        contentType,
+        interviewCategory,
+        statuses,
+      },
+      normalizedQuery,
+    );
+
+    if (searched) {
+      return attachDocumentStates(
+        searched.rows,
+        viewerId,
+        searched.snippetById,
+      );
+    }
+  }
+
+  const rows =
+    canUseDocumentCache(canReadPrivate) && !normalizedQuery
+      ? await getCachedDocumentRows(rowQuery)
+      : await selectDocumentRows(supabase, rowQuery);
   const documents = await attachDocumentStates(rows, viewerId);
 
   return documents.filter(
@@ -513,7 +638,14 @@ export async function getDocumentRevisions(
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((row) => ({
+  const rows = data ?? [];
+  const editorLabels = await getCommentAuthorLabels(
+    rows
+      .map((row) => row.edited_by)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  return rows.map((row) => ({
     id: row.id,
     title: row.title,
     summary: row.summary,
@@ -521,6 +653,9 @@ export async function getDocumentRevisions(
     editSummary: row.edit_summary,
     createdAt: row.created_at,
     editedBy: row.edited_by,
+    editedByLabel: row.edited_by
+      ? (editorLabels.get(row.edited_by) ?? row.edited_by.slice(0, 8))
+      : null,
   }));
 }
 
@@ -539,17 +674,22 @@ export async function getDocumentComments(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("comments")
-    .select("id, body, created_at, created_by")
+    .select(
+      "id, body, created_at, created_by, updated_at, updated_by, resolved_at, resolved_by",
+    )
     .eq("document_id", documentId)
+    .order("resolved_at", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: true });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const rows = data ?? [];
+  const rows = (data ?? []) as RawComment[];
   const authorLabels = await getCommentAuthorLabels(
-    rows.map((row) => row.created_by).filter(Boolean),
+    rows
+      .flatMap((row) => [row.created_by, row.updated_by, row.resolved_by])
+      .filter((id): id is string => Boolean(id)),
   );
 
   return rows.map((row) => ({
@@ -560,6 +700,16 @@ export async function getDocumentComments(
     authorLabel: row.created_by
       ? (authorLabels.get(row.created_by) ?? row.created_by.slice(0, 8))
       : "알 수 없음",
+    updatedAt: row.updated_at,
+    updatedBy: row.updated_by,
+    editorLabel: row.updated_by
+      ? (authorLabels.get(row.updated_by) ?? row.updated_by.slice(0, 8))
+      : null,
+    resolvedAt: row.resolved_at,
+    resolvedBy: row.resolved_by,
+    resolvedByLabel: row.resolved_by
+      ? (authorLabels.get(row.resolved_by) ?? row.resolved_by.slice(0, 8))
+      : null,
   }));
 }
 
