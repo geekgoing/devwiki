@@ -63,6 +63,7 @@ type RawTagSuggestion = {
 };
 
 type RawYoutubeSuggestion = {
+  query?: unknown;
   title?: unknown;
   url?: unknown;
   reason?: unknown;
@@ -73,7 +74,10 @@ const DEFAULT_MODEL = "gpt-4.1-mini";
 const MAX_BODY_CHARS = 12000;
 const MAX_KNOWN_TAGS = 80;
 const MAX_TAG_SUGGESTIONS = 8;
+const MAX_YOUTUBE_QUERIES = 3;
+const MAX_YOUTUBE_RESULTS = 5;
 const AI_TIMEOUT_MS = 45000;
+const YOUTUBE_SEARCH_ENDPOINT = "https://www.googleapis.com/youtube/v3/search";
 
 export class DocumentAiConfigError extends Error {
   constructor() {
@@ -213,7 +217,7 @@ export function buildDocumentAiMessages(
     { role: "system", content: system },
     {
       role: "user",
-      content: `${base}\n\n다음 JSON 스키마로 관련 YouTube 학습 링크 후보를 추천해줘. 확실한 영상 URL이 없으면 searchQuery만 채워줘.\n{\n  "videos": [{ "title": "추천 제목", "url": "https://www.youtube.com/watch?v=...", "searchQuery": "검색어", "reason": "짧은 추천 이유" }]\n}`,
+      content: `${base}\n\n다음 JSON 스키마로 YouTube에서 검색할 학습용 검색어를 추천해줘. 영상 URL은 절대 만들지 말고 검색어만 작성해.\n{\n  "queries": [{ "query": "YouTube 검색어", "reason": "짧은 추천 이유" }]\n}`,
     },
   ];
 }
@@ -330,58 +334,228 @@ function normalizeTagSuggestions(
   return suggestions.slice(0, MAX_TAG_SUGGESTIONS);
 }
 
-function isYoutubeUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return (
-      url.hostname === "www.youtube.com" ||
-      url.hostname === "youtube.com" ||
-      url.hostname === "youtu.be"
-    );
-  } catch {
-    return false;
-  }
-}
-
 function createYoutubeSearchUrl(query: string) {
   const params = new URLSearchParams({ search_query: query });
 
   return `https://www.youtube.com/results?${params.toString()}`;
 }
 
-function normalizeYoutubeSuggestions(value: unknown) {
-  if (!Array.isArray(value)) {
+function fallbackYoutubeQuery(
+  input: Pick<DocumentAiAssistInput, "title" | "currentTags">,
+) {
+  return uniqueNames([input.title, ...input.currentTags])
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+}
+
+function normalizeYoutubeQueries(
+  payload: Record<string, unknown>,
+  input: Pick<DocumentAiAssistInput, "title" | "currentTags">,
+) {
+  const rawValue = Array.isArray(payload.queries)
+    ? payload.queries
+    : Array.isArray(payload.videos)
+      ? payload.videos
+      : [];
+  const queries = rawValue
+    .map((item) => {
+      const raw = item as RawYoutubeSuggestion;
+      const query =
+        clampText(raw.query, 120) ||
+        clampText(raw.searchQuery, 120) ||
+        clampText(raw.title, 120);
+
+      return {
+        query,
+        reason: clampText(raw.reason, 160),
+      };
+    })
+    .filter((item) => item.query)
+    .slice(0, MAX_YOUTUBE_QUERIES);
+
+  if (queries.length) {
+    return queries;
+  }
+
+  const query = fallbackYoutubeQuery(input);
+
+  return query ? [{ query, reason: "문서 주제 기반 검색" }] : [];
+}
+
+function normalizeYoutubeSearchLinks(
+  payload: Record<string, unknown>,
+  input: Pick<DocumentAiAssistInput, "title" | "currentTags">,
+): DocumentAiYoutubeSuggestion[] {
+  return normalizeYoutubeQueries(payload, input).map((item) => ({
+    title: item.query,
+    reason: item.reason,
+    url: createYoutubeSearchUrl(item.query),
+    isSearchLink: true,
+  }));
+}
+
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+type YoutubeSearchItem = {
+  id?: {
+    kind?: string;
+    videoId?: string;
+  };
+  snippet?: {
+    title?: string;
+    channelTitle?: string;
+  };
+};
+
+async function searchYoutubeVideos(query: string) {
+  const apiKey = process.env.DEVWIKI_YOUTUBE_API_KEY?.trim();
+
+  if (!apiKey) {
     return [];
   }
 
-  return value
-    .map((item) => {
-      const raw = item as RawYoutubeSuggestion;
-      const title =
-        clampText(raw.title, 100) ||
-        clampText(raw.searchQuery, 100) ||
-        "YouTube 검색";
-      const reason = clampText(raw.reason, 160);
-      const rawUrl = clampText(raw.url, 240);
-      const searchQuery =
-        clampText(raw.searchQuery, 120) || `${title} ${reason}`.trim();
-      const hasYoutubeUrl = isYoutubeUrl(rawUrl);
+  const params = new URLSearchParams({
+    key: apiKey,
+    maxResults: "3",
+    part: "snippet",
+    q: query,
+    safeSearch: "moderate",
+    type: "video",
+    videoEmbeddable: "true",
+  });
+  const relevanceLanguage =
+    process.env.DEVWIKI_YOUTUBE_RELEVANCE_LANGUAGE?.trim();
+  const regionCode = process.env.DEVWIKI_YOUTUBE_REGION_CODE?.trim();
 
-      return {
-        title,
-        reason,
-        url: hasYoutubeUrl ? rawUrl : createYoutubeSearchUrl(searchQuery),
-        isSearchLink: !hasYoutubeUrl,
-      };
-    })
-    .filter((item) => item.title && item.url)
-    .slice(0, 5);
+  if (relevanceLanguage) {
+    params.set("relevanceLanguage", relevanceLanguage);
+  }
+
+  if (regionCode) {
+    params.set("regionCode", regionCode);
+  }
+
+  const response = await fetch(
+    `${YOUTUBE_SEARCH_ENDPOINT}?${params.toString()}`,
+    {
+      headers: {
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(10000),
+    },
+  );
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const payload = (await response.json()) as { items?: YoutubeSearchItem[] };
+
+  return (payload.items ?? [])
+    .filter((item) => item.id?.kind === "youtube#video" && item.id.videoId)
+    .map((item) => ({
+      videoId: item.id?.videoId ?? "",
+      title: decodeHtmlEntities(item.snippet?.title ?? ""),
+      channelTitle: decodeHtmlEntities(item.snippet?.channelTitle ?? ""),
+    }))
+    .filter((item) => item.videoId && item.title);
+}
+
+async function createYoutubeSuggestions(
+  payload: Record<string, unknown>,
+  input: Pick<DocumentAiAssistInput, "title" | "currentTags">,
+): Promise<DocumentAiYoutubeSuggestion[]> {
+  const queries = normalizeYoutubeQueries(payload, input);
+  const apiKey = process.env.DEVWIKI_YOUTUBE_API_KEY?.trim();
+
+  if (!apiKey) {
+    return normalizeYoutubeSearchLinks(payload, input);
+  }
+
+  const seenVideoIds = new Set<string>();
+  const videos: DocumentAiYoutubeSuggestion[] = [];
+
+  for (const query of queries) {
+    const searchResults = await searchYoutubeVideos(query.query);
+
+    searchResults.forEach((video) => {
+      if (
+        seenVideoIds.has(video.videoId) ||
+        videos.length >= MAX_YOUTUBE_RESULTS
+      ) {
+        return;
+      }
+
+      videos.push({
+        title: video.title,
+        reason: [query.reason, video.channelTitle].filter(Boolean).join(" · "),
+        url: `https://www.youtube.com/watch?v=${video.videoId}`,
+        isSearchLink: false,
+      });
+      seenVideoIds.add(video.videoId);
+    });
+
+    if (videos.length >= MAX_YOUTUBE_RESULTS) {
+      break;
+    }
+  }
+
+  return videos.length ? videos : normalizeYoutubeSearchLinks(payload, input);
+}
+
+function shouldUseJsonMode() {
+  return process.env.DEVWIKI_AI_JSON_MODE === "1";
+}
+
+function buildAiRequestBody(
+  input: DocumentAiAssistInput,
+  messages: ChatMessage[],
+) {
+  return {
+    model: process.env.DEVWIKI_AI_MODEL?.trim() || DEFAULT_MODEL,
+    messages,
+    temperature: input.kind === "draft" ? 0.45 : 0.2,
+    ...(shouldUseJsonMode()
+      ? {
+          response_format: { type: "json_object" },
+        }
+      : {}),
+  };
+}
+
+async function normalizeDocumentAiResponseAsync(
+  kind: DocumentAiAssistKind,
+  payload: Record<string, unknown>,
+  input: DocumentAiAssistInput,
+): Promise<DocumentAiAssistResult> {
+  if (kind === "youtube") {
+    return {
+      kind,
+      videos: await createYoutubeSuggestions(payload, input),
+    };
+  }
+
+  return normalizeDocumentAiResponse(kind, payload, {
+    knownTags: input.knownTags,
+    currentTags: input.currentTags,
+    title: input.title,
+  });
 }
 
 export function normalizeDocumentAiResponse(
   kind: DocumentAiAssistKind,
   payload: Record<string, unknown>,
-  input: Pick<DocumentAiAssistInput, "knownTags" | "currentTags">,
+  input: Pick<DocumentAiAssistInput, "knownTags" | "currentTags"> & {
+    title?: string;
+  },
 ): DocumentAiAssistResult {
   if (kind === "draft") {
     return {
@@ -419,7 +593,10 @@ export function normalizeDocumentAiResponse(
 
   return {
     kind,
-    videos: normalizeYoutubeSuggestions(payload.videos),
+    videos: normalizeYoutubeSearchLinks(payload, {
+      title: input.title ?? "",
+      currentTags: input.currentTags,
+    }),
   };
 }
 
@@ -428,7 +605,6 @@ export async function createDocumentAiSuggestion(
 ): Promise<DocumentAiAssistResult> {
   const url = createAiUrl();
   const apiKey = process.env.DEVWIKI_AI_API_KEY?.trim();
-  const model = process.env.DEVWIKI_AI_MODEL?.trim() || DEFAULT_MODEL;
   const messages = buildDocumentAiMessages(input);
   const response = await fetch(url, {
     method: "POST",
@@ -436,12 +612,7 @@ export async function createDocumentAiSuggestion(
       "Content-Type": "application/json",
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: input.kind === "draft" ? 0.45 : 0.2,
-      response_format: { type: "json_object" },
-    }),
+    body: JSON.stringify(buildAiRequestBody(input, messages)),
     signal: AbortSignal.timeout(AI_TIMEOUT_MS),
   });
 
@@ -460,8 +631,9 @@ export async function createDocumentAiSuggestion(
     throw new Error("AI 응답에 처리할 텍스트가 없습니다.");
   }
 
-  return normalizeDocumentAiResponse(input.kind, parseJsonObject(content), {
-    knownTags: input.knownTags,
-    currentTags: input.currentTags,
-  });
+  return normalizeDocumentAiResponseAsync(
+    input.kind,
+    parseJsonObject(content),
+    input,
+  );
 }

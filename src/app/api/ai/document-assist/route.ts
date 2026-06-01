@@ -8,8 +8,19 @@ import {
 import { getCurrentMember } from "@/lib/auth";
 import { canEditContent } from "@/lib/permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import type { Member } from "@/types/devwiki";
 
 export const runtime = "nodejs";
+
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const DEFAULT_RATE_LIMIT = 30;
+const rateLimitBuckets = new Map<
+  string,
+  {
+    count: number;
+    resetAt: number;
+  }
+>();
 
 const requestSchema = z.object({
   kind: z.enum(["draft", "summary", "tags", "youtube"]),
@@ -22,13 +33,58 @@ const requestSchema = z.object({
   knownTags: z.array(z.string().trim().max(40)).max(120).default([]),
 });
 
-function errorResponse(message: string, status: number) {
-  return Response.json({ error: message }, { status });
+function errorResponse(
+  message: string,
+  status: number,
+  headers?: HeadersInit,
+) {
+  return Response.json({ error: message }, { status, headers });
+}
+
+function configuredRateLimit() {
+  const value = Number(process.env.DEVWIKI_AI_RATE_LIMIT_PER_10_MINUTES);
+
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_RATE_LIMIT;
+}
+
+function getRateLimitKey(request: NextRequest, member: Member | null) {
+  if (member?.email) {
+    return `member:${member.email.toLowerCase()}`;
+  }
+
+  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0];
+  const forwardedHost = forwardedFor?.trim();
+
+  return `ip:${forwardedHost || request.headers.get("x-real-ip") || "local"}`;
+}
+
+function checkRateLimit(key: string) {
+  const now = Date.now();
+  const limit = configuredRateLimit();
+  const current = rateLimitBuckets.get(key);
+
+  if (!current || current.resetAt <= now) {
+    rateLimitBuckets.set(key, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    });
+
+    return null;
+  }
+
+  if (current.count >= limit) {
+    return Math.ceil((current.resetAt - now) / 1000);
+  }
+
+  current.count += 1;
+  return null;
 }
 
 export async function POST(request: NextRequest) {
+  let member: Member | null = null;
+
   if (isSupabaseConfigured()) {
-    const member = await getCurrentMember();
+    member = await getCurrentMember();
 
     if (!member) {
       return errorResponse("로그인이 필요합니다.", 401);
@@ -37,6 +93,14 @@ export async function POST(request: NextRequest) {
     if (!canEditContent(member)) {
       return errorResponse("editor 이상의 권한이 필요합니다.", 403);
     }
+  }
+
+  const retryAfter = checkRateLimit(getRateLimitKey(request, member));
+
+  if (retryAfter !== null) {
+    return errorResponse("AI 요청이 너무 많습니다. 잠시 후 다시 시도하세요.", 429, {
+      "Retry-After": String(retryAfter),
+    });
   }
 
   let payload: unknown;

@@ -1,9 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildDocumentAiMessages,
+  createDocumentAiSuggestion,
   normalizeDocumentAiResponse,
 } from "@/lib/ai/document-assist";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  delete process.env.DEVWIKI_AI_API_URL;
+  delete process.env.DEVWIKI_AI_JSON_MODE;
+});
 
 describe("document AI assistant", () => {
   it("builds a JSON-only summary prompt with document context", () => {
@@ -50,10 +58,9 @@ describe("document AI assistant", () => {
     const result = normalizeDocumentAiResponse(
       "youtube",
       {
-        videos: [
+        queries: [
           {
-            title: "트랜잭션 격리 수준",
-            searchQuery: "트랜잭션 격리 수준 MVCC",
+            query: "트랜잭션 격리 수준 MVCC",
             reason: "개념 보강",
           },
         ],
@@ -68,10 +75,100 @@ describe("document AI assistant", () => {
 
     if (result.kind === "youtube") {
       expect(result.videos[0]).toMatchObject({
-        title: "트랜잭션 격리 수준",
+        title: "트랜잭션 격리 수준 MVCC",
         isSearchLink: true,
       });
       expect(result.videos[0].url).toContain("youtube.com/results?");
     }
+  });
+
+  it("does not pass through AI-generated YouTube watch URLs as verified videos", () => {
+    const result = normalizeDocumentAiResponse(
+      "youtube",
+      {
+        videos: [
+          {
+            title: "가짜 영상",
+            url: "https://www.youtube.com/watch?v=fake-id",
+            reason: "AI가 만든 URL",
+          },
+        ],
+      },
+      {
+        currentTags: ["트랜잭션"],
+        knownTags: [],
+      },
+    );
+
+    expect(result.kind).toBe("youtube");
+
+    if (result.kind === "youtube") {
+      expect(result.videos[0].isSearchLink).toBe(true);
+      expect(result.videos[0].url).toContain("youtube.com/results?");
+      expect(result.videos[0].url).not.toContain("watch?v=fake-id");
+    }
+  });
+
+  it("omits OpenAI JSON mode unless explicitly enabled", async () => {
+    process.env.DEVWIKI_AI_API_URL = "http://example.test/v1/chat/completions";
+    let requestBody: Record<string, unknown> | null = null;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        requestBody = JSON.parse(String(init?.body));
+
+        return new Response(
+          JSON.stringify({
+            choices: [{ message: { content: '{"summary":"짧은 요약"}' } }],
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    await createDocumentAiSuggestion({
+      kind: "summary",
+      title: "Redis",
+      bodyMarkdown: "본문",
+      contentType: "term",
+      currentTags: [],
+      knownTags: [],
+    });
+
+    expect(requestBody).not.toHaveProperty("response_format");
+  });
+
+  it("enables OpenAI JSON mode when configured", async () => {
+    process.env.DEVWIKI_AI_API_URL = "http://example.test/v1/chat/completions";
+    process.env.DEVWIKI_AI_JSON_MODE = "1";
+    let requestBody: Record<string, unknown> | null = null;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        requestBody = JSON.parse(String(init?.body));
+
+        return new Response(
+          JSON.stringify({
+            choices: [{ message: { content: '{"summary":"짧은 요약"}' } }],
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    await createDocumentAiSuggestion({
+      kind: "summary",
+      title: "Redis",
+      bodyMarkdown: "본문",
+      contentType: "term",
+      currentTags: [],
+      knownTags: [],
+    });
+
+    expect(requestBody).toHaveProperty("response_format", {
+      type: "json_object",
+    });
   });
 });
