@@ -1,8 +1,8 @@
 import { DocumentCollectionClient } from "@/components/document-collection-client";
 import { SetupNotice } from "@/components/setup-notice";
 import {
+  parseFavoritesFilter,
   parseInterviewCategory,
-  parseLearningFilter,
   parseStatusFilter,
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
@@ -13,7 +13,7 @@ import type { DocumentContentType } from "@/types/devwiki";
 
 type SectionSearchParams = Promise<{
   category?: string;
-  learning?: string;
+  favorites?: string;
   status?: string;
 }>;
 
@@ -27,8 +27,8 @@ export async function ContentSectionPage({
   searchParams: SectionSearchParams;
 }) {
   const params = await searchParams;
+  const favoritesOnly = parseFavoritesFilter(params.favorites);
   const interviewCategory = parseInterviewCategory(params.category);
-  const learning = parseLearningFilter(params.learning);
   const status = parseStatusFilter(params.status);
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
@@ -38,9 +38,9 @@ export async function ContentSectionPage({
   const canCreate = canEditContent(member);
   const documents = await getDocuments({
     contentType,
+    favoritesOnly,
     interviewCategory:
       contentType === "interview_qa" ? interviewCategory : undefined,
-    learning,
     status,
     canReadPrivate,
     viewerId: user?.id,
@@ -56,9 +56,9 @@ export async function ContentSectionPage({
           initialDocuments={documents}
           initialFilters={{
             contentType,
+            favoritesOnly,
             interviewCategory:
               contentType === "interview_qa" ? interviewCategory : undefined,
-            learning,
             query: "",
             status,
           }}

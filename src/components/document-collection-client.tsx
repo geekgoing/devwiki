@@ -105,13 +105,13 @@ export function DocumentCollectionClient({
   const shouldShowDiscovery =
     contentType === "term" &&
     currentFilters.status === "active" &&
-    currentFilters.learning === "all" &&
+    !currentFilters.favoritesOnly &&
     !currentFilters.interviewCategory &&
     !currentFilters.query;
   const shouldShowSectionBoard =
     (contentType === "interview_qa" || contentType === "scenario") &&
     currentFilters.status === "active" &&
-    currentFilters.learning === "all" &&
+    !currentFilters.favoritesOnly &&
     !currentFilters.interviewCategory &&
     !currentFilters.query;
   const createHref = newDocumentHref(
@@ -141,7 +141,7 @@ export function DocumentCollectionClient({
                 : undefined
             }
             contentType={contentType}
-            learning={currentFilters.learning}
+            favoritesOnly={currentFilters.favoritesOnly}
             onNavigate={(href) => window.history.pushState(null, "", href)}
             status={currentFilters.status}
           />

@@ -1,13 +1,12 @@
 import { DocumentFilterPopover } from "@/components/document-filter-popover";
 import {
+  favoriteFilterOptions,
   interviewCategoryFilterOptions,
-  learningFilterOptions,
   statusFilterOptions,
 } from "@/lib/document-filters";
 import { withSearchParams } from "@/lib/content-routes";
 import type {
   DocumentContentType,
-  DocumentLearningFilter,
   DocumentStatusFilter,
   InterviewCategory,
 } from "@/types/devwiki";
@@ -15,35 +14,35 @@ import type {
 function sectionFilterHref({
   basePath,
   category,
-  learning,
+  favoritesOnly,
   status,
 }: {
   basePath: string;
   category?: InterviewCategory;
-  learning: DocumentLearningFilter;
+  favoritesOnly: boolean;
   status: DocumentStatusFilter;
 }) {
   return withSearchParams(basePath, {
     category,
-    learning: learning === "all" ? undefined : learning,
+    favorites: favoritesOnly ? "1" : undefined,
     status: status === "active" ? undefined : status,
   });
 }
 
 function searchFilterHref({
   category,
-  learning,
+  favoritesOnly,
   query,
   status,
 }: {
   category?: InterviewCategory;
-  learning: DocumentLearningFilter;
+  favoritesOnly: boolean;
   query: string;
   status: DocumentStatusFilter;
 }) {
   return withSearchParams("/search", {
     category,
-    learning: learning === "all" ? undefined : learning,
+    favorites: favoritesOnly ? "1" : undefined,
     q: query || undefined,
     status: status === "active" ? undefined : status,
   });
@@ -53,7 +52,7 @@ export function DocumentFilterToolbar({
   basePath,
   category,
   contentType,
-  learning,
+  favoritesOnly,
   onNavigate,
   query = "",
   status,
@@ -61,7 +60,7 @@ export function DocumentFilterToolbar({
   basePath: string;
   category?: InterviewCategory;
   contentType?: DocumentContentType;
-  learning: DocumentLearningFilter;
+  favoritesOnly: boolean;
   onNavigate?: (href: string) => void;
   query?: string;
   status: DocumentStatusFilter;
@@ -69,24 +68,24 @@ export function DocumentFilterToolbar({
   const isSearch = basePath === "/search";
   const makeHref = ({
     nextCategory = category,
-    nextLearning = learning,
+    nextFavoritesOnly = favoritesOnly,
     nextStatus = status,
   }: {
     nextCategory?: InterviewCategory;
-    nextLearning?: DocumentLearningFilter;
+    nextFavoritesOnly?: boolean;
     nextStatus?: DocumentStatusFilter;
   }) =>
     isSearch
       ? searchFilterHref({
           category: nextCategory,
-          learning: nextLearning,
+          favoritesOnly: nextFavoritesOnly,
           query,
           status: nextStatus,
         })
       : sectionFilterHref({
           basePath,
           category: nextCategory,
-          learning: nextLearning,
+          favoritesOnly: nextFavoritesOnly,
           status: nextStatus,
         });
 
@@ -95,10 +94,10 @@ export function DocumentFilterToolbar({
     label: option.label,
     selected: status === option.value,
   }));
-  const learningLinks = learningFilterOptions.map((option) => ({
-    href: makeHref({ nextLearning: option.value }),
+  const favoriteLinks = favoriteFilterOptions.map((option) => ({
+    href: makeHref({ nextFavoritesOnly: option.value }),
     label: option.label,
-    selected: learning === option.value,
+    selected: favoritesOnly === option.value,
   }));
   const shouldShowInterviewCategory =
     isSearch || contentType === "interview_qa";
@@ -112,8 +111,8 @@ export function DocumentFilterToolbar({
   const statusLabel = statusFilterOptions.find(
     (option) => option.value === status,
   )?.label;
-  const learningLabel = learningFilterOptions.find(
-    (option) => option.value === learning,
+  const favoriteLabel = favoriteFilterOptions.find(
+    (option) => option.value === favoritesOnly,
   )?.label;
   const categoryLabel = category
     ? interviewCategoryFilterOptions.find((option) => option.value === category)
@@ -121,12 +120,12 @@ export function DocumentFilterToolbar({
     : undefined;
   const activeFilterLabels = [
     status !== "active" && statusLabel ? `상태: ${statusLabel}` : undefined,
-    learning !== "all" && learningLabel ? `학습: ${learningLabel}` : undefined,
+    favoritesOnly && favoriteLabel ? favoriteLabel : undefined,
     categoryLabel ? `분류: ${categoryLabel}` : undefined,
   ].filter((label): label is string => Boolean(label));
   const activeFilterCount =
     Number(status !== "active") +
-    Number(learning !== "all") +
+    Number(favoritesOnly) +
     Number(Boolean(category));
   const resetHref = isSearch
     ? withSearchParams("/search", { q: query || undefined })
@@ -136,8 +135,8 @@ export function DocumentFilterToolbar({
     <DocumentFilterPopover
       activeCount={activeFilterCount}
       activeLabels={activeFilterLabels}
+      favoriteLinks={favoriteLinks}
       interviewCategoryLinks={interviewCategoryLinks}
-      learningLinks={learningLinks}
       onNavigate={onNavigate}
       resetHref={resetHref}
       statusLinks={statusLinks}

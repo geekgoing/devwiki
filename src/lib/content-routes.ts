@@ -1,6 +1,5 @@
 import type {
   DocumentContentType,
-  DocumentLearningFilter,
   DocumentStatusFilter,
   InterviewCategory,
 } from "@/types/devwiki";
@@ -76,10 +75,8 @@ export function parseInterviewCategory(
   return value === "technical" || value === "behavioral" ? value : undefined;
 }
 
-export function parseLearningFilter(value?: string): DocumentLearningFilter {
-  return value === "favorite" || value === "completed" || value === "todo"
-    ? value
-    : "all";
+export function parseFavoritesFilter(value?: string): boolean {
+  return value === "1" || value === "true" || value === "favorite";
 }
 
 export function withSearchParams(

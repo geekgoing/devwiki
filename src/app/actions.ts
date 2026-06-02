@@ -102,11 +102,10 @@ const passwordSchema = z
     }
   });
 
-const documentLearningStateSchema = z.object({
+const documentFavoriteStateSchema = z.object({
   contentType: z.enum(["term", "interview_qa", "scenario"]),
   documentId: z.string().uuid(),
   enabled: z.boolean(),
-  field: z.enum(["favorite", "completed"]),
   slug: z.string().trim().min(1),
 });
 
@@ -1012,41 +1011,29 @@ export async function updateMyPassword(formData: FormData) {
   redirect(next === "/me" ? "/me?notice=password" : next);
 }
 
-export async function updateDocumentLearningState(formData: FormData) {
+export async function updateDocumentFavoriteState(formData: FormData) {
   const { supabase, user } = await requireAuthenticatedMember();
-  const parsed = documentLearningStateSchema.parse({
+  const parsed = documentFavoriteStateSchema.parse({
     contentType: readString(formData, "content_type") || "term",
     documentId: readString(formData, "document_id"),
     enabled: readString(formData, "enabled") === "1",
-    field: readString(formData, "field"),
     slug: readString(formData, "slug"),
   });
-  const nextState =
-    parsed.field === "favorite"
-      ? { is_favorite: parsed.enabled }
-      : { is_completed: parsed.enabled };
 
-  const { data: currentState, error: currentStateError } = await supabase
-    .from("document_member_states")
-    .select("is_favorite, is_completed")
-    .eq("document_id", parsed.documentId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (currentStateError) {
-    throw new Error(currentStateError.message);
-  }
-
-  const { error } = await supabase.from("document_member_states").upsert(
-    {
-      document_id: parsed.documentId,
-      user_id: user.id,
-      is_favorite: currentState?.is_favorite ?? false,
-      is_completed: currentState?.is_completed ?? false,
-      ...nextState,
-    },
-    { onConflict: "document_id,user_id" },
-  );
+  const { error } = parsed.enabled
+    ? await supabase.from("document_member_states").upsert(
+        {
+          document_id: parsed.documentId,
+          user_id: user.id,
+          is_favorite: true,
+        },
+        { onConflict: "document_id,user_id" },
+      )
+    : await supabase
+        .from("document_member_states")
+        .delete()
+        .eq("document_id", parsed.documentId)
+        .eq("user_id", user.id);
 
   if (error) {
     throw new Error(error.message);

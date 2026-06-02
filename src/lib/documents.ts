@@ -8,8 +8,7 @@ import type {
   DocumentComment,
   DocumentContentType,
   DocumentDetail,
-  DocumentLearningFilter,
-  DocumentLearningState,
+  DocumentMemberState,
   InterviewCategory,
   DocumentRevision,
   DocumentStatus,
@@ -46,7 +45,6 @@ type RawDocumentLink = {
 
 type RawDocumentMemberState = {
   document_id: string;
-  is_completed: boolean;
   is_favorite: boolean;
 };
 
@@ -86,8 +84,8 @@ type DocumentReadOptions = {
 
 type DocumentListOptions = DocumentReadOptions & {
   contentType?: DocumentContentType;
+  favoritesOnly?: boolean;
   interviewCategory?: InterviewCategory;
-  learning?: DocumentLearningFilter;
   query?: string;
   status?: DocumentStatusFilter;
 };
@@ -119,8 +117,7 @@ function flattenTags(relations?: RawTagRelation[] | null): Tag[] {
 
 function toDocumentSummary(
   row: RawDocument,
-  state: DocumentLearningState = {
-    isCompleted: false,
+  state: DocumentMemberState = {
     isFavorite: false,
   },
   searchSnippet?: string | null,
@@ -134,7 +131,6 @@ function toDocumentSummary(
     status: row.status,
     contentType: row.content_type ?? "term",
     interviewCategory: row.interview_category ?? null,
-    isCompleted: state.isCompleted,
     isFavorite: state.isFavorite,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -379,27 +375,12 @@ function hasVisibleStatus(
   return statuses.includes(document.status);
 }
 
-function matchesLearningFilter(
-  document: DocumentSummary,
-  learning: DocumentLearningFilter = "all",
-) {
-  if (learning === "favorite") {
-    return document.isFavorite;
-  }
-
-  if (learning === "completed") {
-    return document.isCompleted;
-  }
-
-  if (learning === "todo") {
-    return !document.isCompleted;
-  }
-
-  return true;
+function matchesFavoriteFilter(document: DocumentSummary, favoritesOnly = false) {
+  return !favoritesOnly || document.isFavorite;
 }
 
 async function getDocumentStateMap(documentIds: string[], viewerId?: string | null) {
-  const stateMap = new Map<string, DocumentLearningState>();
+  const stateMap = new Map<string, DocumentMemberState>();
 
   if (!viewerId || !documentIds.length || !isSupabaseConfigured()) {
     return stateMap;
@@ -408,7 +389,7 @@ async function getDocumentStateMap(documentIds: string[], viewerId?: string | nu
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("document_member_states")
-    .select("document_id, is_favorite, is_completed")
+    .select("document_id, is_favorite")
     .eq("user_id", viewerId)
     .in("document_id", documentIds);
 
@@ -418,7 +399,6 @@ async function getDocumentStateMap(documentIds: string[], viewerId?: string | nu
 
   ((data ?? []) as RawDocumentMemberState[]).forEach((row) => {
     stateMap.set(row.document_id, {
-      isCompleted: row.is_completed,
       isFavorite: row.is_favorite,
     });
   });
@@ -507,8 +487,8 @@ async function getCommentAuthorLabels(createdByIds: string[]) {
 
 export async function getDocuments({
   contentType,
+  favoritesOnly = false,
   interviewCategory,
-  learning = "all",
   query = "",
   status = "active",
   canReadPrivate = false,
@@ -527,7 +507,7 @@ export async function getDocuments({
         (!contentType || document.contentType === contentType) &&
         (!interviewCategory ||
           document.interviewCategory === interviewCategory) &&
-        matchesLearningFilter(document, learning) &&
+        matchesFavoriteFilter(document, favoritesOnly) &&
         matchesQuery(document, query),
     );
   }
@@ -555,10 +535,14 @@ export async function getDocuments({
     );
 
     if (searched) {
-      return attachDocumentStates(
+      const documents = await attachDocumentStates(
         searched.rows,
         viewerId,
         searched.snippetById,
+      );
+
+      return documents.filter((document) =>
+        matchesFavoriteFilter(document, favoritesOnly),
       );
     }
   }
@@ -571,7 +555,7 @@ export async function getDocuments({
 
   return documents.filter(
     (document) =>
-      matchesLearningFilter(document, learning) &&
+      matchesFavoriteFilter(document, favoritesOnly) &&
       matchesQuery(document, normalizedQuery),
   );
 }
@@ -611,7 +595,6 @@ export async function getDocumentBySlug(
   return {
     ...toDocumentDetail(data as RawDocument),
     ...(stateMap.get(data.id) ?? {
-      isCompleted: false,
       isFavorite: false,
     }),
   };

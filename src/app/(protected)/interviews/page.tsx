@@ -3,7 +3,7 @@ import { ContentSectionPage } from "@/components/content-section-page";
 type InterviewsPageProps = {
   searchParams: Promise<{
     category?: string;
-    learning?: string;
+    favorites?: string;
     status?: string;
   }>;
 };

@@ -1,5 +1,4 @@
 import {
-  CheckCircle2,
   KeyRound,
   MessageSquare,
   RefreshCw,
@@ -56,14 +55,13 @@ type RecentCommentRow = {
   } | null;
 };
 
-type LearningDocumentRow = {
+type FavoriteDocumentRow = {
   document: {
     content_type: string;
     slug: string;
     title: string;
   } | null;
   document_id: string;
-  is_completed: boolean;
   is_favorite: boolean;
   updated_at: string;
 };
@@ -83,7 +81,7 @@ type RawRecentCommentRow = Omit<RecentCommentRow, "document"> & {
     | null;
 };
 
-type RawLearningDocumentRow = Omit<LearningDocumentRow, "document"> & {
+type RawFavoriteDocumentRow = Omit<FavoriteDocumentRow, "document"> & {
   documents?:
     | {
         content_type: string;
@@ -147,15 +145,15 @@ async function getRecentComments(userId: string) {
   }));
 }
 
-async function getLearningDocuments(userId: string) {
+async function getFavoriteDocuments(userId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("document_member_states")
     .select(
-      "document_id, is_favorite, is_completed, updated_at, documents(slug, title, content_type)",
+      "document_id, is_favorite, updated_at, documents(slug, title, content_type)",
     )
     .eq("user_id", userId)
-    .or("is_favorite.eq.true,is_completed.eq.true")
+    .eq("is_favorite", true)
     .order("updated_at", { ascending: false })
     .limit(8);
 
@@ -163,12 +161,11 @@ async function getLearningDocuments(userId: string) {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as RawLearningDocumentRow[]).map((row) => ({
+  return ((data ?? []) as RawFavoriteDocumentRow[]).map((row) => ({
     document: Array.isArray(row.documents)
       ? (row.documents[0] ?? null)
       : (row.documents ?? null),
     document_id: row.document_id,
-    is_completed: row.is_completed,
     is_favorite: row.is_favorite,
     updated_at: row.updated_at,
   }));
@@ -180,12 +177,12 @@ export default async function MePage({ searchParams }: MePageProps) {
   const user = await getCurrentUser();
   const member = await getCurrentMember();
 
-  const [recentDocuments, recentComments, learningDocuments] =
+  const [recentDocuments, recentComments, favoriteDocuments] =
     configured && user && member
       ? await Promise.all([
           getRecentDocuments(user.id),
           getRecentComments(user.id),
-          getLearningDocuments(user.id),
+          getFavoriteDocuments(user.id),
         ])
       : [[], [], []];
 
@@ -301,26 +298,20 @@ export default async function MePage({ searchParams }: MePageProps) {
         <section className="grid gap-4 lg:grid-cols-2">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>내 학습 상태</CardTitle>
+              <CardTitle>즐겨찾기</CardTitle>
               <CardAction className="flex flex-wrap gap-2">
                 <Button asChild variant="outline" size="sm">
-                  <Link href="/search?learning=favorite">
+                  <Link href="/search?favorites=1">
                     <Star size={13} aria-hidden />
                     즐겨찾기
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm">
-                  <Link href="/search?learning=completed">
-                    <CheckCircle2 size={13} aria-hidden />
-                    숙지함
                   </Link>
                 </Button>
               </CardAction>
             </CardHeader>
             <CardContent>
-              {learningDocuments.length ? (
+              {favoriteDocuments.length ? (
                 <ol className="grid gap-2 md:grid-cols-2">
-                  {learningDocuments.map((item) => (
+                  {favoriteDocuments.map((item) => (
                     <li key={item.document_id}>
                       <Link
                         href={item.document ? documentHref(item.document) : "/"}
@@ -343,15 +334,6 @@ export default async function MePage({ searchParams }: MePageProps) {
                               즐겨찾기
                             </Badge>
                           ) : null}
-                          {item.is_completed ? (
-                            <Badge
-                              variant="outline"
-                              className="border-teal-200 bg-teal-50 text-teal-700"
-                            >
-                              <CheckCircle2 size={12} aria-hidden />
-                              숙지함
-                            </Badge>
-                          ) : null}
                         </span>
                       </Link>
                     </li>
@@ -359,7 +341,7 @@ export default async function MePage({ searchParams }: MePageProps) {
                 </ol>
               ) : (
                 <p className="text-sm leading-6 text-muted-foreground">
-                  아직 즐겨찾기하거나 숙지 완료한 문서가 없습니다.
+                  아직 즐겨찾기한 문서가 없습니다.
                 </p>
               )}
             </CardContent>

@@ -54,7 +54,7 @@ function isInitialFilters(
 function searchHref(filters: DocumentQueryFilters) {
   return withSearchParams("/search", {
     category: filters.interviewCategory,
-    learning: filters.learning === "all" ? undefined : filters.learning,
+    favorites: filters.favoritesOnly ? "1" : undefined,
     q: filters.query || undefined,
     status: filters.status === "active" ? undefined : filters.status,
   });
@@ -157,7 +157,7 @@ export function DocumentSearchClient({
           <DocumentFilterToolbar
             basePath="/search"
             category={currentFilters.interviewCategory}
-            learning={currentFilters.learning}
+            favoritesOnly={currentFilters.favoritesOnly}
             onNavigate={(href) => window.history.pushState(null, "", href)}
             query={currentFilters.query}
             status={currentFilters.status}

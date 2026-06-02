@@ -2,7 +2,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
-  CheckCircle2,
   Clock3,
   Link2,
   MessageSquare,
@@ -15,7 +14,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { updateDocumentLearningState } from "@/app/actions";
+import { updateDocumentFavoriteState } from "@/app/actions";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { DocumentComments } from "@/components/document-comments";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
@@ -192,31 +191,15 @@ function LinkSection({
   );
 }
 
-function LearningStateButton({
-  document,
-  field,
-}: {
-  document: DocumentDetail;
-  field: "favorite" | "completed";
-}) {
-  const enabled =
-    field === "favorite" ? document.isFavorite : document.isCompleted;
-  const Icon = field === "favorite" ? Star : CheckCircle2;
-  const label =
-    field === "favorite"
-      ? enabled
-        ? "즐겨찾기 해제"
-        : "즐겨찾기"
-      : enabled
-        ? "숙지 취소"
-        : "숙지 완료";
+function FavoriteButton({ document }: { document: DocumentDetail }) {
+  const enabled = document.isFavorite;
+  const label = enabled ? "즐겨찾기 해제" : "즐겨찾기";
 
   return (
-    <form action={updateDocumentLearningState}>
+    <form action={updateDocumentFavoriteState}>
       <input type="hidden" name="content_type" value={document.contentType} />
       <input type="hidden" name="document_id" value={document.id} />
       <input type="hidden" name="slug" value={document.slug} />
-      <input type="hidden" name="field" value={field} />
       <input type="hidden" name="enabled" value={enabled ? "0" : "1"} />
       <Button
         type="submit"
@@ -227,11 +210,7 @@ function LearningStateButton({
             : "",
         )}
       >
-        <Icon
-          size={16}
-          className={enabled && field === "favorite" ? "fill-current" : ""}
-          aria-hidden
-        />
+        <Star size={16} className={enabled ? "fill-current" : ""} aria-hidden />
         {label}
       </Button>
     </form>
@@ -285,7 +264,7 @@ export async function DocumentDetailPage({
       getBacklinkDocuments(document.id, { canReadPrivate }),
     ]);
   const canContribute = canEditContent(member);
-  const canTrackLearning = Boolean(configured && member);
+  const canSaveFavorite = Boolean(configured && member);
   const shouldShowRelatedDocuments =
     relatedDocuments.length > 0 || canContribute;
   const commentCount = countDocumentComments(comments);
@@ -327,11 +306,8 @@ export async function DocumentDetailPage({
               ) : null}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
-              {canTrackLearning ? (
-                <>
-                  <LearningStateButton document={document} field="favorite" />
-                  <LearningStateButton document={document} field="completed" />
-                </>
+              {canSaveFavorite ? (
+                <FavoriteButton document={document} />
               ) : null}
               <CopyLinkButton path={canonicalPath} />
               {canContribute ? (

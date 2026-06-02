@@ -486,7 +486,6 @@ ${imageMarkdown}
         {
           document_id: documentId,
           user_id: memberSession.user.id,
-          is_completed: true,
           is_favorite: true,
         },
         { onConflict: "document_id,user_id" },
@@ -498,7 +497,7 @@ ${imageMarkdown}
 
     const { data: stateRows, error: stateLookupError } = await memberSession.client
       .from("document_member_states")
-      .select("is_favorite, is_completed")
+      .select("is_favorite")
       .eq("document_id", documentId)
       .eq("user_id", memberSession.user.id);
 
@@ -510,7 +509,7 @@ ${imageMarkdown}
       );
     }
 
-    if (!stateRows[0].is_favorite || !stateRows[0].is_completed) {
+    if (!stateRows[0].is_favorite) {
       throw new Error("Member document state values were not persisted.");
     }
 

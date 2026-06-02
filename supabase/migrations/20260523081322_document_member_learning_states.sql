@@ -2,7 +2,6 @@ create table if not exists public.document_member_states (
   document_id uuid not null references public.documents(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   is_favorite boolean not null default false,
-  is_completed boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (document_id, user_id)
@@ -11,10 +10,6 @@ create table if not exists public.document_member_states (
 create index if not exists document_member_states_user_favorite_idx
 on public.document_member_states (user_id, is_favorite, updated_at desc)
 where is_favorite;
-
-create index if not exists document_member_states_user_completed_idx
-on public.document_member_states (user_id, is_completed, updated_at desc)
-where is_completed;
 
 drop trigger if exists set_document_member_states_updated_at
 on public.document_member_states;

@@ -2,7 +2,7 @@ import { ContentSectionPage } from "@/components/content-section-page";
 
 type ScenariosPageProps = {
   searchParams: Promise<{
-    learning?: string;
+    favorites?: string;
     status?: string;
   }>;
 };

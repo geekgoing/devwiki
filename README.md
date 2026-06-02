@@ -12,7 +12,7 @@
 - Mermaid diagrams
 - Supabase Storage image uploads
 - Member-only access, role-based editing, profile nicknames
-- Per-member favorites and completed-learning filters
+- Per-member favorites
 - Database-backed full-text search with body snippets
 - Expanded, threaded document discussions
 - Share metadata, generated app icons, and document link copying
@@ -34,8 +34,8 @@ Supabase 연결 전에는 데모 문서가 보입니다. 실제 저장을 사용
 - `상황 시뮬레이션`: 서술형 상황 질문과 토론
 
 Supabase가 연결된 환경에서는 로그인한 active member만 문서를 읽을 수 있습니다. `공개` 상태는 인터넷 공개가 아니라 전체 멤버 기본 목록에 노출된다는 뜻입니다.
-홈은 통합 검색과 개인 학습 현황을 보여주는 메인 화면이고, `/terms`, `/interviews`, `/scenarios`에서 섹션별 문서를 탐색합니다.
-각 멤버는 문서를 즐겨찾기하거나 `숙지함`으로 표시할 수 있고, 검색/섹션 화면에서 `즐겨찾기`, `숙지함`, `미숙지` 필터로 학습 상태를 나눠 볼 수 있습니다.
+홈은 통합 검색과 개인 즐겨찾기 현황을 보여주는 메인 화면이고, `/terms`, `/interviews`, `/scenarios`에서 섹션별 문서를 탐색합니다.
+각 멤버는 문서를 즐겨찾기할 수 있고, 검색/섹션 화면에서 즐겨찾기 문서만 필터링할 수 있습니다.
 
 ## Image uploads
 

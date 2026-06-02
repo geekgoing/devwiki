@@ -1,11 +1,10 @@
 import {
+  parseFavoritesFilter,
   parseInterviewCategory,
-  parseLearningFilter,
   parseStatusFilter,
 } from "@/lib/content-routes";
 import type {
   DocumentContentType,
-  DocumentLearningFilter,
   DocumentStatusFilter,
   InterviewCategory,
 } from "@/types/devwiki";
@@ -16,8 +15,8 @@ type SearchParamReader = {
 
 export type DocumentQueryFilters = {
   contentType?: DocumentContentType;
+  favoritesOnly: boolean;
   interviewCategory?: InterviewCategory;
-  learning: DocumentLearningFilter;
   query: string;
   status: DocumentStatusFilter;
 };
@@ -32,11 +31,13 @@ export function readDocumentQueryFilters(
 
   return {
     contentType,
+    favoritesOnly: parseFavoritesFilter(
+      searchParams.get("favorites") ?? undefined,
+    ),
     interviewCategory:
       contentType && contentType !== "interview_qa"
         ? undefined
         : interviewCategory,
-    learning: parseLearningFilter(searchParams.get("learning") ?? undefined),
     query: searchParams.get("q")?.trim() ?? "",
     status: parseStatusFilter(searchParams.get("status") ?? undefined),
   };
@@ -46,7 +47,7 @@ export function documentQueryCacheKey(filters: DocumentQueryFilters) {
   return {
     category: filters.interviewCategory ?? null,
     contentType: filters.contentType ?? null,
-    learning: filters.learning,
+    favoritesOnly: filters.favoritesOnly,
     query: filters.query,
     status: filters.status,
   };
@@ -63,8 +64,8 @@ export function documentApiPath(filters: DocumentQueryFilters) {
     params.set("category", filters.interviewCategory);
   }
 
-  if (filters.learning !== "all") {
-    params.set("learning", filters.learning);
+  if (filters.favoritesOnly) {
+    params.set("favorites", "1");
   }
 
   if (filters.status !== "active") {
@@ -82,8 +83,8 @@ export function documentApiPath(filters: DocumentQueryFilters) {
 export function hasActiveDocumentQuery(filters: DocumentQueryFilters) {
   return (
     Boolean(filters.query) ||
+    filters.favoritesOnly ||
     Boolean(filters.interviewCategory) ||
-    filters.learning !== "all" ||
     filters.status !== "active"
   );
 }

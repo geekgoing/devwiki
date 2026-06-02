@@ -1,17 +1,14 @@
 import type {
-  DocumentLearningFilter,
   DocumentStatusFilter,
   InterviewCategory,
 } from "@/types/devwiki";
 
-export const learningFilterOptions: Array<{
+export const favoriteFilterOptions: Array<{
   label: string;
-  value: DocumentLearningFilter;
+  value: boolean;
 }> = [
-  { label: "전체", value: "all" },
-  { label: "즐겨찾기", value: "favorite" },
-  { label: "숙지함", value: "completed" },
-  { label: "미숙지", value: "todo" },
+  { label: "전체", value: false },
+  { label: "즐겨찾기", value: true },
 ];
 
 export const statusFilterOptions: Array<{
