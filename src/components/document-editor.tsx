@@ -5,9 +5,13 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import dynamic from "next/dynamic";
 import {
   Bold,
+  Check,
+  CirclePlay,
   Code2,
   Edit3,
   Eye,
+  ExternalLink,
+  FileText,
   Heading2,
   ImagePlus,
   Link2,
@@ -19,10 +23,13 @@ import {
   RotateCcw,
   Save,
   Settings2,
+  Sparkles,
   SplitSquareHorizontal,
   Table2,
+  Tags as TagsIcon,
   Trash2,
   Undo2,
+  WandSparkles,
   Workflow,
   X,
 } from "lucide-react";
@@ -42,6 +49,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { slugify, toTagSlug } from "@/lib/slugify";
+import type {
+  DocumentAiAssistKind,
+  DocumentAiAssistResult,
+  DocumentAiDraftSuggestion,
+  DocumentAiTagSuggestion,
+  DocumentAiYoutubeSuggestion,
+} from "@/lib/ai/document-assist";
 import type {
   DocumentContentType,
   DocumentStatus,
@@ -75,6 +89,7 @@ type DocumentEditorProps = {
     slug: string;
     summary?: string | null;
     status?: DocumentStatus;
+    tags?: { name: string }[];
   }[];
   initialDocument?: {
     id?: string;
@@ -209,6 +224,10 @@ function parseTagNames(value = "") {
   return Array.from(uniqueTags.values());
 }
 
+function escapeMarkdownLinkText(value: string) {
+  return value.replace(/[\\[\]]/g, "\\$&");
+}
+
 export function DocumentEditor({
   action,
   conflictDetected = false,
@@ -238,6 +257,17 @@ export function DocumentEditor({
   const [view, setView] = useState<"edit" | "preview" | "split">("split");
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [aiBusyKind, setAiBusyKind] = useState<DocumentAiAssistKind | null>(
+    null,
+  );
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiDraft, setAiDraft] = useState<DocumentAiDraftSuggestion | null>(
+    null,
+  );
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiTags, setAiTags] = useState<DocumentAiTagSuggestion[]>([]);
+  const [aiVideos, setAiVideos] = useState<DocumentAiYoutubeSuggestion[]>([]);
   const [draftMessage, setDraftMessage] = useState<string | null>(null);
   const [storedDraft, setStoredDraft] = useState<EditorDraft | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -262,6 +292,18 @@ export function DocumentEditor({
   const submittedTags = useMemo(
     () => submittedTagNames.join(", "),
     [submittedTagNames],
+  );
+  const knownTagNames = useMemo(
+    () =>
+      parseTagNames(
+        [
+          ...tagNames,
+          ...linkableDocuments.flatMap((document) =>
+            document.tags?.map((tag) => tag.name) ?? [],
+          ),
+        ].join(","),
+      ),
+    [linkableDocuments, tagNames],
   );
   const submittedRelatedDocumentIds = useMemo(
     () => relatedDocumentIds.join(","),
@@ -310,6 +352,16 @@ export function DocumentEditor({
 
   function markDirty() {
     setIsDirty(true);
+  }
+
+  function setTitleFromSuggestion(nextTitle: string) {
+    setTitle(nextTitle);
+
+    if (mode === "create") {
+      setSlug(slugify(nextTitle));
+    }
+
+    markDirty();
   }
 
   function handleContentTypeChange(nextContentType: DocumentContentType) {
@@ -487,6 +539,26 @@ export function DocumentEditor({
       },
     });
     setBody(view.state.doc.toString());
+    view.focus();
+  }
+
+  function replaceMarkdown(markdownText: string) {
+    const view = editorViewRef.current;
+    markDirty();
+
+    if (!view) {
+      setBody(markdownText);
+      return;
+    }
+
+    view.dispatch({
+      changes: {
+        from: 0,
+        to: view.state.doc.length,
+        insert: markdownText,
+      },
+    });
+    setBody(markdownText);
     view.focus();
   }
 
@@ -728,6 +800,150 @@ export function DocumentEditor({
         fileInputRef.current.value = "";
       }
     }
+  }
+
+  async function requestAiAssist(kind: DocumentAiAssistKind) {
+    const hasContext = title.trim() || summary.trim() || body.trim();
+
+    if (!hasContext) {
+      setAiError("제목이나 본문을 먼저 입력하세요.");
+      return;
+    }
+
+    setAiBusyKind(kind);
+    setAiError(null);
+    setAiMessage(null);
+
+    try {
+      const response = await fetch("/api/ai/document-assist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          kind,
+          title,
+          summary,
+          bodyMarkdown: body,
+          contentType,
+          interviewCategory:
+            contentType === "interview_qa" ? interviewCategory : null,
+          currentTags: submittedTagNames,
+          knownTags: knownTagNames,
+        }),
+      });
+      const payload = (await response.json()) as
+        | DocumentAiAssistResult
+        | { error?: string };
+
+      if (!response.ok) {
+        const errorMessage =
+          "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "AI 보조 요청에 실패했습니다.";
+
+        throw new Error(errorMessage);
+      }
+
+      if ("error" in payload) {
+        throw new Error(payload.error ?? "AI 보조 요청에 실패했습니다.");
+      }
+
+      const result = payload as DocumentAiAssistResult;
+
+      if (result.kind === "draft") {
+        setAiDraft(result.draft);
+        setAiMessage("초안을 생성했습니다.");
+      } else if (result.kind === "summary") {
+        setAiSummary(result.summary);
+        setAiMessage("요약을 생성했습니다.");
+      } else if (result.kind === "tags") {
+        setAiTags(result.tags);
+        setAiMessage("태그 후보를 생성했습니다.");
+      } else {
+        setAiVideos(result.videos);
+        setAiMessage("YouTube 링크 후보를 생성했습니다.");
+      }
+    } catch (error) {
+      setAiError(
+        error instanceof Error
+          ? error.message
+          : "AI 보조 요청을 처리하지 못했습니다.",
+      );
+    } finally {
+      setAiBusyKind(null);
+    }
+  }
+
+  function applyAiSummary(value = aiSummary) {
+    if (!value) {
+      return;
+    }
+
+    setSummary(value);
+    markDirty();
+    setAiMessage("요약을 적용했습니다.");
+  }
+
+  function applyAiTags(suggestions = aiTags) {
+    if (!suggestions.length) {
+      return;
+    }
+
+    setTagNames(
+      parseTagNames(
+        [...tagNames, ...suggestions.map((suggestion) => suggestion.name)].join(
+          ",",
+        ),
+      ),
+    );
+    setAiMessage("태그를 적용했습니다.");
+  }
+
+  function applyAiDraft(replaceBody: boolean) {
+    if (!aiDraft) {
+      return;
+    }
+
+    if (aiDraft.title && !title.trim()) {
+      setTitleFromSuggestion(aiDraft.title);
+    }
+
+    if (aiDraft.summary && !summary.trim()) {
+      setSummary(aiDraft.summary);
+      markDirty();
+    }
+
+    if (aiDraft.tags.length) {
+      applyAiTags(aiDraft.tags);
+    }
+
+    if (replaceBody) {
+      replaceMarkdown(aiDraft.bodyMarkdown);
+    } else {
+      insertMarkdown(aiDraft.bodyMarkdown);
+    }
+
+    setAiMessage(replaceBody ? "초안으로 본문을 교체했습니다." : "초안을 삽입했습니다.");
+  }
+
+  function insertYoutubeReferences() {
+    if (!aiVideos.length) {
+      return;
+    }
+
+    const markdown = [
+      "## 참고 영상",
+      ...aiVideos.map(
+        (video) =>
+          `- [${escapeMarkdownLinkText(video.title)}](${video.url})${
+            video.reason ? ` - ${video.reason}` : ""
+          }`,
+      ),
+    ].join("\n");
+
+    insertMarkdown(markdown);
+    setAiMessage("참고 영상 링크를 삽입했습니다.");
   }
 
   return (
@@ -1223,6 +1439,215 @@ export function DocumentEditor({
                 <p className="mt-3 rounded-lg bg-background px-3 py-2 text-xs leading-5 text-muted-foreground">
                   {statusDescriptions[status]}
                 </p>
+              </section>
+
+              <section className="border-t pt-5">
+                <div className="flex items-center gap-2">
+                  <Sparkles
+                    size={16}
+                    className="text-muted-foreground"
+                    aria-hidden
+                  />
+                  <h2 className="text-sm font-semibold">AI 보조</h2>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={Boolean(aiBusyKind)}
+                    onClick={() => void requestAiAssist("draft")}
+                  >
+                    {aiBusyKind === "draft" ? (
+                      <Loader2 size={14} className="animate-spin" aria-hidden />
+                    ) : (
+                      <WandSparkles size={14} aria-hidden />
+                    )}
+                    초안
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={Boolean(aiBusyKind)}
+                    onClick={() => void requestAiAssist("summary")}
+                  >
+                    {aiBusyKind === "summary" ? (
+                      <Loader2 size={14} className="animate-spin" aria-hidden />
+                    ) : (
+                      <FileText size={14} aria-hidden />
+                    )}
+                    요약
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={Boolean(aiBusyKind)}
+                    onClick={() => void requestAiAssist("tags")}
+                  >
+                    {aiBusyKind === "tags" ? (
+                      <Loader2 size={14} className="animate-spin" aria-hidden />
+                    ) : (
+                      <TagsIcon size={14} aria-hidden />
+                    )}
+                    태그
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={Boolean(aiBusyKind)}
+                    onClick={() => void requestAiAssist("youtube")}
+                  >
+                    {aiBusyKind === "youtube" ? (
+                      <Loader2 size={14} className="animate-spin" aria-hidden />
+                    ) : (
+                      <CirclePlay size={14} aria-hidden />
+                    )}
+                    영상
+                  </Button>
+                </div>
+
+                {aiError ? (
+                  <p
+                    className="mt-3 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs leading-5 text-destructive"
+                    role="alert"
+                  >
+                    {aiError}
+                  </p>
+                ) : null}
+
+                {aiMessage ? (
+                  <p className="mt-3 rounded-lg bg-background px-3 py-2 text-xs leading-5 text-muted-foreground">
+                    {aiMessage}
+                  </p>
+                ) : null}
+
+                {aiSummary ? (
+                  <div className="mt-3 rounded-lg border bg-background p-3">
+                    <p className="text-sm leading-6">{aiSummary}</p>
+                    <div className="mt-3 flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => applyAiSummary()}
+                      >
+                        <Check size={14} aria-hidden />
+                        적용
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {aiTags.length ? (
+                  <div className="mt-3 rounded-lg border bg-background p-3">
+                    <div className="flex flex-wrap gap-2">
+                      {aiTags.map((tag) => (
+                        <Badge
+                          key={tag.name}
+                          variant={tag.isExisting ? "secondary" : "outline"}
+                          className="h-auto gap-1 py-1"
+                          title={tag.reason || undefined}
+                        >
+                          {tag.name}
+                          <span className="text-[10px] text-muted-foreground">
+                            {tag.isExisting ? "기존" : "신규"}
+                          </span>
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => applyAiTags()}
+                      >
+                        <Check size={14} aria-hidden />
+                        적용
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {aiDraft ? (
+                  <div className="mt-3 space-y-3 rounded-lg border bg-background p-3">
+                    <div>
+                      <p className="text-sm font-medium">{aiDraft.title}</p>
+                      {aiDraft.summary ? (
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {aiDraft.summary}
+                        </p>
+                      ) : null}
+                    </div>
+                    <pre className="max-h-48 overflow-auto rounded-md bg-muted p-3 text-xs leading-5 whitespace-pre-wrap">
+                      {aiDraft.bodyMarkdown}
+                    </pre>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={!aiDraft.bodyMarkdown}
+                        onClick={() => applyAiDraft(false)}
+                      >
+                        삽입
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={!aiDraft.bodyMarkdown}
+                        onClick={() => applyAiDraft(true)}
+                      >
+                        교체
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {aiVideos.length ? (
+                  <div className="mt-3 space-y-2 rounded-lg border bg-background p-3">
+                    {aiVideos.map((video) => (
+                      <a
+                        key={`${video.title}-${video.url}`}
+                        href={video.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block rounded-md border px-3 py-2 transition hover:border-primary/25 hover:bg-accent/60"
+                      >
+                        <span className="flex items-start gap-2 text-sm font-medium">
+                          <ExternalLink
+                            size={14}
+                            className="mt-0.5 shrink-0 text-muted-foreground"
+                            aria-hidden
+                          />
+                          <span className="min-w-0 flex-1">
+                            {video.title}
+                          </span>
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                          {video.isSearchLink ? "검색 링크" : "영상 링크"}
+                          {video.reason ? ` · ${video.reason}` : ""}
+                        </span>
+                      </a>
+                    ))}
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={insertYoutubeReferences}
+                      >
+                        <Check size={14} aria-hidden />
+                        삽입
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </section>
 
               <section className="border-t pt-5">
