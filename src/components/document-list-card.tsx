@@ -1,4 +1,4 @@
-import { CheckCircle2, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/status-badge";
@@ -66,15 +66,6 @@ export function DocumentListCard({
                 >
                   <Star size={12} className="fill-current" aria-hidden />
                   즐겨찾기
-                </Badge>
-              ) : null}
-              {document.isCompleted ? (
-                <Badge
-                  variant="outline"
-                  className="border-teal-200 bg-teal-50 text-teal-700"
-                >
-                  <CheckCircle2 size={12} aria-hidden />
-                  숙지함
                 </Badge>
               ) : null}
             </div>

@@ -13,14 +13,14 @@ function params(value: string) {
 describe("document query filters", () => {
   it("drops interview category outside interview documents", () => {
     const filters = readDocumentQueryFilters(
-      params("category=behavioral&learning=favorite&q=cache"),
+      params("category=behavioral&favorites=1&q=cache"),
       "term",
     );
 
     expect(filters).toMatchObject({
       contentType: "term",
+      favoritesOnly: true,
       interviewCategory: undefined,
-      learning: "favorite",
       query: "cache",
       status: "active",
     });
@@ -31,19 +31,19 @@ describe("document query filters", () => {
       documentApiPath({
         contentType: "interview_qa",
         interviewCategory: "technical",
-        learning: "todo",
+        favoritesOnly: true,
         query: "redis",
         status: "draft",
       }),
     ).toBe(
-      "/api/documents?content_type=interview_qa&category=technical&learning=todo&status=draft&q=redis",
+      "/api/documents?content_type=interview_qa&category=technical&favorites=1&status=draft&q=redis",
     );
   });
 
   it("detects empty search pages", () => {
     expect(
       hasActiveDocumentQuery({
-        learning: "all",
+        favoritesOnly: false,
         query: "",
         status: "active",
       }),

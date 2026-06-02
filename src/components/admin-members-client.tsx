@@ -198,7 +198,7 @@ function MemberEditDialog({
             </Select>
             <p className="text-xs leading-5 text-muted-foreground">
               owner는 멤버와 문서를 관리하고, editor는 문서를 수정하며, viewer는
-              읽기와 학습 기록만 사용할 수 있습니다.
+              읽기, 댓글, 즐겨찾기만 사용할 수 있습니다.
             </p>
           </div>
 

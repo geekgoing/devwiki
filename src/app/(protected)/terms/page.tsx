@@ -2,7 +2,7 @@ import { ContentSectionPage } from "@/components/content-section-page";
 
 type TermsPageProps = {
   searchParams: Promise<{
-    learning?: string;
+    favorites?: string;
     status?: string;
   }>;
 };

@@ -23,8 +23,8 @@ type FilterLink = {
 };
 
 type DocumentFilterPopoverProps = {
+  favoriteLinks: FilterLink[];
   interviewCategoryLinks?: FilterLink[];
-  learningLinks: FilterLink[];
   statusLinks: FilterLink[];
   activeCount: number;
   activeLabels?: string[];
@@ -88,8 +88,8 @@ function FilterSection({
 }
 
 export function DocumentFilterPopover({
+  favoriteLinks,
   interviewCategoryLinks = [],
-  learningLinks,
   statusLinks,
   activeCount,
   activeLabels = [],
@@ -172,10 +172,10 @@ export function DocumentFilterPopover({
           />
         ) : null}
         <FilterSection
-          links={learningLinks}
+          links={favoriteLinks}
           onNavigate={onNavigate}
           onSelect={() => setOpen(false)}
-          title="학습 상태"
+          title="개인 필터"
         />
       </PopoverContent>
     </Popover>

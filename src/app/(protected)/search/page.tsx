@@ -1,8 +1,8 @@
 import { DocumentSearchClient } from "@/components/document-search-client";
 import { SetupNotice } from "@/components/setup-notice";
 import {
+  parseFavoritesFilter,
   parseInterviewCategory,
-  parseLearningFilter,
   parseStatusFilter,
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
@@ -13,7 +13,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 type SearchPageProps = {
   searchParams: Promise<{
     category?: string;
-    learning?: string;
+    favorites?: string;
     q?: string;
     status?: string;
   }>;
@@ -22,8 +22,8 @@ type SearchPageProps = {
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
   const initialFilters = {
+    favoritesOnly: parseFavoritesFilter(params.favorites),
     interviewCategory: parseInterviewCategory(params.category),
-    learning: parseLearningFilter(params.learning),
     query: params.q?.trim() ?? "",
     status: parseStatusFilter(params.status),
   };
@@ -33,8 +33,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const canReadPrivate = !configured || Boolean(member);
   const documents = hasActiveDocumentQuery(initialFilters)
     ? await getDocuments({
+        favoritesOnly: initialFilters.favoritesOnly,
         interviewCategory: initialFilters.interviewCategory,
-        learning: initialFilters.learning,
         query: initialFilters.query,
         status: initialFilters.status,
         canReadPrivate,

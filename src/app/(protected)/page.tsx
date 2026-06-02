@@ -1,7 +1,6 @@
 import {
   ArrowRight,
   BookOpen,
-  CheckCircle2,
   MessageSquareText,
   Route,
   Search,
@@ -10,7 +9,6 @@ import {
 import Link from "next/link";
 
 import { DocumentListCard } from "@/components/document-list-card";
-import { LearningRouteBoard } from "@/components/learning-route-board";
 import { SetupNotice } from "@/components/setup-notice";
 import { Button } from "@/components/ui/button";
 import {
@@ -124,12 +122,6 @@ function SmallDocumentLink({ document }: { document: DocumentSummary }) {
             즐겨찾기
           </span>
         ) : null}
-        {document.isCompleted ? (
-          <span className="inline-flex items-center gap-1 text-teal-700">
-            <CheckCircle2 size={11} aria-hidden />
-            숙지함
-          </span>
-        ) : null}
       </span>
     </Link>
   );
@@ -148,9 +140,6 @@ export default async function Home() {
   });
   const favoriteDocuments = allDocuments
     .filter((document) => document.isFavorite)
-    .slice(0, 4);
-  const completedDocuments = allDocuments
-    .filter((document) => document.isCompleted)
     .slice(0, 4);
   const recentDocuments = allDocuments.slice(0, 6);
   const counts = getDocumentCounts(allDocuments);
@@ -195,38 +184,24 @@ export default async function Home() {
 
           <Card className="bg-primary text-primary-foreground">
             <CardHeader>
-              <CardTitle>내 학습 현황</CardTitle>
+              <CardTitle>즐겨찾기</CardTitle>
               <CardDescription className="text-primary-foreground/75">
-                즐겨찾기와 숙지함을 기준으로 다시 볼 문서를 고릅니다.
+                다시 볼 문서를 빠르게 모아둡니다.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-2">
-                <Link
-                  href="/search?learning=favorite"
-                  className="rounded-lg bg-primary-foreground/10 p-3 transition hover:bg-primary-foreground/15"
-                >
-                  <span className="flex items-center gap-1.5 text-xs text-primary-foreground/75">
-                    <Star size={13} aria-hidden />
-                    즐겨찾기
-                  </span>
-                  <span className="mt-2 block text-2xl font-semibold">
-                    {favoriteDocuments.length}
-                  </span>
-                </Link>
-                <Link
-                  href="/search?learning=completed"
-                  className="rounded-lg bg-primary-foreground/10 p-3 transition hover:bg-primary-foreground/15"
-                >
-                  <span className="flex items-center gap-1.5 text-xs text-primary-foreground/75">
-                    <CheckCircle2 size={13} aria-hidden />
-                    숙지함
-                  </span>
-                  <span className="mt-2 block text-2xl font-semibold">
-                    {completedDocuments.length}
-                  </span>
-                </Link>
-              </div>
+              <Link
+                href="/search?favorites=1"
+                className="block rounded-lg bg-primary-foreground/10 p-3 transition hover:bg-primary-foreground/15"
+              >
+                <span className="flex items-center gap-1.5 text-xs text-primary-foreground/75">
+                  <Star size={13} aria-hidden />
+                  저장한 문서
+                </span>
+                <span className="mt-2 block text-2xl font-semibold">
+                  {favoriteDocuments.length}
+                </span>
+              </Link>
             </CardContent>
           </Card>
         </section>
@@ -309,7 +284,7 @@ export default async function Home() {
                 <CardTitle>즐겨찾기</CardTitle>
                 <CardAction>
                   <Button asChild variant="ghost" size="xs">
-                    <Link href="/search?learning=favorite">전체</Link>
+                    <Link href="/search?favorites=1">전체</Link>
                   </Button>
                 </CardAction>
               </CardHeader>
@@ -325,32 +300,8 @@ export default async function Home() {
                 )}
               </CardContent>
             </Card>
-
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>숙지함</CardTitle>
-                <CardAction>
-                  <Button asChild variant="ghost" size="xs">
-                    <Link href="/search?learning=completed">전체</Link>
-                  </Button>
-                </CardAction>
-              </CardHeader>
-              <CardContent className="grid gap-2">
-                {completedDocuments.length ? (
-                  completedDocuments.map((document) => (
-                    <SmallDocumentLink key={document.id} document={document} />
-                  ))
-                ) : (
-                  <p className="rounded-lg bg-muted px-3 py-2 text-sm leading-6 text-muted-foreground">
-                    아직 숙지 완료한 문서가 없습니다.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
           </aside>
         </section>
-
-        <LearningRouteBoard documents={allDocuments} />
       </div>
     </main>
   );

@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 
 import {
   parseContentType,
+  parseFavoritesFilter,
   parseInterviewCategory,
-  parseLearningFilter,
   parseStatusFilter,
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
@@ -34,18 +34,18 @@ export async function GET(request: NextRequest) {
   const interviewCategory = parseInterviewCategory(
     searchParams.get("category") ?? undefined,
   );
-  const learning = parseLearningFilter(
-    searchParams.get("learning") ?? undefined,
+  const favoritesOnly = parseFavoritesFilter(
+    searchParams.get("favorites") ?? undefined,
   );
   const status = parseStatusFilter(searchParams.get("status") ?? undefined);
   const query = searchParams.get("q")?.trim() ?? "";
   const documents = await getDocuments({
     contentType,
+    favoritesOnly,
     interviewCategory:
       contentType && contentType !== "interview_qa"
         ? undefined
         : interviewCategory,
-    learning,
     query,
     status,
     canReadPrivate: !configured || Boolean(member),

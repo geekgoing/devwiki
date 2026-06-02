@@ -12,7 +12,6 @@ export const demoDocuments: DocumentSummary[] = [
     contentType: "term",
     interviewCategory: null,
     isFavorite: false,
-    isCompleted: false,
     createdAt: now,
     updatedAt: now,
     tags: [
@@ -29,7 +28,6 @@ export const demoDocuments: DocumentSummary[] = [
     contentType: "term",
     interviewCategory: null,
     isFavorite: false,
-    isCompleted: false,
     createdAt: now,
     updatedAt: now,
     tags: [
