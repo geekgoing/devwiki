@@ -12,6 +12,7 @@
     "verify:mvp-data": "node scripts/verify-devwiki-mvp-data.mjs",
     "verify:mvp-ui": "node scripts/verify-devwiki-mvp-ui.mjs",
     "verify:supabase": "node scripts/verify-supabase-readiness.mjs",
+    "release:sync-docs": "node scripts/sync-release-docs.mjs",
     "seed:concepts": "node scripts/seed-backend-interview-concepts.mjs"
   },
   "dependencies": {

@@ -80,6 +80,33 @@ jobs:
             echo "new_release_published=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Sync release notes docs
+        if: steps.semantic.outputs.new_release_published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.semantic.outputs.new_release_version }}
+        run: |
+          RELEASE_TAG="v${RELEASE_VERSION}"
+          NOTES_FILE="${RUNNER_TEMP}/release-notes.md"
+
+          gh release view "${RELEASE_TAG}" --json body --jq .body > "${NOTES_FILE}"
+          node scripts/sync-release-docs.mjs \
+            --version "${RELEASE_VERSION}" \
+            --date "$(date -u +%F)" \
+            --notes-file "${NOTES_FILE}"
+
+          if git diff --quiet -- README.md docs/releases; then
+            echo "release notes docs are already synced for ${RELEASE_TAG}"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md docs/releases
+          git commit -m "docs: 릴리즈 노트 ${RELEASE_TAG} 동기화"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+
   build-and-push:
     needs: release
     runs-on: ubuntu-latest

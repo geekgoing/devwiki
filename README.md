@@ -44,7 +44,7 @@ Owner/editor members can upload `png`, `jpeg`, `webp`, and `gif` images from the
 
 ## Release notes
 
-- [v0.5.0](docs/releases/v0.5.0.md): threaded discussions, learning-route cleanup, search and navigation polish
+- [v0.9.0](docs/releases/v0.9.0.md): latest release notes
 
 ## Member management
 
