@@ -1,12 +1,11 @@
 "use client";
 
-import { CheckCircle2, MessageSquare, Pencil, Trash2, X } from "lucide-react";
+import { MessageSquare, Pencil, Reply, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 import {
   addComment as addCommentAction,
   deleteComment,
-  resolveComment,
   updateComment,
 } from "@/app/actions";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { countDocumentComments } from "@/lib/comment-utils";
 import { canEditContent } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import type {
@@ -37,6 +37,24 @@ type DocumentCommentsProps = {
   slug: string;
 };
 
+function DocumentHiddenFields({
+  contentType,
+  documentId,
+  slug,
+}: {
+  contentType: DocumentContentType;
+  documentId: string;
+  slug: string;
+}) {
+  return (
+    <>
+      <input type="hidden" name="content_type" value={contentType} />
+      <input type="hidden" name="document_id" value={documentId} />
+      <input type="hidden" name="slug" value={slug} />
+    </>
+  );
+}
+
 function CommentHiddenFields({
   commentId,
   contentType,
@@ -50,12 +68,18 @@ function CommentHiddenFields({
 }) {
   return (
     <>
-      <input type="hidden" name="content_type" value={contentType} />
-      <input type="hidden" name="document_id" value={documentId} />
-      <input type="hidden" name="slug" value={slug} />
+      <DocumentHiddenFields
+        contentType={contentType}
+        documentId={documentId}
+        slug={slug}
+      />
       <input type="hidden" name="comment_id" value={commentId} />
     </>
   );
+}
+
+function authorInitial(label: string) {
+  return label.trim().slice(0, 1).toUpperCase() || "?";
 }
 
 export function DocumentComments({
@@ -68,200 +92,254 @@ export function DocumentComments({
   slug,
 }: DocumentCommentsProps) {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(
+    null,
+  );
   const canDiscuss = Boolean(configured && currentUserId && memberRole);
   const canModerate = canEditContent(memberRole ? { role: memberRole } : null);
+  const commentCount = countDocumentComments(comments);
+
+  async function submitReply(formData: FormData) {
+    await addCommentAction(formData);
+    setReplyingToCommentId(null);
+  }
+
+  function renderComment(comment: DocumentComment, isReply = false) {
+    const isEditing = editingCommentId === comment.id;
+    const isReplying = replyingToCommentId === comment.id;
+    const canManage = canModerate || comment.createdBy === currentUserId;
+    const canReply = canDiscuss && !isReply && !isEditing;
+
+    return (
+      <li
+        key={comment.id}
+        className={
+          isReply
+            ? "rounded-lg border bg-muted/20 p-3 sm:p-4"
+            : "rounded-lg border bg-background p-4 sm:p-5"
+        }
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+            {authorInitial(comment.authorLabel)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {comment.authorLabel}
+              </span>
+              <span aria-hidden>·</span>
+              <time>{formatDate(comment.createdAt)}</time>
+              {comment.updatedAt !== comment.createdAt ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>
+                    수정됨
+                    {comment.editorLabel ? `: ${comment.editorLabel}` : ""}
+                  </span>
+                </>
+              ) : null}
+            </div>
+
+            {isEditing ? (
+              <form action={updateComment} className="mt-3 space-y-3">
+                <CommentHiddenFields
+                  commentId={comment.id}
+                  contentType={contentType}
+                  documentId={documentId}
+                  slug={slug}
+                />
+                <Textarea
+                  name="body"
+                  required
+                  maxLength={2000}
+                  rows={isReply ? 4 : 5}
+                  defaultValue={comment.body}
+                  className="min-h-28 resize-y bg-background text-sm leading-6"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit" size="sm">
+                    저장
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingCommentId(null)}
+                  >
+                    <X size={14} aria-hidden />
+                    취소
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-7">
+                {comment.body}
+              </p>
+            )}
+
+            {canReply || canManage ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {canReply ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingCommentId(null);
+                      setReplyingToCommentId(isReplying ? null : comment.id);
+                    }}
+                  >
+                    <Reply size={14} aria-hidden />
+                    답글
+                  </Button>
+                ) : null}
+                {canManage && !isEditing ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setReplyingToCommentId(null);
+                      setEditingCommentId(comment.id);
+                    }}
+                  >
+                    <Pencil size={14} aria-hidden />
+                    수정
+                  </Button>
+                ) : null}
+                {canManage ? (
+                  <form
+                    action={deleteComment}
+                    onSubmit={(event) => {
+                      const message = comment.replies.length
+                        ? "댓글을 삭제할까요? 대댓글도 함께 삭제됩니다."
+                        : "댓글을 삭제할까요?";
+
+                      if (!window.confirm(message)) {
+                        event.preventDefault();
+                      }
+                    }}
+                  >
+                    <CommentHiddenFields
+                      commentId={comment.id}
+                      contentType={contentType}
+                      documentId={documentId}
+                      slug={slug}
+                    />
+                    <Button type="submit" variant="outline" size="sm">
+                      <Trash2 size={14} aria-hidden />
+                      삭제
+                    </Button>
+                  </form>
+                ) : null}
+              </div>
+            ) : null}
+
+            {canReply && isReplying ? (
+              <form
+                action={submitReply}
+                className="mt-4 rounded-lg border bg-muted/35 p-3"
+              >
+                <DocumentHiddenFields
+                  contentType={contentType}
+                  documentId={documentId}
+                  slug={slug}
+                />
+                <input
+                  type="hidden"
+                  name="parent_comment_id"
+                  value={comment.id}
+                />
+                <Textarea
+                  name="body"
+                  required
+                  maxLength={2000}
+                  rows={3}
+                  className="min-h-24 resize-y bg-background text-sm leading-6"
+                  placeholder={`${comment.authorLabel}님에게 답글`}
+                />
+                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setReplyingToCommentId(null)}
+                  >
+                    <X size={14} aria-hidden />
+                    취소
+                  </Button>
+                  <Button type="submit" size="sm">
+                    답글 남기기
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+
+            {comment.replies.length ? (
+              <ol className="mt-4 space-y-3 border-l pl-4">
+                {comment.replies.map((reply) => renderComment(reply, true))}
+              </ol>
+            ) : null}
+          </div>
+        </div>
+      </li>
+    );
+  }
 
   return (
-    <Card size="sm">
-      <CardHeader>
+    <Card>
+      <CardHeader className="border-b pb-4 sm:px-6">
         <CardTitle className="flex items-center gap-2">
           <MessageSquare
-            size={16}
+            size={18}
             className="text-muted-foreground"
             aria-hidden
           />
           토론
         </CardTitle>
-        {comments.length ? (
-          <CardAction>
-            <Badge variant="secondary">{comments.length}개</Badge>
-          </CardAction>
-        ) : null}
+        <CardAction>
+          <Badge variant="secondary">{commentCount}개</Badge>
+        </CardAction>
       </CardHeader>
-      <CardContent>
-        {comments.length ? (
-          <ol className="space-y-3">
-            {comments.map((comment) => {
-              const isEditing = editingCommentId === comment.id;
-              const canManage =
-                canModerate || comment.createdBy === currentUserId;
-
-              return (
-                <li
-                  key={comment.id}
-                  className="rounded-lg border bg-muted/35 p-3"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">
-                        {comment.authorLabel}
-                      </span>
-                      <span aria-hidden>·</span>
-                      <time>{formatDate(comment.createdAt)}</time>
-                      {comment.updatedAt !== comment.createdAt ? (
-                        <>
-                          <span aria-hidden>·</span>
-                          <span>
-                            수정됨
-                            {comment.editorLabel
-                              ? `: ${comment.editorLabel}`
-                              : ""}
-                          </span>
-                        </>
-                      ) : null}
-                    </div>
-                    {comment.resolvedAt ? (
-                      <Badge
-                        variant="outline"
-                        className="border-teal-200 bg-teal-50 text-teal-700"
-                      >
-                        <CheckCircle2 size={12} aria-hidden />
-                        해결됨
-                      </Badge>
-                    ) : null}
-                  </div>
-
-                  {isEditing ? (
-                    <form action={updateComment} className="mt-3 space-y-2">
-                      <CommentHiddenFields
-                        commentId={comment.id}
-                        contentType={contentType}
-                        documentId={documentId}
-                        slug={slug}
-                      />
-                      <Textarea
-                        name="body"
-                        required
-                        maxLength={2000}
-                        rows={4}
-                        defaultValue={comment.body}
-                        className="resize-y bg-background"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <Button type="submit" size="sm">
-                          저장
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditingCommentId(null)}
-                        >
-                          <X size={14} aria-hidden />
-                          취소
-                        </Button>
-                      </div>
-                    </form>
-                  ) : (
-                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6">
-                      {comment.body}
-                    </p>
-                  )}
-
-                  {comment.resolvedAt ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {formatDate(comment.resolvedAt)} 해결
-                      {comment.resolvedByLabel
-                        ? `: ${comment.resolvedByLabel}`
-                        : ""}
-                    </p>
-                  ) : null}
-
-                  {canManage || canModerate ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {canManage && !isEditing ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditingCommentId(comment.id)}
-                        >
-                          <Pencil size={14} aria-hidden />
-                          수정
-                        </Button>
-                      ) : null}
-                      {canManage ? (
-                        <form
-                          action={deleteComment}
-                          onSubmit={(event) => {
-                            if (!window.confirm("댓글을 삭제할까요?")) {
-                              event.preventDefault();
-                            }
-                          }}
-                        >
-                          <CommentHiddenFields
-                            commentId={comment.id}
-                            contentType={contentType}
-                            documentId={documentId}
-                            slug={slug}
-                          />
-                          <Button type="submit" variant="outline" size="sm">
-                            <Trash2 size={14} aria-hidden />
-                            삭제
-                          </Button>
-                        </form>
-                      ) : null}
-                      {canModerate ? (
-                        <form action={resolveComment}>
-                          <CommentHiddenFields
-                            commentId={comment.id}
-                            contentType={contentType}
-                            documentId={documentId}
-                            slug={slug}
-                          />
-                          <input
-                            type="hidden"
-                            name="resolved"
-                            value={comment.resolvedAt ? "0" : "1"}
-                          />
-                          <Button type="submit" variant="outline" size="sm">
-                            <CheckCircle2 size={14} aria-hidden />
-                            {comment.resolvedAt ? "해결 취소" : "해결"}
-                          </Button>
-                        </form>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-        ) : (
-          <p className="text-sm leading-6 text-muted-foreground">
-            문서 방향이나 보강할 질문을 남길 수 있습니다.
-          </p>
-        )}
-
+      <CardContent className="space-y-5 sm:px-6">
         {canDiscuss ? (
-          <form action={addCommentAction} className="mt-4 space-y-2">
-            <input type="hidden" name="content_type" value={contentType} />
-            <input type="hidden" name="document_id" value={documentId} />
-            <input type="hidden" name="slug" value={slug} />
+          <form
+            action={addCommentAction}
+            className="rounded-lg border bg-muted/35 p-4 sm:p-5"
+          >
+            <DocumentHiddenFields
+              contentType={contentType}
+              documentId={documentId}
+              slug={slug}
+            />
             <Textarea
               name="body"
               required
               maxLength={2000}
-              rows={4}
-              className="resize-y"
-              placeholder="질문이나 보강 의견"
+              rows={5}
+              className="min-h-32 resize-y bg-background text-sm leading-6"
+              placeholder="질문, 추가 사례, 다른 관점을 남겨보세요."
             />
-            <Button type="submit">의견 남기기</Button>
+            <div className="mt-3 flex justify-end">
+              <Button type="submit">의견 남기기</Button>
+            </div>
           </form>
         ) : configured ? (
-          <p className="mt-4 rounded-lg border bg-muted/35 px-3 py-2 text-xs leading-5 text-muted-foreground">
+          <p className="rounded-lg border bg-muted/35 px-4 py-3 text-sm leading-6 text-muted-foreground">
             의견 작성은 로그인한 멤버만 할 수 있습니다.
           </p>
         ) : null}
+
+        {comments.length ? (
+          <ol className="space-y-4">
+            {comments.map((comment) => renderComment(comment))}
+          </ol>
+        ) : (
+          <p className="rounded-lg border border-dashed bg-muted/20 px-4 py-6 text-center text-sm leading-6 text-muted-foreground">
+            아직 남겨진 의견이 없습니다.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

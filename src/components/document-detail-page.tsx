@@ -26,6 +26,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { countDocumentComments } from "@/lib/comment-utils";
 import {
   contentTypeLabels,
   contentTypePath,
@@ -287,6 +288,7 @@ export async function DocumentDetailPage({
   const canTrackLearning = Boolean(configured && member);
   const shouldShowRelatedDocuments =
     relatedDocuments.length > 0 || canContribute;
+  const commentCount = countDocumentComments(comments);
   const editHref = documentEditPath(document.slug);
   const listHref = contentTypePath(document.contentType);
 
@@ -377,7 +379,7 @@ export async function DocumentDetailPage({
                 토론
               </span>
               <strong className="mt-1 block font-medium text-foreground">
-                {comments.length}개
+                {commentCount}개
               </strong>
             </div>
           </div>
@@ -397,11 +399,23 @@ export async function DocumentDetailPage({
         </CardContent>
       </Card>
 
-      <article className="min-w-0 rounded-xl bg-card ring-1 ring-foreground/10">
-        <div className="p-5 sm:p-8">
-          <MarkdownRenderer content={document.bodyMarkdown} />
-        </div>
-      </article>
+      <div className="min-w-0 space-y-7">
+        <article className="rounded-xl bg-card ring-1 ring-foreground/10">
+          <div className="p-5 sm:p-8">
+            <MarkdownRenderer content={document.bodyMarkdown} />
+          </div>
+        </article>
+
+        <DocumentComments
+          comments={comments}
+          configured={configured}
+          contentType={document.contentType}
+          currentUserId={user?.id}
+          documentId={document.id}
+          memberRole={member?.role}
+          slug={document.slug}
+        />
+      </div>
 
       <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
         <MarkdownToc content={document.bodyMarkdown} />
@@ -439,16 +453,6 @@ export async function DocumentDetailPage({
           documentId={document.id}
           revisions={revisions}
           canRestore={canContribute}
-        />
-
-        <DocumentComments
-          comments={comments}
-          configured={configured}
-          contentType={document.contentType}
-          currentUserId={user?.id}
-          documentId={document.id}
-          memberRole={member?.role}
-          slug={document.slug}
         />
       </aside>
     </main>
