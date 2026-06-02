@@ -59,10 +59,9 @@ type RawComment = {
   body: string;
   created_at: string;
   created_by: string | null;
+  parent_comment_id: string | null;
   updated_at: string;
   updated_by: string | null;
-  resolved_at: string | null;
-  resolved_by: string | null;
 };
 
 const DOCUMENT_LIST_SELECT =
@@ -658,10 +657,9 @@ export async function getDocumentComments(
   const { data, error } = await supabase
     .from("comments")
     .select(
-      "id, body, created_at, created_by, updated_at, updated_by, resolved_at, resolved_by",
+      "id, body, created_at, created_by, parent_comment_id, updated_at, updated_by",
     )
     .eq("document_id", documentId)
-    .order("resolved_at", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -671,29 +669,48 @@ export async function getDocumentComments(
   const rows = (data ?? []) as RawComment[];
   const authorLabels = await getCommentAuthorLabels(
     rows
-      .flatMap((row) => [row.created_by, row.updated_by, row.resolved_by])
+      .flatMap((row) => [row.created_by, row.updated_by])
       .filter((id): id is string => Boolean(id)),
   );
 
-  return rows.map((row) => ({
-    id: row.id,
-    body: row.body,
-    createdAt: row.created_at,
-    createdBy: row.created_by,
-    authorLabel: row.created_by
-      ? (authorLabels.get(row.created_by) ?? row.created_by.slice(0, 8))
-      : "알 수 없음",
-    updatedAt: row.updated_at,
-    updatedBy: row.updated_by,
-    editorLabel: row.updated_by
-      ? (authorLabels.get(row.updated_by) ?? row.updated_by.slice(0, 8))
-      : null,
-    resolvedAt: row.resolved_at,
-    resolvedBy: row.resolved_by,
-    resolvedByLabel: row.resolved_by
-      ? (authorLabels.get(row.resolved_by) ?? row.resolved_by.slice(0, 8))
-      : null,
-  }));
+  const commentsById = new Map<string, DocumentComment>();
+  const comments = rows.map((row) => {
+    const comment: DocumentComment = {
+      id: row.id,
+      body: row.body,
+      createdAt: row.created_at,
+      createdBy: row.created_by,
+      authorLabel: row.created_by
+        ? (authorLabels.get(row.created_by) ?? row.created_by.slice(0, 8))
+        : "알 수 없음",
+      parentCommentId: row.parent_comment_id,
+      replies: [],
+      updatedAt: row.updated_at,
+      updatedBy: row.updated_by,
+      editorLabel: row.updated_by
+        ? (authorLabels.get(row.updated_by) ?? row.updated_by.slice(0, 8))
+        : null,
+    };
+
+    commentsById.set(comment.id, comment);
+    return comment;
+  });
+  const topLevelComments: DocumentComment[] = [];
+
+  comments.forEach((comment) => {
+    const parent = comment.parentCommentId
+      ? commentsById.get(comment.parentCommentId)
+      : null;
+
+    if (parent && !parent.parentCommentId) {
+      parent.replies.push(comment);
+      return;
+    }
+
+    topLevelComments.push(comment);
+  });
+
+  return topLevelComments;
 }
 
 export async function getRelatedDocuments(

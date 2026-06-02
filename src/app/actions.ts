@@ -112,6 +112,7 @@ const documentFavoriteStateSchema = z.object({
 const commentSchema = z.object({
   contentType: z.enum(["term", "interview_qa", "scenario"]),
   documentId: z.string().uuid(),
+  parentCommentId: z.string().uuid().optional(),
   slug: z.string().trim().min(1),
 });
 
@@ -122,11 +123,6 @@ const updateCommentSchema = commentSchema.extend({
 
 const deleteCommentSchema = commentSchema.extend({
   commentId: z.string().uuid(),
-});
-
-const resolveCommentSchema = commentSchema.extend({
-  commentId: z.string().uuid(),
-  resolved: z.boolean(),
 });
 
 function readString(formData: FormData, key: string) {
@@ -809,7 +805,7 @@ async function getCommentForAction(
 ) {
   const { data, error } = await supabase
     .from("comments")
-    .select("id, created_by")
+    .select("id, created_by, parent_comment_id")
     .eq("id", commentId)
     .eq("document_id", documentId)
     .single();
@@ -826,6 +822,7 @@ export async function addComment(formData: FormData) {
   const parsed = commentSchema.parse({
     contentType: readString(formData, "content_type") || "term",
     documentId: readString(formData, "document_id"),
+    parentCommentId: readString(formData, "parent_comment_id") || undefined,
     slug: readString(formData, "slug"),
   });
   const body = readString(formData, "body").trim();
@@ -834,10 +831,23 @@ export async function addComment(formData: FormData) {
     return;
   }
 
+  if (parsed.parentCommentId) {
+    const parentComment = await getCommentForAction(
+      supabase,
+      parsed.parentCommentId,
+      parsed.documentId,
+    );
+
+    if (parentComment.parent_comment_id) {
+      throw new Error("대댓글에는 답글을 달 수 없습니다.");
+    }
+  }
+
   const { error } = await supabase.from("comments").insert({
     document_id: parsed.documentId,
     body,
     created_by: user.id,
+    parent_comment_id: parsed.parentCommentId ?? null,
     updated_by: user.id,
   });
 
@@ -903,34 +913,6 @@ export async function deleteComment(formData: FormData) {
   const { error } = await supabase
     .from("comments")
     .delete()
-    .eq("id", parsed.commentId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidateDocumentPaths(parsed.slug, parsed.contentType);
-}
-
-export async function resolveComment(formData: FormData) {
-  const { supabase, user } = await requireEditorMember();
-  const parsed = resolveCommentSchema.parse({
-    commentId: readString(formData, "comment_id"),
-    contentType: readString(formData, "content_type") || "term",
-    documentId: readString(formData, "document_id"),
-    resolved: readString(formData, "resolved") === "1",
-    slug: readString(formData, "slug"),
-  });
-
-  await getCommentForAction(supabase, parsed.commentId, parsed.documentId);
-
-  const { error } = await supabase
-    .from("comments")
-    .update({
-      resolved_at: parsed.resolved ? new Date().toISOString() : null,
-      resolved_by: parsed.resolved ? user.id : null,
-      updated_by: user.id,
-    })
     .eq("id", parsed.commentId);
 
   if (error) {
