@@ -25,13 +25,14 @@ import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { countDocumentComments } from "@/lib/comment-utils";
+import { getDocumentCommentStats } from "@/lib/comment-utils";
 import {
   contentTypeLabels,
   contentTypePath,
   documentDetailPath,
   documentEditPath,
   legacyDocumentPath,
+  withSearchParams,
 } from "@/lib/content-routes";
 import { formatDate } from "@/lib/format";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
@@ -267,7 +268,7 @@ export async function DocumentDetailPage({
   const canSaveFavorite = Boolean(configured && member);
   const shouldShowRelatedDocuments =
     relatedDocuments.length > 0 || canContribute;
-  const commentCount = countDocumentComments(comments);
+  const commentStats = getDocumentCommentStats(comments);
   const editHref = documentEditPath(document.slug);
   const listHref = contentTypePath(document.contentType);
 
@@ -355,8 +356,13 @@ export async function DocumentDetailPage({
                 토론
               </span>
               <strong className="mt-1 block font-medium text-foreground">
-                {commentCount}개
+                {commentStats.totalCount}개
               </strong>
+              {commentStats.replyCount ? (
+                <span className="mt-0.5 block text-[11px]">
+                  답글 {commentStats.replyCount}개 포함
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -364,7 +370,7 @@ export async function DocumentDetailPage({
             <div className="mt-4 flex flex-wrap gap-2">
               {document.tags.map((tag) => (
                 <Badge key={tag.id} asChild variant="secondary">
-                  <Link href={`/?q=${encodeURIComponent(tag.name)}`}>
+                  <Link href={withSearchParams("/search", { q: tag.name })}>
                     <Tags size={12} aria-hidden />
                     {tag.name}
                   </Link>

@@ -138,9 +138,11 @@ export default async function Home() {
     canReadPrivate,
     viewerId: user?.id,
   });
-  const favoriteDocuments = allDocuments
-    .filter((document) => document.isFavorite)
-    .slice(0, 4);
+  const allFavoriteDocuments = allDocuments.filter(
+    (document) => document.isFavorite,
+  );
+  const favoriteDocuments = allFavoriteDocuments.slice(0, 4);
+  const favoriteDocumentCount = allFavoriteDocuments.length;
   const recentDocuments = allDocuments.slice(0, 6);
   const counts = getDocumentCounts(allDocuments);
   const documentsByContentType = getDocumentsByContentType(allDocuments);
@@ -199,7 +201,7 @@ export default async function Home() {
                   저장한 문서
                 </span>
                 <span className="mt-2 block text-2xl font-semibold">
-                  {favoriteDocuments.length}
+                  {favoriteDocumentCount}
                 </span>
               </Link>
             </CardContent>

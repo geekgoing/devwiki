@@ -3,7 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
 import { DocumentDiscoveryBoard } from "@/components/document-discovery-board";
@@ -86,6 +86,7 @@ export function DocumentCollectionClient({
   initialFilters: DocumentQueryFilters;
   routePath: string;
 }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const currentFilters = readDocumentQueryFilters(searchParams, contentType);
   const initialData = isInitialFilters(currentFilters, initialFilters)
@@ -119,6 +120,7 @@ export function DocumentCollectionClient({
     currentFilters.interviewCategory,
   );
   const showSkeleton = documentsQuery.isPending && !documents.length;
+  const navigate = (href: string) => router.push(href, { scroll: false });
 
   return (
     <div className="grid gap-5">
@@ -142,7 +144,7 @@ export function DocumentCollectionClient({
             }
             contentType={contentType}
             favoritesOnly={currentFilters.favoritesOnly}
-            onNavigate={(href) => window.history.pushState(null, "", href)}
+            onNavigate={navigate}
             status={currentFilters.status}
           />
           {canCreate ? (

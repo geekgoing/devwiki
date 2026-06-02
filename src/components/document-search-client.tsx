@@ -2,7 +2,8 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 
 import { DocumentFilterToolbar } from "@/components/document-filter-toolbar";
@@ -27,6 +28,8 @@ import {
   type DocumentQueryFilters,
 } from "@/lib/document-query";
 import type { DocumentSummary } from "@/types/devwiki";
+
+const searchSuggestions = ["트랜잭션", "인덱스", "MSA", "피드백"];
 
 async function fetchDocuments(filters: DocumentQueryFilters) {
   const response = await fetch(documentApiPath(filters), {
@@ -120,6 +123,7 @@ export function DocumentSearchClient({
   initialDocuments: DocumentSummary[];
   initialFilters: DocumentQueryFilters;
 }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const currentFilters = readDocumentQueryFilters(searchParams);
   const hasAnyFilter = hasActiveDocumentQuery(currentFilters);
@@ -141,6 +145,7 @@ export function DocumentSearchClient({
   const title = currentFilters.query
     ? `"${currentFilters.query}" 검색 결과`
     : "문서 검색";
+  const navigate = (href: string) => router.push(href, { scroll: false });
 
   return (
     <div className="grid gap-5">
@@ -158,7 +163,7 @@ export function DocumentSearchClient({
             basePath="/search"
             category={currentFilters.interviewCategory}
             favoritesOnly={currentFilters.favoritesOnly}
-            onNavigate={(href) => window.history.pushState(null, "", href)}
+            onNavigate={navigate}
             query={currentFilters.query}
             status={currentFilters.status}
           />
@@ -169,9 +174,7 @@ export function DocumentSearchClient({
             key={currentFilters.query}
             query={currentFilters.query}
             onSubmit={(query) =>
-              window.history.pushState(
-                null,
-                "",
+              navigate(
                 searchHref({
                   ...currentFilters,
                   query,
@@ -191,6 +194,15 @@ export function DocumentSearchClient({
           <p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">
             예: MSA, 트랜잭션, 브라우저 URL 입력, 피드백
           </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {searchSuggestions.map((query) => (
+              <Button key={query} asChild variant="outline" size="sm">
+                <Link href={searchHref({ ...currentFilters, query })}>
+                  {query}
+                </Link>
+              </Button>
+            ))}
+          </div>
         </section>
       ) : documentsQuery.isError ? (
         <section
