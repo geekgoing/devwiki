@@ -1,7 +1,8 @@
 "use client";
 
 import { MessageSquare, Pencil, Reply, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { useFormStatus } from "react-dom";
 
 import {
   addComment as addCommentAction,
@@ -13,12 +14,13 @@ import {
   Card,
   CardAction,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { countDocumentComments } from "@/lib/comment-utils";
+import { getDocumentCommentStats } from "@/lib/comment-utils";
 import { canEditContent } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
 import type {
@@ -82,6 +84,23 @@ function authorInitial(label: string) {
   return label.trim().slice(0, 1).toUpperCase() || "?";
 }
 
+function SubmitButton({
+  children,
+  pendingLabel,
+  ...props
+}: ComponentProps<typeof Button> & {
+  children: ReactNode;
+  pendingLabel: string;
+}) {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button {...props} disabled={pending || props.disabled}>
+      {pending ? pendingLabel : children}
+    </Button>
+  );
+}
+
 export function DocumentComments({
   comments,
   configured,
@@ -91,13 +110,19 @@ export function DocumentComments({
   memberRole,
   slug,
 }: DocumentCommentsProps) {
+  const commentFormRef = useRef<HTMLFormElement>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(
     null,
   );
   const canDiscuss = Boolean(configured && currentUserId && memberRole);
   const canModerate = canEditContent(memberRole ? { role: memberRole } : null);
-  const commentCount = countDocumentComments(comments);
+  const commentStats = getDocumentCommentStats(comments);
+
+  async function submitComment(formData: FormData) {
+    await addCommentAction(formData);
+    commentFormRef.current?.reset();
+  }
 
   async function submitReply(formData: FormData) {
     await addCommentAction(formData);
@@ -109,6 +134,7 @@ export function DocumentComments({
     const isReplying = replyingToCommentId === comment.id;
     const canManage = canModerate || comment.createdBy === currentUserId;
     const canReply = canDiscuss && !isReply && !isEditing;
+    const replyCount = comment.replies.length;
 
     return (
       <li
@@ -130,6 +156,12 @@ export function DocumentComments({
               </span>
               <span aria-hidden>·</span>
               <time>{formatDate(comment.createdAt)}</time>
+              {!isReply && replyCount ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <Badge variant="secondary">답글 {replyCount}개</Badge>
+                </>
+              ) : null}
               {comment.updatedAt !== comment.createdAt ? (
                 <>
                   <span aria-hidden>·</span>
@@ -142,7 +174,13 @@ export function DocumentComments({
             </div>
 
             {isEditing ? (
-              <form action={updateComment} className="mt-3 space-y-3">
+              <form
+                action={async (formData) => {
+                  await updateComment(formData);
+                  setEditingCommentId(null);
+                }}
+                className="mt-3 space-y-3"
+              >
                 <CommentHiddenFields
                   commentId={comment.id}
                   contentType={contentType}
@@ -158,9 +196,9 @@ export function DocumentComments({
                   className="min-h-28 resize-y bg-background text-sm leading-6"
                 />
                 <div className="flex flex-wrap gap-2">
-                  <Button type="submit" size="sm">
+                  <SubmitButton type="submit" size="sm" pendingLabel="저장 중">
                     저장
-                  </Button>
+                  </SubmitButton>
                   <Button
                     type="button"
                     variant="outline"
@@ -210,7 +248,15 @@ export function DocumentComments({
                 ) : null}
                 {canManage ? (
                   <form
-                    action={deleteComment}
+                    action={async (formData) => {
+                      await deleteComment(formData);
+                      setEditingCommentId((current) =>
+                        current === comment.id ? null : current,
+                      );
+                      setReplyingToCommentId((current) =>
+                        current === comment.id ? null : current,
+                      );
+                    }}
                     onSubmit={(event) => {
                       const message = comment.replies.length
                         ? "댓글을 삭제할까요? 대댓글도 함께 삭제됩니다."
@@ -227,10 +273,15 @@ export function DocumentComments({
                       documentId={documentId}
                       slug={slug}
                     />
-                    <Button type="submit" variant="outline" size="sm">
+                    <SubmitButton
+                      type="submit"
+                      variant="outline"
+                      size="sm"
+                      pendingLabel="삭제 중"
+                    >
                       <Trash2 size={14} aria-hidden />
                       삭제
-                    </Button>
+                    </SubmitButton>
                   </form>
                 ) : null}
               </div>
@@ -269,9 +320,13 @@ export function DocumentComments({
                     <X size={14} aria-hidden />
                     취소
                   </Button>
-                  <Button type="submit" size="sm">
+                  <SubmitButton
+                    type="submit"
+                    size="sm"
+                    pendingLabel="등록 중"
+                  >
                     답글 남기기
-                  </Button>
+                  </SubmitButton>
                 </div>
               </form>
             ) : null}
@@ -290,22 +345,31 @@ export function DocumentComments({
   return (
     <Card>
       <CardHeader className="border-b pb-4 sm:px-6">
-        <CardTitle className="flex items-center gap-2">
-          <MessageSquare
-            size={18}
-            className="text-muted-foreground"
-            aria-hidden
-          />
-          토론
-        </CardTitle>
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare
+              size={18}
+              className="text-muted-foreground"
+              aria-hidden
+            />
+            토론
+          </CardTitle>
+          <CardDescription className="mt-1">
+            댓글 {commentStats.topLevelCount}개
+            {commentStats.replyCount
+              ? ` · 답글 ${commentStats.replyCount}개`
+              : ""}
+          </CardDescription>
+        </div>
         <CardAction>
-          <Badge variant="secondary">{commentCount}개</Badge>
+          <Badge variant="secondary">{commentStats.totalCount}개</Badge>
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-5 sm:px-6">
         {canDiscuss ? (
           <form
-            action={addCommentAction}
+            ref={commentFormRef}
+            action={submitComment}
             className="rounded-lg border bg-muted/35 p-4 sm:p-5"
           >
             <DocumentHiddenFields
@@ -322,7 +386,9 @@ export function DocumentComments({
               placeholder="질문, 추가 사례, 다른 관점을 남겨보세요."
             />
             <div className="mt-3 flex justify-end">
-              <Button type="submit">의견 남기기</Button>
+              <SubmitButton type="submit" pendingLabel="등록 중">
+                의견 남기기
+              </SubmitButton>
             </div>
           </form>
         ) : configured ? (
