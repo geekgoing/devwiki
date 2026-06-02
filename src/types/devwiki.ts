@@ -82,10 +82,9 @@ export type DocumentComment = {
   createdAt: string;
   createdBy: string | null;
   authorLabel: string;
+  parentCommentId: string | null;
+  replies: DocumentComment[];
   updatedAt: string;
   updatedBy: string | null;
   editorLabel: string | null;
-  resolvedAt: string | null;
-  resolvedBy: string | null;
-  resolvedByLabel: string | null;
 };

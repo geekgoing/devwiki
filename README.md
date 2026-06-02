@@ -14,7 +14,7 @@
 - Member-only access, role-based editing, profile nicknames
 - Per-member favorites and completed-learning filters
 - Database-backed full-text search with body snippets
-- Editable, resolvable document discussions
+- Expanded, threaded document discussions
 - Share metadata, generated app icons, and document link copying
 
 ## Local setup
