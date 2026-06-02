@@ -33,3 +33,22 @@ export function getDocumentCommentStats(
 export function countDocumentComments(comments: DocumentComment[]): number {
   return getDocumentCommentStats(comments).totalCount;
 }
+
+export function getFlatDocumentCommentStats(
+  comments: Array<{
+    parentCommentId: string | null;
+  }>,
+): DocumentCommentStats {
+  return comments.reduce<DocumentCommentStats>(
+    (stats, comment) => ({
+      replyCount: stats.replyCount + (comment.parentCommentId ? 1 : 0),
+      topLevelCount: stats.topLevelCount + (comment.parentCommentId ? 0 : 1),
+      totalCount: stats.totalCount + 1,
+    }),
+    {
+      replyCount: 0,
+      topLevelCount: 0,
+      totalCount: 0,
+    },
+  );
+}

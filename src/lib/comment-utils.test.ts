@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   countDocumentComments,
   getDocumentCommentStats,
+  getFlatDocumentCommentStats,
 } from "@/lib/comment-utils";
 import type { DocumentComment } from "@/types/devwiki";
 
@@ -37,5 +38,19 @@ describe("comment utils", () => {
       totalCount: 4,
     });
     expect(countDocumentComments(comments)).toBe(4);
+  });
+
+  it("counts flat comment rows for discussion summaries", () => {
+    expect(
+      getFlatDocumentCommentStats([
+        { parentCommentId: null },
+        { parentCommentId: "comment-1" },
+        { parentCommentId: "comment-1" },
+      ]),
+    ).toEqual({
+      replyCount: 2,
+      topLevelCount: 1,
+      totalCount: 3,
+    });
   });
 });

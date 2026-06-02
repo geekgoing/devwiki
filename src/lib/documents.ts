@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 
 import { demoDocumentDetails, demoDocuments } from "@/lib/demo-data";
+import { getFlatDocumentCommentStats } from "@/lib/comment-utils";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +15,7 @@ import type {
   DocumentStatus,
   DocumentStatusFilter,
   DocumentSummary,
+  RecentDiscussion,
   RelatedDocument,
   Tag,
 } from "@/types/devwiki";
@@ -64,12 +66,23 @@ type RawComment = {
   updated_by: string | null;
 };
 
+type RawRecentDiscussionComment = {
+  id: string;
+  body: string;
+  created_at: string;
+  created_by: string | null;
+  document_id: string;
+  parent_comment_id: string | null;
+  updated_at: string;
+};
+
 const DOCUMENT_LIST_SELECT =
   "id, slug, title, summary, status, content_type, interview_category, created_at, updated_at, document_tags(tags(id, name, slug))";
 const DOCUMENT_LIST_LIMIT = 100;
 const DOCUMENT_SEARCH_PAGE_SIZE = 500;
 const DOCUMENT_SEARCH_MAX_ROWS = 5000;
 const DOCUMENT_SEARCH_LIMIT = 100;
+const RECENT_DISCUSSION_SCAN_LIMIT = 80;
 const DEFAULT_MEMBER_STATUSES: DocumentStatus[] = ["published", "draft"];
 const DOCUMENT_DETAIL_SELECT =
   "id, slug, title, summary, body_markdown, status, content_type, interview_category, created_at, updated_at, created_by, updated_by, document_tags(tags(id, name, slug))";
@@ -711,6 +724,164 @@ export async function getDocumentComments(
   });
 
   return topLevelComments;
+}
+
+async function getDiscussionCounts(
+  supabase: SupabaseReader,
+  documentIds: string[],
+): Promise<
+  Map<
+    string,
+    {
+      replyCount: number;
+      totalCommentCount: number;
+    }
+  >
+> {
+  const rowsByDocumentId = new Map<
+    string,
+    Array<{
+      parentCommentId: string | null;
+    }>
+  >();
+
+  if (!documentIds.length) {
+    return new Map();
+  }
+
+  const { data, error } = await supabase
+    .from("comments")
+    .select("document_id, parent_comment_id")
+    .in("document_id", documentIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  (data ?? []).forEach((row) => {
+    const documentId = row.document_id as string | undefined;
+
+    if (!documentId) {
+      return;
+    }
+
+    const rows = rowsByDocumentId.get(documentId) ?? [];
+    rows.push({
+      parentCommentId: (row.parent_comment_id as string | null) ?? null,
+    });
+    rowsByDocumentId.set(documentId, rows);
+  });
+
+  return new Map(
+    Array.from(rowsByDocumentId.entries()).map(([documentId, rows]) => {
+      const stats = getFlatDocumentCommentStats(rows);
+
+      return [
+        documentId,
+        {
+          replyCount: stats.replyCount,
+          totalCommentCount: stats.totalCount,
+        },
+      ];
+    }),
+  );
+}
+
+export async function getRecentDiscussions({
+  canReadPrivate = false,
+  limit = 4,
+  viewerId = null,
+}: DocumentReadOptions & {
+  limit?: number;
+} = {}): Promise<RecentDiscussion[]> {
+  if (!isSupabaseConfigured() || !canReadPrivate) {
+    return [];
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("comments")
+    .select(
+      "id, body, created_at, created_by, document_id, parent_comment_id, updated_at",
+    )
+    .order("updated_at", { ascending: false })
+    .limit(RECENT_DISCUSSION_SCAN_LIMIT);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = (data ?? []) as RawRecentDiscussionComment[];
+  const latestCommentByDocumentId = new Map<
+    string,
+    RawRecentDiscussionComment
+  >();
+
+  rows.forEach((row) => {
+    if (!latestCommentByDocumentId.has(row.document_id)) {
+      latestCommentByDocumentId.set(row.document_id, row);
+    }
+  });
+
+  const documentIds = Array.from(latestCommentByDocumentId.keys());
+
+  if (!documentIds.length) {
+    return [];
+  }
+
+  const documents = await attachDocumentStates(
+    await selectDocumentRowsByIds(supabase, documentIds),
+    viewerId,
+  );
+  const visibleDocumentById = new Map(
+    documents
+      .filter((document) =>
+        hasVisibleStatus(document, visibleStatuses("active", canReadPrivate)),
+      )
+      .map((document) => [document.id, document]),
+  );
+  const visibleDocumentIds = documentIds
+    .filter((documentId) => visibleDocumentById.has(documentId))
+    .slice(0, Math.max(limit, 0));
+  const [authorLabels, discussionCounts] = await Promise.all([
+    getCommentAuthorLabels(
+      visibleDocumentIds
+        .map(
+          (documentId) =>
+            latestCommentByDocumentId.get(documentId)?.created_by,
+        )
+        .filter((id): id is string => Boolean(id)),
+    ),
+    getDiscussionCounts(supabase, visibleDocumentIds),
+  ]);
+
+  return visibleDocumentIds.flatMap((documentId) => {
+    const document = visibleDocumentById.get(documentId);
+    const latestComment = latestCommentByDocumentId.get(documentId);
+
+    if (!document || !latestComment) {
+      return [];
+    }
+
+    const counts = discussionCounts.get(documentId) ?? {
+      replyCount: 0,
+      totalCommentCount: 0,
+    };
+
+    return [
+      {
+        document,
+        latestCommentAt: latestComment.updated_at,
+        latestCommentAuthorLabel: latestComment.created_by
+          ? (authorLabels.get(latestComment.created_by) ??
+            latestComment.created_by.slice(0, 8))
+          : "알 수 없음",
+        latestCommentBody: latestComment.body,
+        replyCount: counts.replyCount,
+        totalCommentCount: counts.totalCommentCount,
+      },
+    ];
+  });
 }
 
 export async function getRelatedDocuments(

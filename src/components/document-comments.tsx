@@ -343,7 +343,7 @@ export function DocumentComments({
   }
 
   return (
-    <Card>
+    <Card id="discussion" className="scroll-mt-24">
       <CardHeader className="border-b pb-4 sm:px-6">
         <div>
           <CardTitle className="flex items-center gap-2">

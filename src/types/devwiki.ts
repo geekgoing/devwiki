@@ -58,6 +58,15 @@ export type DocumentDetail = DocumentSummary & {
 
 export type RelatedDocument = DocumentSummary;
 
+export type RecentDiscussion = {
+  document: DocumentSummary;
+  latestCommentAt: string;
+  latestCommentAuthorLabel: string;
+  latestCommentBody: string;
+  replyCount: number;
+  totalCommentCount: number;
+};
+
 export type DocumentRevision = {
   id: string;
   title: string;
