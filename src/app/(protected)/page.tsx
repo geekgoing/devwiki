@@ -1,6 +1,8 @@
 import {
   ArrowRight,
   BookOpen,
+  Clock3,
+  MessageSquare,
   MessageSquareText,
   Route,
   Search,
@@ -27,9 +29,14 @@ import {
   documentDetailPath,
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
-import { getDocuments } from "@/lib/documents";
+import { getDocuments, getRecentDiscussions } from "@/lib/documents";
+import { formatDate } from "@/lib/format";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import type { DocumentContentType, DocumentSummary } from "@/types/devwiki";
+import type {
+  DocumentContentType,
+  DocumentSummary,
+  RecentDiscussion,
+} from "@/types/devwiki";
 
 const sectionCards = [
   {
@@ -127,17 +134,60 @@ function SmallDocumentLink({ document }: { document: DocumentSummary }) {
   );
 }
 
+function DiscussionDocumentLink({
+  discussion,
+}: {
+  discussion: RecentDiscussion;
+}) {
+  const href = `${documentDetailPath(discussion.document)}#discussion`;
+
+  return (
+    <Link
+      href={href}
+      className="group block rounded-lg border bg-muted/35 px-3 py-2 transition hover:border-primary/25 hover:bg-accent/60"
+    >
+      <span className="line-clamp-1 text-sm font-medium transition group-hover:text-primary">
+        {discussion.document.title}
+      </span>
+      <span className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+        {discussion.latestCommentBody}
+      </span>
+      <span className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span>{contentTypeLabels[discussion.document.contentType]}</span>
+        <span className="inline-flex items-center gap-1">
+          <MessageSquare size={11} aria-hidden />
+          {discussion.totalCommentCount}개
+        </span>
+        {discussion.replyCount ? (
+          <span>답글 {discussion.replyCount}개</span>
+        ) : null}
+      </span>
+      <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+        <Clock3 size={11} aria-hidden />
+        {discussion.latestCommentAuthorLabel} ·{" "}
+        {formatDate(discussion.latestCommentAt)}
+      </span>
+    </Link>
+  );
+}
+
 export default async function Home() {
   const configured = isSupabaseConfigured();
   const user = await getCurrentUser();
   const member = await getCurrentMember();
 
   const canReadPrivate = !configured || Boolean(member);
-  const allDocuments = await getDocuments({
-    status: "active",
-    canReadPrivate,
-    viewerId: user?.id,
-  });
+  const [allDocuments, recentDiscussions] = await Promise.all([
+    getDocuments({
+      status: "active",
+      canReadPrivate,
+      viewerId: user?.id,
+    }),
+    getRecentDiscussions({
+      canReadPrivate,
+      viewerId: user?.id,
+    }),
+  ]);
   const allFavoriteDocuments = allDocuments.filter(
     (document) => document.isFavorite,
   );
@@ -298,6 +348,33 @@ export default async function Home() {
                 ) : (
                   <p className="rounded-lg bg-muted px-3 py-2 text-sm leading-6 text-muted-foreground">
                     아직 즐겨찾기한 문서가 없습니다.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare
+                    size={16}
+                    className="text-primary"
+                    aria-hidden
+                  />
+                  최근 토론
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-2">
+                {recentDiscussions.length ? (
+                  recentDiscussions.map((discussion) => (
+                    <DiscussionDocumentLink
+                      key={discussion.document.id}
+                      discussion={discussion}
+                    />
+                  ))
+                ) : (
+                  <p className="rounded-lg bg-muted px-3 py-2 text-sm leading-6 text-muted-foreground">
+                    아직 최근 토론이 없습니다.
                   </p>
                 )}
               </CardContent>

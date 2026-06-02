@@ -15,6 +15,7 @@
 - Per-member favorites
 - Database-backed full-text search with body snippets
 - Expanded, threaded document discussions
+- Recent discussion activity on the home dashboard
 - Share metadata, generated app icons, and document link copying
 
 ## Local setup
