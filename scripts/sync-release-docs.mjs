@@ -1,9 +1,10 @@
-import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const RELEASE_DIR = path.join("docs", "releases");
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const args = {
     date: new Date().toISOString().slice(0, 10),
     notesFile: null,
@@ -42,7 +43,7 @@ function parseArgs(argv) {
   return args;
 }
 
-function normalizeVersion(value) {
+export function normalizeVersion(value) {
   const trimmed = value.trim();
   const version = trimmed.startsWith("v") ? trimmed.slice(1) : trimmed;
 
@@ -56,7 +57,7 @@ function normalizeVersion(value) {
   };
 }
 
-function buildReleaseDoc({ date, notes, tag }) {
+export function buildReleaseDoc({ date, notes, tag }) {
   const releaseNotes = notes.trim() || "No release notes were generated.";
 
   return `# DevWiki ${tag} Release Notes
@@ -77,7 +78,7 @@ async function readReleaseNotes(notesFile) {
   return readFile(notesFile, "utf8");
 }
 
-function updateReadmeReleaseLink(readme, tag) {
+export function updateReadmeReleaseLink(readme, tag) {
   const section = `## Release notes
 
 - [${tag}](docs/releases/${tag}.md): latest release notes
@@ -99,60 +100,39 @@ function updateReadmeReleaseLink(readme, tag) {
   return readme.replace(marker, `${section}\n${marker}`);
 }
 
-async function renameLatestReleaseDocIfNeeded(targetPath, targetTag) {
-  let entries = [];
+export async function syncReleaseDocs({ cwd = process.cwd(), date, notesFile, version }) {
+  const { tag } = normalizeVersion(version);
+  const notes = await readReleaseNotes(notesFile);
+  const releasePath = path.join(cwd, RELEASE_DIR, `${tag}.md`);
 
-  try {
-    entries = await readdir(RELEASE_DIR);
-  } catch {
-    return;
-  }
-
-  if (entries.includes(`${targetTag}.md`)) {
-    return;
-  }
-
-  const releaseDocs = entries
-    .filter((entry) => /^v\d+\.\d+\.\d+\.md$/.test(entry))
-    .sort((left, right) =>
-      right.localeCompare(left, undefined, {
-        numeric: true,
-        sensitivity: "base",
-      }),
-    );
-
-  if (releaseDocs.length !== 1) {
-    return;
-  }
-
-  await rename(
-    path.join(RELEASE_DIR, releaseDocs[0]),
-    targetPath,
-  );
-}
-
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const { tag } = normalizeVersion(args.version);
-  const notes = await readReleaseNotes(args.notesFile);
-  const releasePath = path.join(RELEASE_DIR, `${tag}.md`);
-
-  await mkdir(RELEASE_DIR, { recursive: true });
-  await renameLatestReleaseDocIfNeeded(releasePath, tag);
+  await mkdir(path.join(cwd, RELEASE_DIR), { recursive: true });
   await writeFile(
     releasePath,
     buildReleaseDoc({
-      date: args.date,
+      date,
       notes,
       tag,
     }),
   );
 
-  const readme = await readFile("README.md", "utf8");
-  await writeFile("README.md", updateReadmeReleaseLink(readme, tag));
+  const readmePath = path.join(cwd, "README.md");
+  const readme = await readFile(readmePath, "utf8");
+  await writeFile(readmePath, updateReadmeReleaseLink(readme, tag));
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+
+  await syncReleaseDocs({
+    date: args.date,
+    notesFile: args.notesFile,
+    version: args.version,
+  });
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}
