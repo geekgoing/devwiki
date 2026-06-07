@@ -1,8 +1,9 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const RELEASE_DIR = path.join("docs", "releases");
+const RELEASE_ARCHIVE_FILE = "README.md";
 
 export function parseArgs(argv) {
   const args = {
@@ -70,6 +71,15 @@ ${releaseNotes}
 `;
 }
 
+export function buildReleaseArchive(tags) {
+  const links = tags.map((tag) => `- [${tag}](${tag}.md)`).join("\n");
+
+  return `# DevWiki Release Notes
+
+${links}
+`;
+}
+
 async function readReleaseNotes(notesFile) {
   if (!notesFile) {
     return "";
@@ -82,6 +92,7 @@ export function updateReadmeReleaseLink(readme, tag) {
   const section = `## Release notes
 
 - [${tag}](docs/releases/${tag}.md): latest release notes
+- [Release archive](docs/releases/README.md): all release notes
 `;
 
   if (readme.includes("## Release notes")) {
@@ -100,12 +111,30 @@ export function updateReadmeReleaseLink(readme, tag) {
   return readme.replace(marker, `${section}\n${marker}`);
 }
 
+function compareReleaseTagsDesc(left, right) {
+  return right.localeCompare(left, undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+async function getReleaseDocTags(releaseDir) {
+  const entries = await readdir(releaseDir);
+
+  return entries
+    .filter((entry) => /^v\d+\.\d+\.\d+\.md$/.test(entry))
+    .map((entry) => entry.replace(/\.md$/, ""))
+    .sort(compareReleaseTagsDesc);
+}
+
 export async function syncReleaseDocs({ cwd = process.cwd(), date, notesFile, version }) {
   const { tag } = normalizeVersion(version);
   const notes = await readReleaseNotes(notesFile);
-  const releasePath = path.join(cwd, RELEASE_DIR, `${tag}.md`);
+  const releaseDir = path.join(cwd, RELEASE_DIR);
+  const releasePath = path.join(releaseDir, `${tag}.md`);
+  const archivePath = path.join(releaseDir, RELEASE_ARCHIVE_FILE);
 
-  await mkdir(path.join(cwd, RELEASE_DIR), { recursive: true });
+  await mkdir(releaseDir, { recursive: true });
   await writeFile(
     releasePath,
     buildReleaseDoc({
@@ -114,6 +143,7 @@ export async function syncReleaseDocs({ cwd = process.cwd(), date, notesFile, ve
       tag,
     }),
   );
+  await writeFile(archivePath, buildReleaseArchive(await getReleaseDocTags(releaseDir)));
 
   const readmePath = path.join(cwd, "README.md");
   const readme = await readFile(readmePath, "utf8");

@@ -54,7 +54,15 @@ describe("syncReleaseDocs", () => {
       .resolves.toContain("v0.9.0");
     await expect(readFile(path.join(cwd, "docs", "releases", "v0.10.0.md"), "utf8"))
       .resolves.toContain("0.10.0");
+    await expect(readFile(path.join(cwd, "docs", "releases", "README.md"), "utf8"))
+      .resolves.toBe(`# DevWiki Release Notes
+
+- [v0.10.0](v0.10.0.md)
+- [v0.9.0](v0.9.0.md)
+`);
     await expect(readFile(path.join(cwd, "README.md"), "utf8"))
       .resolves.toContain("[v0.10.0](docs/releases/v0.10.0.md)");
+    await expect(readFile(path.join(cwd, "README.md"), "utf8"))
+      .resolves.toContain("[Release archive](docs/releases/README.md)");
   });
 });
