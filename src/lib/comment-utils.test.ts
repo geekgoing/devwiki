@@ -40,7 +40,7 @@ describe("comment utils", () => {
     expect(countDocumentComments(comments)).toBe(4);
   });
 
-  it("counts flat comment rows for discussion summaries", () => {
+  it("counts flat comment rows for comment activity summaries", () => {
     expect(
       getFlatDocumentCommentStats([
         { parentCommentId: null },

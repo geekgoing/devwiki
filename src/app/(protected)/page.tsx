@@ -29,13 +29,13 @@ import {
   documentDetailPath,
 } from "@/lib/content-routes";
 import { getCurrentMember, getCurrentUser } from "@/lib/auth";
-import { getDocuments, getRecentDiscussions } from "@/lib/documents";
+import { getDocuments, getRecentCommentActivities } from "@/lib/documents";
 import { formatDate } from "@/lib/format";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type {
   DocumentContentType,
   DocumentSummary,
-  RecentDiscussion,
+  RecentCommentActivity,
 } from "@/types/devwiki";
 
 const sectionCards = [
@@ -134,12 +134,12 @@ function SmallDocumentLink({ document }: { document: DocumentSummary }) {
   );
 }
 
-function DiscussionDocumentLink({
-  discussion,
+function RecentCommentActivityLink({
+  activity,
 }: {
-  discussion: RecentDiscussion;
+  activity: RecentCommentActivity;
 }) {
-  const href = `${documentDetailPath(discussion.document)}#discussion`;
+  const href = `${documentDetailPath(activity.document)}#comments`;
 
   return (
     <Link
@@ -147,25 +147,25 @@ function DiscussionDocumentLink({
       className="group block rounded-lg border bg-muted/35 px-3 py-2 transition hover:border-primary/25 hover:bg-accent/60"
     >
       <span className="line-clamp-1 text-sm font-medium transition group-hover:text-primary">
-        {discussion.document.title}
+        {activity.document.title}
       </span>
       <span className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-        {discussion.latestCommentBody}
+        {activity.latestCommentBody}
       </span>
       <span className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span>{contentTypeLabels[discussion.document.contentType]}</span>
+        <span>{contentTypeLabels[activity.document.contentType]}</span>
         <span className="inline-flex items-center gap-1">
           <MessageSquare size={11} aria-hidden />
-          {discussion.totalCommentCount}개
+          {activity.totalCommentCount}개
         </span>
-        {discussion.replyCount ? (
-          <span>답글 {discussion.replyCount}개</span>
+        {activity.replyCount ? (
+          <span>답글 {activity.replyCount}개</span>
         ) : null}
       </span>
       <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <Clock3 size={11} aria-hidden />
-        {discussion.latestCommentAuthorLabel} ·{" "}
-        {formatDate(discussion.latestCommentAt)}
+        {activity.latestCommentAuthorLabel} ·{" "}
+        {formatDate(activity.latestCommentAt)}
       </span>
     </Link>
   );
@@ -177,13 +177,13 @@ export default async function Home() {
   const member = await getCurrentMember();
 
   const canReadPrivate = !configured || Boolean(member);
-  const [allDocuments, recentDiscussions] = await Promise.all([
+  const [allDocuments, recentCommentActivities] = await Promise.all([
     getDocuments({
       status: "active",
       canReadPrivate,
       viewerId: user?.id,
     }),
-    getRecentDiscussions({
+    getRecentCommentActivities({
       canReadPrivate,
       viewerId: user?.id,
     }),
@@ -361,20 +361,20 @@ export default async function Home() {
                     className="text-primary"
                     aria-hidden
                   />
-                  최근 토론
+                  최근 댓글
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-2">
-                {recentDiscussions.length ? (
-                  recentDiscussions.map((discussion) => (
-                    <DiscussionDocumentLink
-                      key={discussion.document.id}
-                      discussion={discussion}
+                {recentCommentActivities.length ? (
+                  recentCommentActivities.map((activity) => (
+                    <RecentCommentActivityLink
+                      key={activity.document.id}
+                      activity={activity}
                     />
                   ))
                 ) : (
                   <p className="rounded-lg bg-muted px-3 py-2 text-sm leading-6 text-muted-foreground">
-                    아직 최근 토론이 없습니다.
+                    아직 최근 댓글이 없습니다.
                   </p>
                 )}
               </CardContent>

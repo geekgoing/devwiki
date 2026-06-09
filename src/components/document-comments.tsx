@@ -115,7 +115,7 @@ export function DocumentComments({
   const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(
     null,
   );
-  const canDiscuss = Boolean(configured && currentUserId && memberRole);
+  const canComment = Boolean(configured && currentUserId && memberRole);
   const canModerate = canEditContent(memberRole ? { role: memberRole } : null);
   const commentStats = getDocumentCommentStats(comments);
 
@@ -133,7 +133,7 @@ export function DocumentComments({
     const isEditing = editingCommentId === comment.id;
     const isReplying = replyingToCommentId === comment.id;
     const canManage = canModerate || comment.createdBy === currentUserId;
-    const canReply = canDiscuss && !isReply && !isEditing;
+    const canReply = canComment && !isReply && !isEditing;
     const replyCount = comment.replies.length;
 
     return (
@@ -343,7 +343,7 @@ export function DocumentComments({
   }
 
   return (
-    <Card id="discussion" className="scroll-mt-24">
+    <Card id="comments" className="scroll-mt-24">
       <CardHeader className="border-b pb-4 sm:px-6">
         <div>
           <CardTitle className="flex items-center gap-2">
@@ -352,7 +352,7 @@ export function DocumentComments({
               className="text-muted-foreground"
               aria-hidden
             />
-            토론
+            댓글
           </CardTitle>
           <CardDescription className="mt-1">
             댓글 {commentStats.topLevelCount}개
@@ -366,7 +366,7 @@ export function DocumentComments({
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-5 sm:px-6">
-        {canDiscuss ? (
+        {canComment ? (
           <form
             ref={commentFormRef}
             action={submitComment}

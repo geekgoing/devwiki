@@ -57,7 +57,7 @@ Supabase Data API에서 public 테이블에 접근할 수 있도록 명시적으
 `document_member_states` 테이블과 RLS 정책을 추가합니다.
 여덟 번째 migration은 문서 본문 검색용 `search_vector`와
 `search_documents` RPC, 댓글 수정 추적과 editor/author 댓글 관리 정책을
-추가합니다. 아홉 번째 migration은 토론을 일반 대화 공간으로 유지하기 위해
+추가합니다. 아홉 번째 migration은 댓글을 일반 대화 공간으로 유지하기 위해
 댓글 해결 상태 컬럼을 제거합니다. 열 번째 migration은 댓글에 1단계 대댓글
 관계를 추가하고, 대댓글이 같은 문서의 원댓글에만 달리도록 검증합니다.
 열한 번째 migration은 숙지 완료 상태 컬럼과 관련 인덱스를 제거하고,
@@ -84,7 +84,7 @@ set display_name = excluded.display_name,
 
 앱은 `members`에 `is_active = true`로 등록된 이메일만 문서를 읽을 수 있게
 합니다. `owner`와 `editor`는 문서 작성, 수정, 복원, 이미지 업로드가 가능하고
-`viewer`는 읽기와 토론 댓글만 가능합니다. 멤버십 조회는 로그인 이메일과
+`viewer`는 읽기와 댓글 작성만 가능합니다. 멤버십 조회는 로그인 이메일과
 `members.email`을 직접 비교하므로, 이메일은 소문자로 등록하세요. 첫 owner
 계정을 수동 등록한 뒤 로그인하면 `/admin/members`에서 이후 회원가입 사용자를
 승인할 수 있습니다. 사용자는 `/signup`에서 이메일과 비밀번호로 회원가입하고,

@@ -167,7 +167,7 @@ const scenarioStarterMarkdown = `# 상황
 
 ## 답변 예시
 
-## 토론 포인트
+## 댓글로 확인할 점
 `;
 
 const starterMarkdownByType: Record<DocumentContentType, string> = {

@@ -15,7 +15,7 @@ import type {
   DocumentStatus,
   DocumentStatusFilter,
   DocumentSummary,
-  RecentDiscussion,
+  RecentCommentActivity,
   RelatedDocument,
   Tag,
 } from "@/types/devwiki";
@@ -66,7 +66,7 @@ type RawComment = {
   updated_by: string | null;
 };
 
-type RawRecentDiscussionComment = {
+type RawRecentCommentActivityComment = {
   id: string;
   body: string;
   created_at: string;
@@ -82,7 +82,7 @@ const DOCUMENT_LIST_LIMIT = 100;
 const DOCUMENT_SEARCH_PAGE_SIZE = 500;
 const DOCUMENT_SEARCH_MAX_ROWS = 5000;
 const DOCUMENT_SEARCH_LIMIT = 100;
-const RECENT_DISCUSSION_SCAN_LIMIT = 80;
+const RECENT_COMMENT_ACTIVITY_SCAN_LIMIT = 80;
 const DEFAULT_MEMBER_STATUSES: DocumentStatus[] = ["published", "draft"];
 const DOCUMENT_DETAIL_SELECT =
   "id, slug, title, summary, body_markdown, status, content_type, interview_category, created_at, updated_at, created_by, updated_by, document_tags(tags(id, name, slug))";
@@ -726,7 +726,7 @@ export async function getDocumentComments(
   return topLevelComments;
 }
 
-async function getDiscussionCounts(
+async function getCommentActivityCounts(
   supabase: SupabaseReader,
   documentIds: string[],
 ): Promise<
@@ -787,34 +787,45 @@ async function getDiscussionCounts(
   );
 }
 
-export async function getRecentDiscussions({
-  canReadPrivate = false,
-  limit = 4,
-  viewerId = null,
-}: DocumentReadOptions & {
-  limit?: number;
-} = {}): Promise<RecentDiscussion[]> {
-  if (!isSupabaseConfigured() || !canReadPrivate) {
-    return [];
-  }
+async function selectRecentCommentActivityCommentRows(
+  supabase: SupabaseReader,
+  scanLimit: number,
+): Promise<RawRecentCommentActivityComment[]> {
+  const select =
+    "id, body, created_at, created_by, document_id, parent_comment_id, updated_at";
 
-  const supabase = await createClient();
   const { data, error } = await supabase
     .from("comments")
-    .select(
-      "id, body, created_at, created_by, document_id, parent_comment_id, updated_at",
-    )
+    .select(select)
     .order("updated_at", { ascending: false })
-    .limit(RECENT_DISCUSSION_SCAN_LIMIT);
+    .limit(scanLimit);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const rows = (data ?? []) as RawRecentDiscussionComment[];
+  return (data ?? []) as RawRecentCommentActivityComment[];
+}
+
+export async function getRecentCommentActivities({
+  canReadPrivate = false,
+  limit = 4,
+  viewerId = null,
+}: DocumentReadOptions & {
+  limit?: number;
+} = {}): Promise<RecentCommentActivity[]> {
+  if (!isSupabaseConfigured() || !canReadPrivate) {
+    return [];
+  }
+
+  const supabase = await createClient();
+  const rows = await selectRecentCommentActivityCommentRows(
+    supabase,
+    RECENT_COMMENT_ACTIVITY_SCAN_LIMIT,
+  );
   const latestCommentByDocumentId = new Map<
     string,
-    RawRecentDiscussionComment
+    RawRecentCommentActivityComment
   >();
 
   rows.forEach((row) => {
@@ -843,7 +854,7 @@ export async function getRecentDiscussions({
   const visibleDocumentIds = documentIds
     .filter((documentId) => visibleDocumentById.has(documentId))
     .slice(0, Math.max(limit, 0));
-  const [authorLabels, discussionCounts] = await Promise.all([
+  const [authorLabels, commentActivityCounts] = await Promise.all([
     getCommentAuthorLabels(
       visibleDocumentIds
         .map(
@@ -852,7 +863,7 @@ export async function getRecentDiscussions({
         )
         .filter((id): id is string => Boolean(id)),
     ),
-    getDiscussionCounts(supabase, visibleDocumentIds),
+    getCommentActivityCounts(supabase, visibleDocumentIds),
   ]);
 
   return visibleDocumentIds.flatMap((documentId) => {
@@ -863,7 +874,7 @@ export async function getRecentDiscussions({
       return [];
     }
 
-    const counts = discussionCounts.get(documentId) ?? {
+    const counts = commentActivityCounts.get(documentId) ?? {
       replyCount: 0,
       totalCommentCount: 0,
     };

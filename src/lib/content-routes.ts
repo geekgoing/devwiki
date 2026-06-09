@@ -13,7 +13,7 @@ export const contentTypeLabels: Record<DocumentContentType, string> = {
 export const contentTypeSummaries: Record<DocumentContentType, string> = {
   term: "기술 개념, 실무 예시, 꼬리 질문을 빠르게 훑습니다.",
   interview_qa: "면접에서 받은 질문과 답변 Tip을 Q&A 형태로 정리합니다.",
-  scenario: "서술형 상황 질문을 해결 흐름과 토론 중심으로 다룹니다.",
+  scenario: "서술형 상황 질문을 해결 흐름과 트레이드오프 중심으로 다룹니다.",
 };
 
 export const contentRoutes = {

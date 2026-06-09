@@ -353,7 +353,7 @@ export async function DocumentDetailPage({
             <div className="rounded-lg bg-muted px-3 py-2">
               <span className="inline-flex items-center gap-1.5">
                 <MessageSquare size={14} aria-hidden />
-                토론
+                댓글
               </span>
               <strong className="mt-1 block font-medium text-foreground">
                 {commentStats.totalCount}개
