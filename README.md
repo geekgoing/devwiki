@@ -1,6 +1,6 @@
 # DevWiki
 
-등록된 멤버가 기술 용어, 면접 Q&A, 상황 시뮬레이션을 함께 작성하고 토론하는 회원 전용 개발자 지식 베이스입니다. Next.js와 Supabase를 사용합니다.
+등록된 멤버가 기술 용어, 면접 Q&A, 상황 시뮬레이션을 함께 작성하고 댓글로 의견을 남기는 회원 전용 개발자 지식 베이스입니다. Next.js와 Supabase를 사용합니다.
 
 ## Stack
 
@@ -14,8 +14,8 @@
 - Member-only access, role-based editing, profile nicknames
 - Per-member favorites
 - Database-backed full-text search with body snippets
-- Expanded, threaded document discussions
-- Recent discussion activity on the home dashboard
+- Expanded, threaded document comments
+- Recent comment activity on the home dashboard
 - Share metadata, generated app icons, and document link copying
 
 ## Local setup
@@ -32,7 +32,7 @@ Supabase 연결 전에는 데모 문서가 보입니다. 실제 저장을 사용
 
 - `기술 용어`: 기술 개념, 실무 예시, 꼬리 질문
 - `면접 Q&A`: 기술/인성 질문과 답변 Tip
-- `상황 시뮬레이션`: 서술형 상황 질문과 토론
+- `상황 시뮬레이션`: 서술형 상황 질문과 트레이드오프
 
 Supabase가 연결된 환경에서는 로그인한 active member만 문서를 읽을 수 있습니다. `공개` 상태는 인터넷 공개가 아니라 전체 멤버 기본 목록에 노출된다는 뜻입니다.
 홈은 통합 검색과 개인 즐겨찾기 현황을 보여주는 메인 화면이고, `/terms`, `/interviews`, `/scenarios`에서 섹션별 문서를 탐색합니다.

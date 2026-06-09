@@ -50,7 +50,7 @@ export default async function NewDocumentPage({
           <CardContent className="px-5 py-6">
             <h1 className="text-xl font-semibold">editor 권한이 필요합니다</h1>
             <p className="mt-2 text-sm leading-6">
-              viewer는 문서를 읽고 토론할 수 있지만 새 문서 작성은 할 수
+              viewer는 문서를 읽고 댓글을 남길 수 있지만 새 문서 작성은 할 수
               없습니다.
             </p>
           </CardContent>

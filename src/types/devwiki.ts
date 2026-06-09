@@ -58,7 +58,7 @@ export type DocumentDetail = DocumentSummary & {
 
 export type RelatedDocument = DocumentSummary;
 
-export type RecentDiscussion = {
+export type RecentCommentActivity = {
   document: DocumentSummary;
   latestCommentAt: string;
   latestCommentAuthorLabel: string;

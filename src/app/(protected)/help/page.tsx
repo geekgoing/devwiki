@@ -21,14 +21,14 @@ const contentSections = [
   },
   {
     title: "상황 시뮬레이션",
-    body: "서술형 상황 질문을 문제 이해, 해결 전략, 트레이드오프 중심으로 토론합니다.",
+    body: "서술형 상황 질문을 문제 이해, 해결 전략, 트레이드오프 중심으로 정리합니다.",
   },
 ];
 
 const roleRows = [
-  ["owner", "멤버 관리, 문서 작성/수정/복원, 이미지 업로드, 토론"],
-  ["editor", "문서 작성/수정/복원, 이미지 업로드, 토론"],
-  ["viewer", "문서 읽기와 토론 댓글 작성"],
+  ["owner", "멤버 관리, 문서 작성/수정/복원, 이미지 업로드, 댓글 작성"],
+  ["editor", "문서 작성/수정/복원, 이미지 업로드, 댓글 작성"],
+  ["viewer", "문서 읽기와 댓글 작성"],
 ];
 
 export default async function HelpPage() {
@@ -130,12 +130,12 @@ export default async function HelpPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare size={18} className="text-primary" aria-hidden />
-                토론
+                댓글
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm leading-6 text-muted-foreground">
-                문서마다 토론 영역이 있습니다. 질문의 의도, 더 좋은 답변 흐름,
+                문서마다 댓글 영역이 있습니다. 질문의 의도, 더 좋은 답변 흐름,
                 실제 면접에서 받은 꼬리 질문을 댓글로 남기고, 정리된 내용은
                 editor 이상이 문서 본문에 반영합니다.
               </p>
